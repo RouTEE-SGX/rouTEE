@@ -19,6 +19,9 @@
 
 #define TOKEN_FILENAME  "enclave.token"
 #define ENCLAVE_FILENAME    "enclave.signed.so"
+#define MAX_MSG_SIZE    100
+#define SERVER_IP   "127.0.0.1"
+#define SERVER_PORT 7223
 
 extern sgx_enclave_id_t global_eid; // global enclave id (from routee.cpp)
 

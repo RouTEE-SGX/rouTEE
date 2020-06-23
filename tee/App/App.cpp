@@ -1,5 +1,9 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
 #include <assert.h>
 
 #include <unistd.h>
@@ -206,6 +210,18 @@ void ocall_print_string(const char *str){
     printf("%s", str);
 }
 
+// clean up the program and terminate it
+void cleanup() {
+    sgx_destroy_enclave(global_eid);
+    exit(1);
+}
+
+// print error msg and end program
+void error(const char *errmsg) {
+    printf("%s\n", errmsg);
+    cleanup();
+}
+
 // application entry point
 int SGX_CDECL main(int argc, char *argv[]){
 
@@ -222,7 +238,51 @@ int SGX_CDECL main(int argc, char *argv[]){
     }
 
     // ECall
-    printf_helloworld(global_eid);
+    // printf_helloworld(global_eid);
+
+    // run socket server to get command
+    
+    int server_socket;
+    int client_socket;
+
+    struct sockaddr_in server_addr;
+    struct sockaddr_in client_addr;
+    socklen_t client_addr_size;
+
+    server_socket = socket(PF_INET, SOCK_STREAM, 0);
+    if (server_socket == -1){
+        error("socket error");
+    }
+
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
+    server_addr.sin_port = htons(SERVER_PORT);
+
+    if (bind(server_socket, (struct sockaddr*) &server_addr, sizeof(server_addr)) == -1) {
+        error("bind error");
+    }
+
+    if (listen(server_socket, 10) == -1) {
+        error("listen error");
+    }
+
+    char client_msg[20];
+    while (true) {
+        printf("server listening...\n");
+        client_addr_size = sizeof(client_addr);
+        client_socket = accept(server_socket, (struct sockaddr*) &client_addr, &client_addr_size);
+        if (client_socket == -1) {
+            error("accept error");
+        }
+        
+        int client_msg_size = recv(client_socket, client_msg, MAX_MSG_SIZE, 0);
+        printf("client says:%s\n", client_msg);
+
+        if (client_msg[0] == 'q') {
+            break;
+        }
+    }
 
     // destroy the enclave
     sgx_destroy_enclave(global_eid);
