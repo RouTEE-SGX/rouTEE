@@ -19,7 +19,8 @@
 
 #define TOKEN_FILENAME  "enclave.token"
 #define ENCLAVE_FILENAME    "enclave.signed.so"
-#define MAX_MSG_SIZE    100
+#define MAX_MSG_SIZE    1024
+#define MAX_CLIENTS 30
 #define SERVER_IP   "127.0.0.1"
 #define SERVER_PORT 7223
 
