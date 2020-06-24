@@ -6,6 +6,7 @@
 #include "sgx_urts.h"
 #include "App.h"
 #include "Enclave_u.h"
+#include "network.h"
 
 sgx_enclave_id_t global_eid = 0;
 
@@ -214,6 +215,32 @@ void error(const char *errmsg) {
     cleanup();
 }
 
+// execute client's command
+const char* execute_command(char* request) {
+    char operation = request[0];
+    const char* result;
+
+    if (operation == OP_HELLO_WORLD){
+        printf("operation hello world executed\n");
+        result = "hello world complete";
+    }
+    else if (operation == OP_PUSH_A) {
+        printf("operation push A executed\n");
+        result = "push A complete";
+    }
+    else if (operation == OP_PUSH_B) {
+        printf("operation push B executed\n");
+        result = "push B complete";
+    }
+    else{
+        // wrong op_code
+        printf("wrong operation code\n");
+        result = "wrong opertaion code";
+    }
+
+    return result;
+}
+
 // application entry point
 int SGX_CDECL main(int argc, char *argv[]){
 
@@ -234,13 +261,11 @@ int SGX_CDECL main(int argc, char *argv[]){
     int master_socket, addrlen, new_socket, client_socket[30], activity, read_len, sd;
     int max_sd;
     struct sockaddr_in address;
-    char buffer[MAX_MSG_SIZE+1];  // data buffer of 1K
+    char request[MAX_MSG_SIZE+1];  // data buffer of 1K
+    const char* response;
 
     // set of socket descriptors
     fd_set readfds;
-    
-    // a message which will be sent from the server
-    char *message = "Welcome client!";
     
     // initialise all client_socket[] to 0 so not checked
     for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -342,7 +367,7 @@ int SGX_CDECL main(int argc, char *argv[]){
             
             if (FD_ISSET(sd , &readfds)) {
                 // Check if it was for closing, and also read the incoming message
-                if ((read_len = read(sd, buffer, MAX_MSG_SIZE)) == 0) {
+                if ((read_len = read(sd, request, MAX_MSG_SIZE)) == 0) {
                     // Somebody disconnected, get his details and print
                     getpeername(sd , (struct sockaddr*)&address, (socklen_t*)&addrlen);
                     printf("Host disconnected, ip %s, port %d \n", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
@@ -354,9 +379,15 @@ int SGX_CDECL main(int argc, char *argv[]){
                 // Echo back the message that came in
                 else {
                     // set the string terminating NULL byte on the end of the data read
-                    buffer[read_len] = '\0';
-                    printf("client %d says: %s, (len: %d)\n\n", sd, buffer, read_len);
-                    send(sd, buffer, read_len, 0);
+                    request[read_len] = '\0';
+                    printf("client %d says: %s, (len: %d)\n\n", sd, request, read_len);
+
+                    // execute client's command
+                    response = execute_command(request);
+                    printf("execution result: %s\n", response);
+
+                    // send result to the client
+                    send(sd, response, strlen(response), 0);
                 }
             }
         }
