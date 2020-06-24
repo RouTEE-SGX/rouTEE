@@ -1,15 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 #include <arpa/inet.h>
-#include <sys/socket.h>
-#include <assert.h>
-
+#include <errno.h>
 #include <unistd.h>
 #include <pwd.h>
-
-#define MAX_PATH FILENAME_MAX   // FILENAME_MAX: already defined in stdio.h
 
 #include "sgx_urts.h"
 #include "App.h"
@@ -127,7 +119,7 @@ void print_error_message(sgx_status_t ret){
 // step 2: call sgx_create_enclave to initialize an enclave instance
 // step 3: save the launch token if it is updated
 int initialize_enclave(void){
-    char token_path[MAX_PATH] = {'\0'};
+    char token_path[FILENAME_MAX] = {'\0'};
     sgx_launch_token_t token = {0};
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
     int token_updated = 0;
@@ -139,7 +131,7 @@ int initialize_enclave(void){
     const char *home_dir = getpwuid(getuid())->pw_dir;
 
     // compose the token_path
-    if (home_dir != NULL && (strlen(home_dir)+strlen("/")+sizeof(TOKEN_FILENAME)+1) <= MAX_PATH){
+    if (home_dir != NULL && (strlen(home_dir)+strlen("/")+sizeof(TOKEN_FILENAME)+1) <= FILENAME_MAX){
         strncpy(token_path, home_dir, strlen(home_dir));
         strncat(token_path, "/", strlen("/"));
         strncat(token_path, TOKEN_FILENAME, sizeof(TOKEN_FILENAME)+1);
@@ -237,57 +229,143 @@ int SGX_CDECL main(int argc, char *argv[]){
         return -1;
     }
 
-    // ECall
-    // printf_helloworld(global_eid);
+    // run socket server to get commands
+    int opt = TRUE;
+    int master_socket, addrlen, new_socket, client_socket[30], activity, read_len, sd;
+    int max_sd;
+    struct sockaddr_in address;
+    char buffer[MAX_MSG_SIZE+1];  // data buffer of 1K
 
-    // run socket server to get command
+    // set of socket descriptors
+    fd_set readfds;
     
-    int server_socket;
-    int client_socket;
-
-    struct sockaddr_in server_addr;
-    struct sockaddr_in client_addr;
-    socklen_t client_addr_size;
-
-    server_socket = socket(PF_INET, SOCK_STREAM, 0);
-    if (server_socket == -1){
-        error("socket error");
+    // a message which will be sent from the server
+    char *message = "Welcome client!";
+    
+    // initialise all client_socket[] to 0 so not checked
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        client_socket[i] = 0;
     }
 
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
-    server_addr.sin_port = htons(SERVER_PORT);
+    // create a master socket
+    if((master_socket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+    
+    // set master socket to allow multiple connections,
+    // this is just a good habit, it will work without this
+    if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 ) {
+        perror("setsockopt");
+        exit(EXIT_FAILURE);
+    }
+    
+    // type of socket created
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = inet_addr(SERVER_IP);
+    address.sin_port = htons(SERVER_PORT);
 
-    if (bind(server_socket, (struct sockaddr*) &server_addr, sizeof(server_addr)) == -1) {
-        error("bind error");
+    // bind the socket to SERVER_IP:SERVER_PORT
+    if (bind(master_socket, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
+    printf("Listener on port %d \n", SERVER_PORT);
+
+    // try to specify maximum of 3 pending connections for the master socket
+    if (listen(master_socket, 3) < 0) {
+        perror("listen");
+        exit(EXIT_FAILURE);
     }
 
-    if (listen(server_socket, 10) == -1) {
-        error("listen error");
-    }
+    // accept the incoming connection
+    addrlen = sizeof(address);
+    puts("Waiting for connections ...");
+    
+    while(TRUE) {
+        // clear the socket set
+        FD_ZERO(&readfds);
 
-    char client_msg[20];
-    while (true) {
-        printf("server listening...\n");
-        client_addr_size = sizeof(client_addr);
-        client_socket = accept(server_socket, (struct sockaddr*) &client_addr, &client_addr_size);
-        if (client_socket == -1) {
-            error("accept error");
+        // add master socket to set
+        FD_SET(master_socket, &readfds);
+        max_sd = master_socket;
+
+        // add child sockets to set
+        for (int i = 0; i < MAX_CLIENTS; i++) {
+            // socket descriptor
+            sd = client_socket[i];
+            
+            // if valid socket descriptor then add to read list
+            if(sd > 0) {
+                FD_SET(sd , &readfds);
+            }
+            
+            // highest file descriptor number, need it for the select function  
+            if(sd > max_sd) {
+                max_sd = sd;
+            }
+            
+        }
+
+        // wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely  
+        activity = select(max_sd + 1, &readfds, NULL, NULL, NULL);   
+
+        if ((activity < 0) && (errno != EINTR)) {
+            printf("select error");
         }
         
-        int client_msg_size = recv(client_socket, client_msg, MAX_MSG_SIZE, 0);
-        printf("client says:%s\n", client_msg);
+        // If something happened on the master socket, then its an incoming connection
+        if (FD_ISSET(master_socket, &readfds)) {
+            if ((new_socket = accept(master_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
+                perror("accept");
+                exit(EXIT_FAILURE);
+            }
+            
+            // inform user of socket number - used in send and receive commands
+            printf("New connection , socket fd is %d , ip is : %s , port : %d\n" , new_socket , inet_ntoa(address.sin_addr) , ntohs (address.sin_port));
 
-        if (client_msg[0] == 'q') {
-            break;
+            // add new socket to array of sockets
+            for (int i = 0; i < MAX_CLIENTS; i++) {
+                // if position is empty
+                if(client_socket[i] == 0) {
+                    client_socket[i] = new_socket;
+                    printf("Adding to list of sockets as %d\n" , i);
+                    break;
+                }
+            }
+
         }
+        
+        // else its some IO operation on some other socket
+        for (int i = 0; i < MAX_CLIENTS; i++) {
+            sd = client_socket[i];
+            
+            if (FD_ISSET(sd , &readfds)) {
+                // Check if it was for closing, and also read the incoming message
+                if ((read_len = read(sd, buffer, MAX_MSG_SIZE)) == 0) {
+                    // Somebody disconnected, get his details and print
+                    getpeername(sd , (struct sockaddr*)&address, (socklen_t*)&addrlen);
+                    printf("Host disconnected, ip %s, port %d \n", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+
+                    // Close the socket and mark as 0 in list for reuse
+                    close(sd);
+                    client_socket[i] = 0;
+                }
+                // Echo back the message that came in
+                else {
+                    // set the string terminating NULL byte on the end of the data read
+                    buffer[read_len] = '\0';
+                    printf("client %d says: %s, (len: %d)\n\n", sd, buffer, read_len);
+                    send(sd, buffer, read_len, 0);
+                }
+            }
+        }
+
     }
 
     // destroy the enclave
     sgx_destroy_enclave(global_eid);
 
+    printf("terminate the App\n");
     return 0;
 }
-
-
