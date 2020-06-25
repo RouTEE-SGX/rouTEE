@@ -9,7 +9,14 @@ extern "C"{
 #endif
 
 void printf(const char *fmt, ...);
+
+// Ecalls
 void printf_helloworld();
+int ecall_add_channel();            // add his channel to rouTEE (= deposit)
+int ecall_remove_channel();         // remove his channel from rouTEE (= withdraw)
+int ecall_do_payment();             // request for his channel payment
+int ecall_do_multihop_payment();    // request for multi hop payment (need routing fee)
+int ecall_get_channel_balance();    // check his channel's balance
 
 #if defined(__cplusplus)
 }
