@@ -6,6 +6,7 @@ enclave {
         // define ECALLs here
         
         public void printf_helloworld();
+        public int ecall_add_channel();
     };
 
     untrusted{
