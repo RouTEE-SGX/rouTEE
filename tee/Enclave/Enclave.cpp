@@ -4,8 +4,11 @@
 #include "Enclave.h"
 #include "Enclave_t.h"
 
+#include "channel.h"
+#include "errors.h"
+
 // invoke OCall to display the enclave buffer to the terminal screen
-void printf(const char *fmt, ...){
+void printf(const char *fmt, ...) {
 
     char buf[BUFSIZ] = {'\0'};
     va_list ap;
@@ -15,6 +18,11 @@ void printf(const char *fmt, ...){
     ocall_print_string(buf); // OCall
 }
 
-void printf_helloworld(){
+// Ecall: print hello world to the terminal screen
+void printf_helloworld() {
     printf("Hello World!\n");
+}
+
+int ecall_add_channel() {
+    return NO_ERROR;
 }
