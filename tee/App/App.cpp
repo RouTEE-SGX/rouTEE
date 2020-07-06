@@ -7,6 +7,7 @@
 #include "App.h"
 #include "Enclave_u.h"
 #include "network.h"
+#include "../Enclave/errors.h"
 
 sgx_enclave_id_t global_eid = 0;
 
@@ -215,30 +216,42 @@ void error(const char *errmsg) {
     cleanup();
 }
 
+// add channel into the enclave
+int add_channel() {
+    // TODO: implement this function, do ecall here
+    // return "success";
+    
+    int ecall_return;
+    int ecall_result = ecall_add_channel(global_eid, &ecall_return);
+    printf("ecall_add_channel() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_add_channel");
+    }
+
+    return ecall_return;
+}
+
 // execute client's command
 const char* execute_command(char* request) {
     char operation = request[0];
-    const char* result;
+    int ecall_return;
 
-    if (operation == OP_HELLO_WORLD){
-        printf("operation hello world executed\n");
-        result = "hello world complete";
-    }
-    else if (operation == OP_PUSH_A) {
+    if (operation == OP_PUSH_A) {
+        // sample template code
         printf("operation push A executed\n");
-        result = "push A complete";
+        ecall_return = NO_ERROR;
     }
-    else if (operation == OP_PUSH_B) {
-        printf("operation push B executed\n");
-        result = "push B complete";
+    else if (operation == OP_ADD_CHANNEL) {
+        printf("add channel operation executed\n");
+        ecall_return = add_channel();
     }
     else{
         // wrong op_code
-        printf("wrong operation code\n");
-        result = "wrong opertaion code";
+        printf("this op code doesn't exist\n");
+        ecall_return = ERR_INVALID_OP_CODE; // actually this is not ecall return value, ecall doesn't happen
     }
 
-    return result;
+    return error_to_msg(ecall_return);
 }
 
 // application entry point
