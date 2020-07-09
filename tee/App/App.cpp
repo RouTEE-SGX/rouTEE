@@ -231,6 +231,16 @@ int add_channel() {
     return ecall_return;
 }
 
+int print_channels() {
+
+    int ecall_result = ecall_print_channels(global_eid);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_print_channels");
+    }
+
+    return NO_ERROR;
+}
+
 // execute client's command
 const char* execute_command(char* request) {
     char operation = request[0];
@@ -244,6 +254,10 @@ const char* execute_command(char* request) {
     else if (operation == OP_ADD_CHANNEL) {
         printf("add channel operation executed\n");
         ecall_return = add_channel();
+    }
+    else if (operation == OP_PRINT_CHANNELS) {
+        printf("print channels executed\n");
+        ecall_return = print_channels();
     }
     else{
         // wrong op_code
