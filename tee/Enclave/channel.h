@@ -24,12 +24,9 @@ class Channel {
 
         // rouTEE params
         unsigned long long route_fee;
+
+        // get channel info as a string
+        string to_string();
 };
-
-// global channels array
-// Channel* channels = new Channel[10];
-
-// user address to the user's channels
-map< string, vector<Channel *> > addresses_to_channels;
 
 #endif  // _CHANNEL_H_
