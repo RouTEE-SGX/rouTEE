@@ -7,6 +7,9 @@ enclave {
         
         public void printf_helloworld();
         public int ecall_add_channel();
+        public void ecall_print_channels();
+        public void ecall_seal_channels();
+        public void ecall_unseal_channels();
     };
 
     untrusted{
