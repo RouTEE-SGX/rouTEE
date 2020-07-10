@@ -20,8 +20,8 @@ sgx_enclave_id_t global_eid = 0;
 
 typedef struct _sgx_errlist_t {
     sgx_status_t err;
-    const char *msg;
-    const char *sug; /* Suggestion */
+    const char* msg;
+    const char* sug; /* Suggestion */
 } sgx_errlist_t;
 
 /* Error code returned by sgx_create_enclave */
@@ -137,7 +137,7 @@ int initialize_enclave(void){
     // if there is no token, then create a new one
 
     // try to get the token saved in $HOME
-    const char *home_dir = getpwuid(getuid())->pw_dir;
+    const char* home_dir = getpwuid(getuid())->pw_dir;
 
     // compose the token_path
     if (home_dir != NULL && (strlen(home_dir)+strlen("/")+sizeof(TOKEN_FILENAME)+1) <= FILENAME_MAX){
@@ -204,7 +204,7 @@ int initialize_enclave(void){
 }
 
 // OCall function
-void ocall_print_string(const char *str){
+void ocall_print_string(const char* str){
     // Proxy/Bridge will check the length and null-terminate 
     // the input string to prevent buffer overflow. 
 
@@ -218,7 +218,7 @@ void cleanup() {
 }
 
 // print error msg and end program
-void error(const char *errmsg) {
+void error(const char* errmsg) {
     printf("%s\n", errmsg);
     cleanup();
 }
@@ -344,7 +344,7 @@ const char* execute_command(char* request) {
 }
 
 // application entry point
-int SGX_CDECL main(int argc, char *argv[]){
+int SGX_CDECL main(int argc, char* argv[]){
 
     // not used vars -> I just dont care, ignore these
     (void)(argc);
@@ -382,7 +382,7 @@ int SGX_CDECL main(int argc, char *argv[]){
     
     // set master socket to allow multiple connections,
     // this is just a good habit, it will work without this
-    if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 ) {
+    if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) < 0 ) {
         perror("setsockopt");
         exit(EXIT_FAILURE);
     }

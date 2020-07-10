@@ -23,7 +23,7 @@ int main(void) {
     printf("Client Socket ERROR");
     exit(0);
   }
-  bzero((char *)&server_address, sizeof(server_address));
+  bzero((char*)&server_address, sizeof(server_address));
 
   server_address.sin_family = AF_INET;
   server_address.sin_addr.s_addr = inet_addr(SERVER_IP);

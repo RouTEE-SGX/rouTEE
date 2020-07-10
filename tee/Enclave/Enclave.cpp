@@ -14,7 +14,7 @@ map<string, vector<Channel*>> addresses_to_channels;
 map<string, Channel*> channels;
 
 // invoke OCall to display the enclave buffer to the terminal screen
-void printf(const char *fmt, ...) {
+void printf(const char* fmt, ...) {
 
     char buf[BUFSIZ] = {'\0'};
     va_list ap;
@@ -71,7 +71,7 @@ void ecall_print_channels() {
     return;
 }
 
-int ecall_do_payment(const char *channel_id, int ch_id_len, const char *sender_address, int address_len, unsigned long long amount) {
+int ecall_do_payment(const char* channel_id, int ch_id_len, const char* sender_address, int address_len, unsigned long long amount) {
     string ch_id = string(channel_id, ch_id_len);
     string sender_addr = string(sender_address, address_len);
 
