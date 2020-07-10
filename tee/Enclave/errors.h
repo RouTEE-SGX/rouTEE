@@ -7,6 +7,8 @@
 #define ERR_INVALID_CHANNEL 2
 #define ERR_NO_CHANNEL 3
 #define ERR_INVALID_PARAMS 4
+#define ERR_INVALID_USER 5
+#define ERR_NOT_ENOUGH_BALANCE 6
 
 const char* error_to_msg(int err);
 

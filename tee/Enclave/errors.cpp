@@ -12,6 +12,10 @@ const char* error_to_msg(int err) {
             return "there is no channel like that";
         case ERR_INVALID_PARAMS:
             return "invalid op params";
+        case ERR_INVALID_USER:
+            return "the user is not in that channel";
+        case ERR_NOT_ENOUGH_BALANCE:
+            return "the user has not enough balance to pay that amount";
         default:
             return "wrong error index";
     }

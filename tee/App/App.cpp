@@ -223,6 +223,17 @@ void error(const char *errmsg) {
     cleanup();
 }
 
+// parse request as ecall function params
+vector<string> parse_request(const char* request) {
+    string req(request);
+    stringstream ss(req);
+    vector<string> params;
+    string param;
+    while (std::getline(ss, param, ' '))
+        params.push_back(param);
+    return params;
+}
+
 // add channel into the enclave
 int add_channel() {
     // TODO: implement this function, do ecall here
@@ -251,22 +262,41 @@ int print_channels() {
 int remove_channel(char* request) {
 
     // parse request as ecall function params
-    string req(request);
-    stringstream ss(req);
-    vector<string> params;
-    string param;
-    while (std::getline(ss, param, ' '))
-        params.push_back(param);
+    vector<string> params = parse_request(request);
     if (params.size() != 2) {
         return ERR_INVALID_PARAMS;
     }
     string target_ch_id = params[1];
 
+    // execute ecall
     int ecall_return;
     int ecall_result = ecall_remove_channel(global_eid, &ecall_return, target_ch_id.c_str(), target_ch_id.length());
     printf("ecall_remove_channel() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_remove_channel");
+    }
+
+    return ecall_return;
+}
+
+// do 1 to 1 single channel payment
+int do_payment(char* request) {
+
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    if (params.size() != 4) {
+        return ERR_INVALID_PARAMS;
+    }
+    string channel_id = params[1];
+    string sender_address = params[2];
+    unsigned long long amount = strtoull(params[3].c_str(), NULL, 10);
+    
+    // execute ecall
+    int ecall_return;
+    int ecall_result = ecall_do_payment(global_eid, &ecall_return, channel_id.c_str(), channel_id.length(), sender_address.c_str(), sender_address.length(), amount);
+    printf("ecall_do_payment() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_do_payment");
     }
 
     return ecall_return;
@@ -293,6 +323,10 @@ const char* execute_command(char* request) {
     else if (operation == OP_REMOVE_CHANNEL) {
         printf("remove channels executed\n");
         ecall_return = remove_channel(request);
+    }
+    else if (operation == OP_DO_PAYMENT) {
+        printf("do payment executed\n");
+        ecall_return = do_payment(request);
     }
     else{
         // wrong op_code

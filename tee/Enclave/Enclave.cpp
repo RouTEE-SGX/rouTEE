@@ -48,13 +48,13 @@ int ecall_remove_channel(const char* target_ch_id, int ch_id_len) {
     string ch_to_remove = string(target_ch_id, ch_id_len);
     for (vector<Channel *>::iterator iter = channels.begin(); iter != channels.end(); iter++){
         if ((*iter)->get_id() == ch_to_remove) {
-            printf("find target channels to erase: %s\n", (*iter)->to_string().c_str());
+            printf("find target channel to erase: %s\n", (*iter)->to_string().c_str());
             channels.erase(iter);
             return NO_ERROR;
         }
     }
 
-    // there is no channel whose id is "target_ch_id"
+    // there is no channel whose id is target_ch_id
     return ERR_NO_CHANNEL;
 }
 
@@ -63,6 +63,53 @@ void ecall_print_channels() {
         printf("print channel %s info: %s\n", (*iter)->get_id().c_str(), (*iter)->to_string().c_str());
     }
     return;
+}
+
+int ecall_do_payment(const char *channel_id, int ch_id_len, const char *sender_address, int address_len, unsigned long long amount) {
+    string ch_id = string(channel_id, ch_id_len);
+    string sender_addr = string(sender_address, address_len);
+
+    // find the channel
+    Channel* ch = NULL;
+    for (vector<Channel *>::iterator iter = channels.begin(); iter != channels.end(); iter++){
+        if ((*iter)->get_id() == ch_id) {
+            printf("find target channel to pay: %s\n", (*iter)->to_string().c_str());
+            ch = *iter;
+            break;
+        }
+    }
+    if (ch == NULL) {
+        // there is no channel whose id is target_ch_id
+        return ERR_NO_CHANNEL;
+    }
+
+    // check whether the sender can pay
+    if (sender_addr == ch->addresses[0]) {
+        // check balance
+        if (amount > ch->balances[0]) {
+            return ERR_NOT_ENOUGH_BALANCE;
+        }
+
+        // do payment
+        ch->balances[0] -= amount;
+        ch->balances[1] += amount;
+    }
+    else if (sender_addr == ch->addresses[1]) {
+        // check balance
+        if (amount > ch->balances[1]) {
+            return ERR_NOT_ENOUGH_BALANCE;
+        }
+
+        // do payment
+        ch->balances[1] -= amount;
+        ch->balances[0] += amount;
+    }
+    else {
+        // sender is not in this channel
+        return ERR_INVALID_USER;
+    }
+
+    return NO_ERROR;
 }
 
 void ecall_seal_channels() {

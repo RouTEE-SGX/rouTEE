@@ -7,5 +7,6 @@
 #define OP_ADD_CHANNEL   99
 #define OP_PRINT_CHANNELS   100
 #define OP_REMOVE_CHANNEL   101
+#define OP_DO_PAYMENT   102
 
 #endif  // _NETWORK_H_
