@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include "utils.h"
 
-std::string long_long_to_string(unsigned long long num) {
-    char buffer[20];
-    snprintf(buffer, 20, "%llu", num);
-    return std::string(buffer);
+string long_long_to_string(unsigned long long num) {
+    char buffer[MAX_NUM_LENGTH];
+    snprintf(buffer, MAX_NUM_LENGTH, "%llu", num);
+    return string(buffer);
 }
 
-unsigned long long string_to_long_long(std::string str) {
-    return (strtoull(str.c_str(), NULL, 10));
+unsigned long long string_to_long_long(string str_num) {
+    return strtoull(str_num.c_str(), NULL, 10);
 }
