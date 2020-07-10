@@ -235,12 +235,18 @@ vector<string> parse_request(const char* request) {
 }
 
 // add channel into the enclave
-int add_channel() {
-    // TODO: implement this function, do ecall here
-    // return "success";
-    
+int add_channel(char* request) {
+
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    if (params.size() != 3) {
+        return ERR_INVALID_PARAMS;
+    }
+    string tx_id = params[1];
+    unsigned int tx_index = strtoul(params[2].c_str(), NULL, 10);
+
     int ecall_return;
-    int ecall_result = ecall_add_channel(global_eid, &ecall_return);
+    int ecall_result = ecall_add_channel(global_eid, &ecall_return, tx_id.c_str(), tx_id.length(), tx_index);
     printf("ecall_add_channel() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_add_channel");
@@ -314,7 +320,7 @@ const char* execute_command(char* request) {
     }
     else if (operation == OP_ADD_CHANNEL) {
         printf("add channel operation executed\n");
-        ecall_return = add_channel();
+        ecall_return = add_channel(request);
     }
     else if (operation == OP_PRINT_CHANNELS) {
         printf("print channels executed\n");

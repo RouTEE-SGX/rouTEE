@@ -29,15 +29,15 @@ void printf_helloworld() {
     printf("Hello World!\n");
 }
 
-int ecall_add_channel() {
+int ecall_add_channel(const char* tx_id, int tx_id_len, unsigned int tx_index) {
     // TODO: get the tx from the bitcoin client
     Channel *ch = new Channel;
     ch->addresses[0] = "0xaa";
     ch->addresses[1] = "0xbb";
     ch->balances[0] = 10;
     ch->balances[1] = 20;
-    ch->tx_id = "0xch";
-    ch->tx_index = 1;
+    ch->tx_id = string(tx_id, tx_id_len);
+    ch->tx_index = tx_index;
 
     map<string, Channel*>::iterator iter = channels.find(ch->get_id());
     if (iter != channels.end()) {

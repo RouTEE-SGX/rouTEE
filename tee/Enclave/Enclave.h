@@ -12,7 +12,7 @@ void printf(const char *fmt, ...);
 
 // Ecalls
 void printf_helloworld();
-int ecall_add_channel();            // add his channel to rouTEE (= deposit)
+int ecall_add_channel(const char* tx_id, int tx_id_len, unsigned int tx_index);            // add his channel to rouTEE (= deposit)
 void ecall_print_channels();        // print all channels
 void ecall_seal_channels();         // seal all channels
 void ecall_unseal_channels();       // unseal all channels

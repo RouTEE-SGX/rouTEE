@@ -6,7 +6,7 @@ enclave {
         // define ECALLs here
         
         public void printf_helloworld();
-        public int ecall_add_channel();
+        public int ecall_add_channel([in, size=tx_id_len] const char* tx_id, int tx_id_len, unsigned int tx_index);
         public void ecall_print_channels();
         public void ecall_seal_channels();
         public void ecall_unseal_channels();
