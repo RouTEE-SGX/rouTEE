@@ -11,6 +11,9 @@
 #define ERR_NOT_ENOUGH_BALANCE 6
 #define ERR_ALREADY_EXIST_CHANNEL 7
 
+#define MAX_UNSIGNED_LONG_LONG 9223372036854775807
+
+// get the error message for the error index
 const char* error_to_msg(int err);
 
 #endif  // _ERRORS_H_

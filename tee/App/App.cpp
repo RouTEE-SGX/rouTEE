@@ -308,6 +308,37 @@ int do_payment(char* request) {
     return ecall_return;
 }
 
+// get the balance of the user in this channel
+const char* get_channel_balance(char* request) {
+
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    if (params.size() != 3) {
+        return error_to_msg(ERR_INVALID_PARAMS);
+    }
+    string channel_id = params[1];
+    string user_address = params[2];
+    
+    // execute ecall
+    unsigned long long ecall_return;
+    int ecall_result = ecall_get_channel_balance(global_eid, &ecall_return, channel_id.c_str(), channel_id.length(), user_address.c_str(), user_address.length());
+    printf("ecall_get_channel_balance() -> result:%d / return:%llu\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_do_payment");
+    }
+
+    if (ecall_return == MAX_UNSIGNED_LONG_LONG) {
+        // return error message
+        return "you cannot access to this channel's balance";
+    }
+    else {
+        // return the balance as a string
+        static char balance[30];
+        snprintf(balance, 30, "%llu", ecall_return);
+        return balance;
+    }
+}
+
 // execute client's command
 const char* execute_command(char* request) {
     char operation = request[0];
@@ -333,6 +364,11 @@ const char* execute_command(char* request) {
     else if (operation == OP_DO_PAYMENT) {
         printf("do payment executed\n");
         ecall_return = do_payment(request);
+    }
+    else if (operation == OP_GET_CHANNEL_BALANCE) {
+        // tricky code to return the balance value
+        printf("get channel balance executed\n");
+        return get_channel_balance(request);
     }
     else{
         // wrong op_code

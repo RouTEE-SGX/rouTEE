@@ -115,6 +115,36 @@ int ecall_do_payment(const char* channel_id, int ch_id_len, const char* sender_a
     return NO_ERROR;
 }
 
+unsigned long long ecall_get_channel_balance(const char* channel_id, int ch_id_len, const char* user_address, int address_len) {
+    string ch_id = string(channel_id, ch_id_len);
+    string user_addr = string(user_address, address_len);
+
+    // find the channel
+    Channel* ch;
+    map<string, Channel*>::iterator iter = channels.find(ch_id);
+    if (iter == channels.end()) {
+        // there is no channel whose id is target_ch_id
+        // just return max unsigned long long value for easy coding
+        return MAX_UNSIGNED_LONG_LONG;
+    }
+    else {
+        ch = iter->second;
+    }
+
+    // check whether the sender can pay
+    if (user_addr == ch->addresses[0]) {
+        return ch->balances[0];
+    }
+    else if (user_addr == ch->addresses[1]) {
+        return ch->balances[1];
+    }
+    else {
+        // sender is not in this channel
+        // just return max unsigned long long value for easy coding
+        return MAX_UNSIGNED_LONG_LONG;
+    }
+}
+
 void ecall_seal_channels() {
     // https://github.com/intel/linux-sgx/blob/master/SampleCode/SealUnseal/Enclave_Seal/Enclave_Seal.cpp
     // https://github.com/intel/linux-sgx/blob/master/SampleCode/SealUnseal/App/App.cpp

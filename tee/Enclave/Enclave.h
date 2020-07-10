@@ -20,7 +20,7 @@ void printf_helloworld();
 // add my channel to rouTEE (= deposit)
 int ecall_add_channel(const char* tx_id, int tx_id_len, unsigned int tx_index);
 
-// print all channels
+// print all channels (just for debugging)
 void ecall_print_channels();
 
 // seal all channels
@@ -39,7 +39,7 @@ int ecall_do_payment(const char* channel_id, int ch_id_len, const char* sender_a
 int ecall_do_multihop_payment();
 
 // check my balance in the channel
-int ecall_get_channel_balance();
+unsigned long long ecall_get_channel_balance(const char* channel_id, int ch_id_len, const char* user_address, int address_len);
 
 #if defined(__cplusplus)
 }
