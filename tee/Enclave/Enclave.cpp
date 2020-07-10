@@ -8,8 +8,10 @@
 #include "errors.h"
 
 // user address to the user's channels
-map< string, vector<Channel *> > addresses_to_channels;
-vector<Channel *> channels;
+map<string, vector<Channel*>> addresses_to_channels;
+
+// map[channel_id] = Channel*
+map<string, Channel*> channels;
 
 // invoke OCall to display the enclave buffer to the terminal screen
 void printf(const char *fmt, ...) {
@@ -29,38 +31,37 @@ void printf_helloworld() {
 
 int ecall_add_channel() {
     // temp code
-
     Channel *ch = new Channel;
-    ch->addresses[0] = "0x1234";
-    ch->addresses[1] = "0xabcd";
+    ch->addresses[0] = "0xaa";
+    ch->addresses[1] = "0xbb";
     ch->balances[0] = 10;
     ch->balances[1] = 20;
-    ch->tx_id = "0x5678";
-    ch->tx_index = 9;
+    ch->tx_id = "0xch";
+    ch->tx_index = 1;
 
     printf("new channel added: %s:%llu / %s:%llu\n", ch->addresses[0], ch->balances[0], ch->addresses[1], ch->balances[1]);
 
-    channels.push_back(ch);
+    channels[ch->get_id()] = ch;
     return NO_ERROR;
 }
 
 int ecall_remove_channel(const char* target_ch_id, int ch_id_len) {
     string ch_to_remove = string(target_ch_id, ch_id_len);
-    for (vector<Channel *>::iterator iter = channels.begin(); iter != channels.end(); iter++){
-        if ((*iter)->get_id() == ch_to_remove) {
-            printf("find target channel to erase: %s\n", (*iter)->to_string().c_str());
-            channels.erase(iter);
-            return NO_ERROR;
-        }
+    map<string, Channel*>::iterator iter = channels.find(ch_to_remove);
+    if (iter == channels.end()) {
+        // there is no channel whose id is target_ch_id
+        return ERR_NO_CHANNEL;
     }
-
-    // there is no channel whose id is target_ch_id
-    return ERR_NO_CHANNEL;
+    else {
+        // remove the channel
+        channels.erase(ch_to_remove);
+        return NO_ERROR;
+    }
 }
 
 void ecall_print_channels() {
-    for (vector<Channel *>::iterator iter = channels.begin(); iter != channels.end(); iter++){
-        printf("print channel %s info: %s\n", (*iter)->get_id().c_str(), (*iter)->to_string().c_str());
+    for (map<string, Channel*>::iterator iter = channels.begin(); iter != channels.end(); iter++){
+        printf("print channel %s info: %s\n", (iter->second)->get_id().c_str(), (iter->second)->to_string().c_str());
     }
     return;
 }
@@ -70,17 +71,14 @@ int ecall_do_payment(const char *channel_id, int ch_id_len, const char *sender_a
     string sender_addr = string(sender_address, address_len);
 
     // find the channel
-    Channel* ch = NULL;
-    for (vector<Channel *>::iterator iter = channels.begin(); iter != channels.end(); iter++){
-        if ((*iter)->get_id() == ch_id) {
-            printf("find target channel to pay: %s\n", (*iter)->to_string().c_str());
-            ch = *iter;
-            break;
-        }
-    }
-    if (ch == NULL) {
+    Channel* ch;
+    map<string, Channel*>::iterator iter = channels.find(ch_id);
+    if (iter == channels.end()) {
         // there is no channel whose id is target_ch_id
         return ERR_NO_CHANNEL;
+    }
+    else {
+        ch = iter->second;
     }
 
     // check whether the sender can pay
