@@ -30,7 +30,7 @@ void printf_helloworld() {
 }
 
 int ecall_add_channel() {
-    // temp code
+    // TODO: get the tx from the bitcoin client
     Channel *ch = new Channel;
     ch->addresses[0] = "0xaa";
     ch->addresses[1] = "0xbb";
@@ -39,8 +39,13 @@ int ecall_add_channel() {
     ch->tx_id = "0xch";
     ch->tx_index = 1;
 
+    map<string, Channel*>::iterator iter = channels.find(ch->get_id());
+    if (iter != channels.end()) {
+        // this channel is already added before
+        return ERR_ALREADY_EXIST_CHANNEL;
+    }
+    
     printf("new channel added: %s:%llu / %s:%llu\n", ch->addresses[0], ch->balances[0], ch->addresses[1], ch->balances[1]);
-
     channels[ch->get_id()] = ch;
     return NO_ERROR;
 }

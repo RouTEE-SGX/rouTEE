@@ -16,6 +16,8 @@ const char* error_to_msg(int err) {
             return "the user is not in that channel";
         case ERR_NOT_ENOUGH_BALANCE:
             return "the user has not enough balance to pay that amount";
+        case ERR_ALREADY_EXIST_CHANNEL:
+            return "this channel is already added before";
         default:
             return "wrong error index";
     }
