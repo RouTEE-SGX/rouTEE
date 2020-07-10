@@ -20,13 +20,16 @@ class Channel {
 
         // tx info
         string tx_id;
-        int tx_index;
+        unsigned int tx_index;
 
         // rouTEE params
         unsigned long long route_fee;
 
         // get channel info as a string
         string to_string();
+        
+        // get channel's unique ID (tx_id + tx_index)
+        string get_id();
 };
 
 #endif  // _CHANNEL_H_
