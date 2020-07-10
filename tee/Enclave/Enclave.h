@@ -16,7 +16,7 @@ int ecall_add_channel();            // add his channel to rouTEE (= deposit)
 void ecall_print_channels();        // print all channels
 void ecall_seal_channels();         // seal all channels
 void ecall_unseal_channels();       // unseal all channels
-int ecall_remove_channel();         // remove his channel from rouTEE (= withdraw)
+int ecall_remove_channel(const char *target_channel_id, int ch_id_len);         // remove his channel from rouTEE (= withdraw)
 int ecall_do_payment();             // request for his channel payment
 int ecall_do_multihop_payment();    // request for multi hop payment (need routing fee)
 int ecall_get_channel_balance();    // check his channel's balance

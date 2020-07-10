@@ -2,12 +2,19 @@
 #include <errno.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <string>
+#include <sstream>
+#include <vector>
 
 #include "sgx_urts.h"
 #include "App.h"
 #include "Enclave_u.h"
 #include "network.h"
 #include "../Enclave/errors.h"
+
+using std::string;
+using std::vector;
+using std::stringstream;
 
 sgx_enclave_id_t global_eid = 0;
 
@@ -232,13 +239,37 @@ int add_channel() {
 }
 
 int print_channels() {
-
     int ecall_result = ecall_print_channels(global_eid);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_print_channels");
     }
 
     return NO_ERROR;
+}
+
+// remove channel from the enclave
+int remove_channel(char* request) {
+
+    // parse request as ecall function params
+    string req(request);
+    stringstream ss(req);
+    vector<string> params;
+    string param;
+    while (std::getline(ss, param, ' '))
+        params.push_back(param);
+    if (params.size() != 2) {
+        return ERR_INVALID_PARAMS;
+    }
+    string target_ch_id = params[1];
+
+    int ecall_return;
+    int ecall_result = ecall_remove_channel(global_eid, &ecall_return, target_ch_id.c_str(), target_ch_id.length());
+    printf("ecall_remove_channel() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_remove_channel");
+    }
+
+    return ecall_return;
 }
 
 // execute client's command
@@ -258,6 +289,10 @@ const char* execute_command(char* request) {
     else if (operation == OP_PRINT_CHANNELS) {
         printf("print channels executed\n");
         ecall_return = print_channels();
+    }
+    else if (operation == OP_REMOVE_CHANNEL) {
+        printf("remove channels executed\n");
+        ecall_return = remove_channel(request);
     }
     else{
         // wrong op_code

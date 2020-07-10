@@ -10,6 +10,7 @@ enclave {
         public void ecall_print_channels();
         public void ecall_seal_channels();
         public void ecall_unseal_channels();
+        public int ecall_remove_channel([in, size=ch_id_len] const char* target_ch_id, int ch_id_len);
     };
 
     untrusted{

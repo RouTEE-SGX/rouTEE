@@ -6,5 +6,6 @@
 #define OP_PUSH_A   98
 #define OP_ADD_CHANNEL   99
 #define OP_PRINT_CHANNELS   100
+#define OP_REMOVE_CHANNEL   101
 
 #endif  // _NETWORK_H_
