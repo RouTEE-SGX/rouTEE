@@ -19,6 +19,7 @@ enclave {
         public int ecall_create_channel([in, size=tx_id_len] const char* tx_id, int tx_id_len, unsigned int tx_index);
         public void ecall_print_state();
         public int ecall_settle_balance([in, size=receiver_addr_len] const char* receiver_address, int receiver_addr_len);
+        public int ecall_do_multihop_payment([in, size=sender_addr_len] const char* sender_address, int sender_addr_len, [in, size=receiver_addr_len] const char* receiver_address, int receiver_addr_len, unsigned long long amount, unsigned long long fee);
     };
 
     untrusted{

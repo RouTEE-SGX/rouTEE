@@ -20,6 +20,8 @@ const char* error_to_msg(int err) {
             return "this channel is already added before";
         case ERR_INVALID_RECEIVER:
             return "your tx didn't send BTC to the master address";
+        case ERR_NOT_ENOUGH_FEE:
+            return "need higher routing fee";
         default:
             return "wrong error index";
     }

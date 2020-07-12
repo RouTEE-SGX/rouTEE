@@ -414,6 +414,28 @@ int settle_balance(char* request) {
     return ecall_return;
 }
 
+// do multihop payment
+int do_multihop_payment(char* request) {
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    if (params.size() != 5) {
+        return ERR_INVALID_PARAMS;
+    }
+    string sender_address = params[1];
+    string receiver_address = params[2];
+    unsigned long long amount = strtoul(params[3].c_str(), NULL, 10);
+    unsigned long long fee = strtoul(params[4].c_str(), NULL, 10);
+
+    int ecall_return;
+    int ecall_result = ecall_do_multihop_payment(global_eid, &ecall_return, sender_address.c_str(), sender_address.length(), receiver_address.c_str(), receiver_address.length(), amount, fee);
+    printf("ecall_do_multihop_payment() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_do_multihop_payment");
+    }
+
+    return ecall_return;
+}
+
 // get the balance of the user in this channel
 const char* get_channel_balance(char* request) {
 
@@ -494,6 +516,10 @@ const char* execute_command(char* request) {
     else if (operation == OP_SETTLE_BALANCE) {
         printf("settle balance executed\n");
         ecall_return = settle_balance(request);
+    }
+    else if (operation == OP_DO_MULTIHOP_PAYMENT) {
+        printf("do multihop payment executed\n");
+        ecall_return = do_multihop_payment(request);
     }
     else if (operation == OP_GET_CHANNEL_BALANCE) {
         // tricky code to return the balance value

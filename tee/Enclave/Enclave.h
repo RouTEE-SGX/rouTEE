@@ -35,9 +35,6 @@ int ecall_remove_channel(const char* target_channel_id, int ch_id_len);
 // request payment for my channel
 int ecall_do_payment(const char* channel_id, int ch_id_len, const char* sender_address, int address_len, unsigned long long amount);
 
-// request for multi hop payment (need routing fee)
-int ecall_do_multihop_payment();
-
 // set state's master address
 int ecall_set_master(const char* master_address, int master_addr_len);
 
@@ -55,6 +52,9 @@ void ecall_print_state();
 
 // take my balance at on-chain
 int ecall_settle_balance(const char* receiver_address, int receiver_addr_len);
+
+// request rouTEE 2 hop payment (need routing fee)
+int ecall_do_multihop_payment(const char* sender_address, int sender_addr_len, const char* receiver_address, int receiver_addr_len, unsigned long long amount, unsigned long long fee);
 
 // check my balance in the channel
 unsigned long long ecall_get_channel_balance(const char* channel_id, int ch_id_len, const char* user_address, int address_len);

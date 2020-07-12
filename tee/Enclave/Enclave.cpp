@@ -233,6 +233,40 @@ int ecall_settle_balance(const char* receiver_address, int receiver_addr_len) {
     return NO_ERROR;
 }
 
+int ecall_do_multihop_payment(const char* sender_address, int sender_addr_len, const char* receiver_address, int receiver_addr_len, unsigned long long amount, unsigned long long fee) {
+    // TODO: check authority to send
+    // if (no authority to send) {
+    //     return ERR_NO_AUTHORITY;
+    // }
+
+    // check the sender has more than amount + fee to send
+    string sender_addr = string(sender_address, sender_addr_len);
+    map<string, unsigned long long>::iterator iter = state.user_balances.find(sender_addr);
+    if (iter == state.user_balances.end() || iter->second < amount + fee) {
+        // sender is not in the state || has not enough balance
+        return ERR_NOT_ENOUGH_BALANCE;
+    }
+
+    // check routing fee
+    if (fee < state.routing_fee) {
+        return ERR_NOT_ENOUGH_FEE;
+    }
+
+    // move balance
+    string receiver_addr = string(receiver_address, receiver_addr_len);
+    state.user_balances[sender_addr] -= (amount + fee);
+    state.user_balances[receiver_addr] += amount;
+    state.user_balances[state.fee_address] += fee;
+
+    // remove 0 balance sender from the state
+    if (state.user_balances[sender_addr] == 0) {
+        state.user_balances.erase(sender_addr);
+    }
+    
+    printf("send %llu from %s to %s / fee %llu to %s\n", amount, sender_addr.c_str(), receiver_addr.c_str(), fee, state.fee_address.c_str());
+    return NO_ERROR;
+}
+
 void ecall_seal_channels() {
     // https://github.com/intel/linux-sgx/blob/master/SampleCode/SealUnseal/Enclave_Seal/Enclave_Seal.cpp
     // https://github.com/intel/linux-sgx/blob/master/SampleCode/SealUnseal/App/App.cpp

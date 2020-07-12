@@ -15,5 +15,6 @@
 #define OP_CREATE_CHANNEL  107 // k
 #define OP_PRINT_STATE  108 // l
 #define OP_SETTLE_BALANCE   109 // m
+#define OP_DO_MULTIHOP_PAYMENT  110 // n
 
 #endif  // _NETWORK_H_
