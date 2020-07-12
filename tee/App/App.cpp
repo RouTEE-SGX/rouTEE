@@ -308,6 +308,74 @@ int do_payment(char* request) {
     return ecall_return;
 }
 
+// set master
+int set_master(char* request) {
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    if (params.size() != 2) {
+        return ERR_INVALID_PARAMS;
+    }
+    string master_address = params[1];
+
+    int ecall_return;
+    int ecall_result = ecall_set_master(global_eid, &ecall_return, master_address.c_str(), master_address.length());
+    printf("ecall_set_master() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_set_master");
+    }
+
+    return ecall_return;
+}
+
+// create channel with rouTEE
+int create_channel(char* request) {
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    if (params.size() != 3) {
+        return ERR_INVALID_PARAMS;
+    }
+    string tx_id = params[1];
+    unsigned int tx_index = strtoul(params[2].c_str(), NULL, 10);
+
+    int ecall_return;
+    int ecall_result = ecall_create_channel(global_eid, &ecall_return, tx_id.c_str(), tx_id.length(), tx_index);
+    printf("ecall_create_channel() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_create_channel");
+    }
+
+    return ecall_return;
+}
+
+// print state
+int print_state() {
+    int ecall_result = ecall_print_state(global_eid);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_print_state");
+    }
+
+    return NO_ERROR;
+}
+
+// settle my balance
+int settle_balance(char* request) {
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    if (params.size() != 2) {
+        return ERR_INVALID_PARAMS;
+    }
+    string receiver_address = params[1];
+
+    int ecall_return;
+    int ecall_result = ecall_settle_balance(global_eid, &ecall_return, receiver_address.c_str(), receiver_address.length());
+    printf("ecall_settle_balance() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_settle_balance");
+    }
+
+    return ecall_return;
+}
+
 // get the balance of the user in this channel
 const char* get_channel_balance(char* request) {
 
@@ -364,6 +432,22 @@ const char* execute_command(char* request) {
     else if (operation == OP_DO_PAYMENT) {
         printf("do payment executed\n");
         ecall_return = do_payment(request);
+    }
+    else if (operation == OP_SET_MASTER) {
+        printf("set master executed\n");
+        ecall_return = set_master(request);
+    }
+    else if (operation == OP_CREATE_CHANNEL) {
+        printf("create channel executed\n");
+        ecall_return = create_channel(request);
+    }
+    else if (operation == OP_PRINT_STATE) {
+        printf("print state executed\n");
+        ecall_return = print_state();
+    }
+    else if (operation == OP_SETTLE_BALANCE) {
+        printf("settle balance executed\n");
+        ecall_return = settle_balance(request);
     }
     else if (operation == OP_GET_CHANNEL_BALANCE) {
         // tricky code to return the balance value
@@ -518,11 +602,11 @@ int SGX_CDECL main(int argc, char* argv[]){
                 else {
                     // set the string terminating NULL byte on the end of the data read
                     request[read_len] = '\0';
-                    printf("client %d says: %s, (len: %d)\n\n", sd, request, read_len);
+                    printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
 
                     // execute client's command
                     response = execute_command(request);
-                    printf("execution result: %s\n", response);
+                    printf("execution result: %s\n\n", response);
 
                     // send result to the client
                     send(sd, response, strlen(response), 0);

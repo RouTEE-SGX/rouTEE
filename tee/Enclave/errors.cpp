@@ -15,9 +15,11 @@ const char* error_to_msg(int err) {
         case ERR_INVALID_USER:
             return "the user is not in that channel";
         case ERR_NOT_ENOUGH_BALANCE:
-            return "the user has not enough balance to pay that amount";
+            return "the user has not enough balance";
         case ERR_ALREADY_EXIST_CHANNEL:
             return "this channel is already added before";
+        case ERR_INVALID_RECEIVER:
+            return "your tx didn't send BTC to the master address";
         default:
             return "wrong error index";
     }

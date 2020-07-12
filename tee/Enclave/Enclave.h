@@ -38,6 +38,18 @@ int ecall_do_payment(const char* channel_id, int ch_id_len, const char* sender_a
 // request for multi hop payment (need routing fee)
 int ecall_do_multihop_payment();
 
+// set state's master address
+int ecall_set_master(const char* master_address, int master_addr_len);
+
+// create a channel with rouTEE (send BTC to master key)
+int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index);
+
+// print all users' address & balance (just for debugging)
+void ecall_print_state();
+
+// take my balance at on-chain
+int ecall_settle_balance(const char* receiver_address, int receiver_addr_len);
+
 // check my balance in the channel
 unsigned long long ecall_get_channel_balance(const char* channel_id, int ch_id_len, const char* user_address, int address_len);
 

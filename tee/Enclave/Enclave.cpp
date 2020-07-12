@@ -6,12 +6,17 @@
 
 #include "channel.h"
 #include "errors.h"
+#include "state.h"
+#include "utils.h"
 
 // user address to the user's channels
 map<string, vector<Channel*>> addresses_to_channels;
 
 // map[channel_id] = Channel*
 map<string, Channel*> channels;
+
+// global state
+State state;
 
 // invoke OCall to display the enclave buffer to the terminal screen
 void printf(const char* fmt, ...) {
@@ -143,6 +148,67 @@ unsigned long long ecall_get_channel_balance(const char* channel_id, int ch_id_l
         // just return max unsigned long long value for easy coding
         return MAX_UNSIGNED_LONG_LONG;
     }
+}
+
+int ecall_set_master(const char* master_address, int master_addr_len){
+    // TODO: check authority to set new master address
+    // if (cannot set new master) {
+    //     return ERR_NO_AUTHORITY;
+    // }
+
+    state.master_address = string(master_address, master_addr_len);
+    return NO_ERROR;
+}
+
+int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index) {
+    
+    // TODO: compare the tx receiver vs rouTEE master key
+    string receiver_addr = "master";
+    if (receiver_addr != state.master_address) {
+        return ERR_INVALID_RECEIVER;
+    }
+
+    // TODO: get sender address & amount from the tx
+    string sender_addr = string(tx_id, tx_id_len) + "_" + long_long_to_string(tx_index);
+    unsigned long long amount = 100;
+
+    state.user_balances[sender_addr] += amount;
+    
+    printf("new channel created with rouTEE -> user: %s / %balance:%llu\n", sender_addr.c_str(), amount);
+    return NO_ERROR;
+}
+
+void ecall_print_state() {
+    // print all the state: all users' address and balance
+    printf("print master address:%s\n", state.master_address.c_str());
+    for (map<string, unsigned long long>::iterator iter = state.user_balances.begin(); iter != state.user_balances.end(); iter++){
+        printf("print user %s balance: %llu\n", (iter->first).c_str(), iter->second);
+    }
+    return;
+}
+
+int ecall_settle_balance(const char* receiver_address, int receiver_addr_len) {
+    // TODO: check authority to get paid the balance
+    // if (no authority to get balance) {
+    //     return ERR_NO_AUTHORITY;
+    // }
+
+    // check the receiver has more than 0 balance
+    string receiver_addr = string(receiver_address, receiver_addr_len);
+    map<string, unsigned long long>::iterator iter = state.user_balances.find(receiver_addr);
+    if (iter == state.user_balances.end() || iter->second == 0) {
+        // receiver is not in the state || has no balance
+        return ERR_NOT_ENOUGH_BALANCE;
+    }
+
+    // TODO: make on-chain tx
+    // tx = make_settle_tx();
+    // ocall_send_tx();
+
+    // remove the user from the state
+    printf("user %s get paid %llu satoshi\n", receiver_addr.c_str(), iter->second);
+    state.user_balances.erase(receiver_addr);
+    return NO_ERROR;
 }
 
 void ecall_seal_channels() {
