@@ -10,8 +10,10 @@
 #define OP_DO_PAYMENT   102 // f
 #define OP_GET_CHANNEL_BALANCE  103 // g
 #define OP_SET_MASTER   104 // h
-#define OP_CREATE_CHANNEL  105 // i
-#define OP_PRINT_STATE  106 // j
-#define OP_SETTLE_BALANCE   107 // k
+#define OP_SET_ROUTING_FEE  105 // i
+#define OP_SET_ROUTING_FEE_ADDRESS  106 // j
+#define OP_CREATE_CHANNEL  107 // k
+#define OP_PRINT_STATE  108 // l
+#define OP_SETTLE_BALANCE   109 // m
 
 #endif  // _NETWORK_H_

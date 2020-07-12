@@ -327,6 +327,44 @@ int set_master(char* request) {
     return ecall_return;
 }
 
+// set routing fee
+int set_routing_fee(char* request) {
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    if (params.size() != 2) {
+        return ERR_INVALID_PARAMS;
+    }
+    unsigned long long fee = strtoull(params[1].c_str(), NULL, 10);
+
+    int ecall_return;
+    int ecall_result = ecall_set_routing_fee(global_eid, &ecall_return, fee);
+    printf("ecall_set_routing_fee() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_set_routing_fee");
+    }
+
+    return ecall_return;
+}
+
+// set routing fee address
+int set_routing_fee_address(char* request) {
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    if (params.size() != 2) {
+        return ERR_INVALID_PARAMS;
+    }
+    string fee_address = params[1];
+
+    int ecall_return;
+    int ecall_result = ecall_set_routing_fee_address(global_eid, &ecall_return, fee_address.c_str(), fee_address.length());
+    printf("ecall_set_routing_fee_address() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_set_routing_fee_address");
+    }
+
+    return ecall_return;
+}
+
 // create channel with rouTEE
 int create_channel(char* request) {
     // parse request as ecall function params
@@ -436,6 +474,14 @@ const char* execute_command(char* request) {
     else if (operation == OP_SET_MASTER) {
         printf("set master executed\n");
         ecall_return = set_master(request);
+    }
+    else if (operation == OP_SET_ROUTING_FEE) {
+        printf("set routing fee executed\n");
+        ecall_return = set_routing_fee(request);
+    }
+    else if (operation == OP_SET_ROUTING_FEE_ADDRESS) {
+        printf("set routing fee address executed\n");
+        ecall_return = set_routing_fee_address(request);
     }
     else if (operation == OP_CREATE_CHANNEL) {
         printf("create channel executed\n");

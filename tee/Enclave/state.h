@@ -14,6 +14,11 @@ class State {
         string master_public_key;
         string master_private_key;
 
+        // multi-hop payment fee
+        unsigned long long routing_fee;
+        // address to get routing fees
+        string fee_address;
+
         // map[user_address] = user_balance
         map<string, unsigned long long> user_balances;
 

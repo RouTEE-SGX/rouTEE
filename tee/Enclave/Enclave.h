@@ -41,6 +41,12 @@ int ecall_do_multihop_payment();
 // set state's master address
 int ecall_set_master(const char* master_address, int master_addr_len);
 
+// set routing fee
+int ecall_set_routing_fee(unsigned long long fee);
+
+// set routing fee address
+int ecall_set_routing_fee_address(const char* fee_address, int fee_addr_len);
+
 // create a channel with rouTEE (send BTC to master key)
 int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index);
 
