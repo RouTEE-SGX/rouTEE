@@ -308,20 +308,20 @@ int do_payment(char* request) {
     return ecall_return;
 }
 
-// set master
-int set_master(char* request) {
+// set owner
+int set_owner(char* request) {
     // parse request as ecall function params
     vector<string> params = parse_request(request);
     if (params.size() != 2) {
         return ERR_INVALID_PARAMS;
     }
-    string master_address = params[1];
+    string owner_address = params[1];
 
     int ecall_return;
-    int ecall_result = ecall_set_master(global_eid, &ecall_return, master_address.c_str(), master_address.length());
-    printf("ecall_set_master() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    int ecall_result = ecall_set_owner(global_eid, &ecall_return, owner_address.c_str(), owner_address.length());
+    printf("ecall_set_owner() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
-        error("ecall_set_master");
+        error("ecall_set_owner");
     }
 
     return ecall_return;
@@ -493,9 +493,9 @@ const char* execute_command(char* request) {
         printf("do payment executed\n");
         ecall_return = do_payment(request);
     }
-    else if (operation == OP_SET_MASTER) {
-        printf("set master executed\n");
-        ecall_return = set_master(request);
+    else if (operation == OP_SET_OWNER) {
+        printf("set owner executed\n");
+        ecall_return = set_owner(request);
     }
     else if (operation == OP_SET_ROUTING_FEE) {
         printf("set routing fee executed\n");

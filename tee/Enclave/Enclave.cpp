@@ -150,13 +150,13 @@ unsigned long long ecall_get_channel_balance(const char* channel_id, int ch_id_l
     }
 }
 
-int ecall_set_master(const char* master_address, int master_addr_len){
-    // TODO: check authority to set new master address
-    // if (cannot set new master) {
+int ecall_set_owner(const char* owner_address, int owner_addr_len){
+    // TODO: check authority to set new owner address
+    // if (cannot set new owner) {
     //     return ERR_NO_AUTHORITY;
     // }
 
-    state.master_address = string(master_address, master_addr_len);
+    state.owner_address = string(owner_address, owner_addr_len);
     return NO_ERROR;
 }
 
@@ -182,9 +182,9 @@ int ecall_set_routing_fee_address(const char* fee_address, int fee_addr_len){
 
 int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index) {
     
-    // TODO: compare the tx receiver vs rouTEE master key
-    string receiver_addr = "master";
-    if (receiver_addr != state.master_address) {
+    // TODO: compare the tx receiver vs rouTEE owner key
+    string receiver_addr = "owner";
+    if (receiver_addr != state.owner_address) {
         return ERR_INVALID_RECEIVER;
     }
 
@@ -200,7 +200,7 @@ int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index
 
 void ecall_print_state() {
     // print all the state: all users' address and balance
-    printf("    master address: %s\n", state.master_address.c_str());
+    printf("    owner address: %s\n", state.owner_address.c_str());
     printf("    routing fee: %llu\n", state.routing_fee);
     printf("    routing fee to %s\n", state.fee_address.c_str());
     for (map<string, unsigned long long>::iterator iter = state.user_balances.begin(); iter != state.user_balances.end(); iter++){

@@ -9,10 +9,10 @@ using std::map;
 class State {
 
     public:
-        // key which is generated in SGX (deposit account)
-        string master_address;
-        string master_public_key;
-        string master_private_key;
+        // key which is generated in SGX (owner account of rouTEE)
+        string owner_address;
+        string owner_public_key;
+        string owner_private_key;
 
         // multi-hop payment fee
         unsigned long long routing_fee;

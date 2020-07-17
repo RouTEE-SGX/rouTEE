@@ -19,6 +19,8 @@
 
 #define TOKEN_FILENAME  "enclave.token"
 #define ENCLAVE_FILENAME    "enclave.signed.so"
+#define OWNER_KEY_FILENAME "owner.key.encrypted"
+
 #define MAX_MSG_SIZE    1024
 #define MAX_CLIENTS 30
 #define SERVER_IP   "127.0.0.1"
