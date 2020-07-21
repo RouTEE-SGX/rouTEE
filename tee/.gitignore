@@ -1,3 +1,4 @@
 .config_*
 client/client
 remake.sh
+owner.key.encrypted
