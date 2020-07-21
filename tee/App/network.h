@@ -9,6 +9,7 @@
 #define OP_REMOVE_CHANNEL   101 // e
 #define OP_DO_PAYMENT   102 // f
 #define OP_GET_CHANNEL_BALANCE  103 // g
+
 #define OP_SET_ROUTING_FEE  104 // h
 #define OP_SET_ROUTING_FEE_ADDRESS  105 // i
 #define OP_CREATE_CHANNEL  106 // j

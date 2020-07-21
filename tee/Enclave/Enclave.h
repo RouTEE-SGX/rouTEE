@@ -35,9 +35,6 @@ int ecall_remove_channel(const char* target_channel_id, int ch_id_len);
 // request payment for my channel
 int ecall_do_payment(const char* channel_id, int ch_id_len, const char* sender_address, int address_len, unsigned long long amount);
 
-// set state's owner address
-int ecall_set_owner(const char* owner_address, int owner_addr_len);
-
 // set routing fee
 int ecall_set_routing_fee(unsigned long long fee);
 

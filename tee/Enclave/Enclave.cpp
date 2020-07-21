@@ -152,31 +152,31 @@ unsigned long long ecall_get_channel_balance(const char* channel_id, int ch_id_l
     }
 }
 
-int ecall_set_owner(const char* owner_address, int owner_addr_len){
-    // TODO: check authority to set new owner address
-    // if (cannot set new owner) {
-    //     return ERR_NO_AUTHORITY;
-    // }
-
-    state.owner_address = string(owner_address, owner_addr_len);
-    return NO_ERROR;
-}
+// (old version)
+// -----------------------------------------------------------------------------------------------------------------------------------------------
+// (new version)
 
 int ecall_set_routing_fee(unsigned long long fee){
-    // TODO: check authority to set new routing fee
+    //
+    // TODO: BITCOIN
+    // check authority to set new routing fee (ex. routing_fee_address's signature)
     // if (cannot set new routing fee) {
     //     return ERR_NO_AUTHORITY;
     // }
+    //
 
     state.routing_fee = fee;
     return NO_ERROR;
 }
 
 int ecall_set_routing_fee_address(const char* fee_address, int fee_addr_len){
-    // TODO: check authority to set new routing fee address
+    //
+    // TODO: BITCOIN
+    // check authority to set new routing fee address (ex. older routing_fee_address's signature)
     // if (cannot set new routing fee address) {
     //     return ERR_NO_AUTHORITY;
     // }
+    //
 
     state.fee_address = string(fee_address, fee_addr_len);
     return NO_ERROR;
@@ -184,16 +184,25 @@ int ecall_set_routing_fee_address(const char* fee_address, int fee_addr_len){
 
 int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index) {
     
-    // TODO: compare the tx receiver vs rouTEE owner key
+    // 
+    // TODO: BITCOIN
+    // get this tx info (receiver) & compare the tx receiver vs rouTEE owner key
+    // 
+    // temp code
     string receiver_addr = "";
     if (receiver_addr != state.owner_address) {
         return ERR_INVALID_RECEIVER;
     }
 
-    // TODO: get sender address & amount from the tx
+    // 
+    // TODO: BITCOIN
+    // get this tx info (ex. sender address & amount)
+    //
+    // temp code
     string sender_addr = string(tx_id, tx_id_len) + "_" + long_long_to_string(tx_index);
     unsigned long long amount = 100;
 
+    // add user's balance
     state.user_balances[sender_addr] += amount;
     
     printf("new channel created with rouTEE -> user: %s / %balance:%llu\n", sender_addr.c_str(), amount);
@@ -212,10 +221,13 @@ void ecall_print_state() {
 }
 
 int ecall_settle_balance(const char* receiver_address, int receiver_addr_len) {
-    // TODO: check authority to get paid the balance
+    //
+    // TODO: BITCOIN
+    // check authority to get paid the balance (ex. receiver's signature with settlement params)
     // if (no authority to get balance) {
     //     return ERR_NO_AUTHORITY;
     // }
+    //
 
     // check the receiver has more than 0 balance
     string receiver_addr = string(receiver_address, receiver_addr_len);
@@ -225,9 +237,12 @@ int ecall_settle_balance(const char* receiver_address, int receiver_addr_len) {
         return ERR_NOT_ENOUGH_BALANCE;
     }
 
-    // TODO: make on-chain tx
+    //
+    // TODO: BITCOIN
+    // make on-chain bitcoin tx
     // tx = make_settle_tx();
     // ocall_send_tx();
+    //
 
     // remove the user from the state
     printf("user %s get paid %llu satoshi\n", receiver_addr.c_str(), iter->second);
@@ -236,10 +251,13 @@ int ecall_settle_balance(const char* receiver_address, int receiver_addr_len) {
 }
 
 int ecall_do_multihop_payment(const char* sender_address, int sender_addr_len, const char* receiver_address, int receiver_addr_len, unsigned long long amount, unsigned long long fee) {
-    // TODO: check authority to send
+    //
+    // TODO: BITCOIN
+    // check authority to send (ex. sender's signature with these params)
     // if (no authority to send) {
     //     return ERR_NO_AUTHORITY;
     // }
+    //
 
     // check the sender has more than amount + fee to send
     string sender_addr = string(sender_address, sender_addr_len);
@@ -270,8 +288,11 @@ int ecall_do_multihop_payment(const char* sender_address, int sender_addr_len, c
 }
 
 int ecall_make_owner_key(char* sealed_owner_private_key, int* sealed_key_len) {
-    // TODO: make random bitcoin key pair
-    char random_private_key[300] = "abcde";
+    //
+    // TODO: BITCOIN
+    // make random bitcoin private key
+    //
+    char random_private_key[300] = "abcde"; // temp code
     printf("random private key: %s\n", random_private_key);
 
     // seal the private key
@@ -304,8 +325,15 @@ int ecall_load_owner_key(const char* sealed_owner_private_key, int sealed_key_le
         return ERR_SGX_ERROR_UNSEAL_FAILED;
     }
 
+    // set owner_private_key
     state.owner_private_key.assign(unsealed_private_key, unsealed_private_key + unsealed_key_length);
     printf("owner private key: %s\n", state.owner_private_key.c_str());
+
+    //
+    // TODO: BITCOIN
+    // set owner_public_key & owner_address
+    // 
+
     return NO_ERROR;
 }
 
