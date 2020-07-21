@@ -185,7 +185,7 @@ int ecall_set_routing_fee_address(const char* fee_address, int fee_addr_len){
 int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index) {
     
     // TODO: compare the tx receiver vs rouTEE owner key
-    string receiver_addr = "owner";
+    string receiver_addr = "";
     if (receiver_addr != state.owner_address) {
         return ERR_INVALID_RECEIVER;
     }
