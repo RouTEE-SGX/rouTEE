@@ -5,6 +5,9 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <sys/stat.h>
+#include <iostream>
+#include <fstream>
 
 #include "sgx_urts.h"
 #include "App.h"
@@ -213,17 +216,66 @@ void ocall_print_string(const char* str){
 
 // clean up the program and terminate it
 void cleanup() {
+    printf("terminate the app\n");
     sgx_destroy_enclave(global_eid);
     exit(1);
 }
 
 // print error msg and end program
 void error(const char* errmsg) {
-    printf("%s\n", errmsg);
+    printf("error occurred: %s\n", errmsg);
     cleanup();
 }
 
-// parse request as ecall function params
+// set owner key inside the enclave
+void set_owner() {
+    
+    // if there is no owner key, create new one
+    struct stat buffer;
+    char sealed_owner_private_key[MAX_SEALED_DATA_LENGTH];
+    if (stat (OWNER_KEY_FILENAME, &buffer) != 0) {
+        // make new private key
+        printf("generate new owner key\n");
+        int ecall_return;
+        int sealed_key_len;
+        int ecall_result = ecall_make_owner_key(global_eid, &ecall_return, sealed_owner_private_key, &sealed_key_len);
+        printf("ecall_make_owner_key() -> result:%d / return:%d\n", ecall_result, ecall_return);
+        if (ecall_result != SGX_SUCCESS) {
+            error("ecall_make_owner_key");
+        }
+
+        // save sealed owner private key as a file
+        std::ofstream out(OWNER_KEY_FILENAME);
+        if (!out){
+            error("cannot open file");
+        }
+        // out.write(sealed_owner_private_key, strlen(sealed_owner_private_key));
+        out.write(sealed_owner_private_key, sealed_key_len);
+        out.close();
+    } else {
+        // load sealed private key from the file
+        printf("read sealed owner key from the file");
+        std::ifstream in(OWNER_KEY_FILENAME);
+        std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        memcpy(sealed_owner_private_key, contents.c_str(), contents.length());
+    }
+    
+    // load owner key's address
+    printf("load owner key\n");
+    int ecall_return;
+    int ecall_result = ecall_load_owner_key(global_eid, &ecall_return, sealed_owner_private_key, sizeof sealed_owner_private_key);
+    printf("ecall_load_owner_key() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_load_owner_key");
+    }
+    if (ecall_return != 0) {
+        error(error_to_msg(ecall_return));
+    }
+
+    printf("set_owner() finished\n");
+}
+
+// parse request as ecall function params (delimiter: ' ')
 vector<string> parse_request(const char* request) {
     string req(request);
     stringstream ss(req);
@@ -303,25 +355,6 @@ int do_payment(char* request) {
     printf("ecall_do_payment() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_do_payment");
-    }
-
-    return ecall_return;
-}
-
-// set owner
-int set_owner(char* request) {
-    // parse request as ecall function params
-    vector<string> params = parse_request(request);
-    if (params.size() != 2) {
-        return ERR_INVALID_PARAMS;
-    }
-    string owner_address = params[1];
-
-    int ecall_return;
-    int ecall_result = ecall_set_owner(global_eid, &ecall_return, owner_address.c_str(), owner_address.length());
-    printf("ecall_set_owner() -> result:%d / return:%d\n", ecall_result, ecall_return);
-    if (ecall_result != SGX_SUCCESS) {
-        error("ecall_set_owner");
     }
 
     return ecall_return;
@@ -493,10 +526,6 @@ const char* execute_command(char* request) {
         printf("do payment executed\n");
         ecall_return = do_payment(request);
     }
-    else if (operation == OP_SET_OWNER) {
-        printf("set owner executed\n");
-        ecall_return = set_owner(request);
-    }
     else if (operation == OP_SET_ROUTING_FEE) {
         printf("set routing fee executed\n");
         ecall_return = set_routing_fee(request);
@@ -549,6 +578,9 @@ int SGX_CDECL main(int argc, char* argv[]){
         getchar();
         return -1;
     }
+
+    // set owner key
+    set_owner();
 
     // run socket server to get commands
     int opt = TRUE;

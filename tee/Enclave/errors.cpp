@@ -22,6 +22,12 @@ const char* error_to_msg(int err) {
             return "your tx didn't send BTC to the owner address";
         case ERR_NOT_ENOUGH_FEE:
             return "need higher routing fee";
+        case ERR_SGX_ERROR_UNEXPECTED:
+            return "sgx error: SGX_ERROR_UNEXPECTED";
+        case ERR_SGX_ERROR_SEAL_FAILED:
+            return "sgx sealing failed";
+        case ERR_SGX_ERROR_UNSEAL_FAILED:
+            return "sgx unsealing failed";
         default:
             return "wrong error index";
     }

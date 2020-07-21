@@ -3,6 +3,8 @@
 
 #include "Enclave.h"
 #include "Enclave_t.h"
+#include "sgx_trts.h"
+#include "sgx_tseal.h"
 
 #include "channel.h"
 #include "errors.h"
@@ -264,6 +266,46 @@ int ecall_do_multihop_payment(const char* sender_address, int sender_addr_len, c
     }
     
     printf("send %llu from %s to %s / fee %llu to %s\n", amount, sender_addr.c_str(), receiver_addr.c_str(), fee, state.fee_address.c_str());
+    return NO_ERROR;
+}
+
+int ecall_make_owner_key(char* sealed_owner_private_key, int* sealed_key_len) {
+    // TODO: make random bitcoin key pair
+    char random_private_key[300] = "abcde";
+    printf("random private key: %s\n", random_private_key);
+
+    // seal the private key
+    uint32_t sealed_data_size = sgx_calc_sealed_data_size(0, (uint32_t)strlen(random_private_key));
+    *sealed_key_len = sealed_data_size;
+    if (sealed_data_size == UINT32_MAX) {
+        return ERR_SGX_ERROR_UNEXPECTED;
+    }
+    sgx_sealed_data_t *sealed_key_buffer = (sgx_sealed_data_t *) malloc(sealed_data_size);
+    sgx_status_t status = sgx_seal_data(0, NULL, (uint32_t)strlen(random_private_key), (uint8_t *) random_private_key, sealed_data_size, sealed_key_buffer);
+    if (status != SGX_SUCCESS) {
+        return ERR_SGX_ERROR_SEAL_FAILED;
+    }
+
+    // copy sealed key to the app buffer
+    memcpy(sealed_owner_private_key, sealed_key_buffer, sealed_data_size);
+    free(sealed_key_buffer);
+    return NO_ERROR;
+}
+
+int ecall_load_owner_key(const char* sealed_owner_private_key, int sealed_key_len) {
+    // for edge8r
+    (void) sealed_key_len;
+
+    // unseal the sealed private key
+    uint32_t unsealed_key_length = sgx_get_encrypt_txt_len((const sgx_sealed_data_t *) sealed_owner_private_key);
+    uint8_t unsealed_private_key[unsealed_key_length];
+    sgx_status_t status = sgx_unseal_data((const sgx_sealed_data_t *) sealed_owner_private_key, NULL, 0, unsealed_private_key, &unsealed_key_length);
+    if (status != SGX_SUCCESS) {
+        return ERR_SGX_ERROR_UNSEAL_FAILED;
+    }
+
+    state.owner_private_key.assign(unsealed_private_key, unsealed_private_key + unsealed_key_length);
+    printf("owner private key: %s\n", state.owner_private_key.c_str());
     return NO_ERROR;
 }
 

@@ -56,6 +56,12 @@ int ecall_settle_balance(const char* receiver_address, int receiver_addr_len);
 // request rouTEE 2 hop payment (need routing fee)
 int ecall_do_multihop_payment(const char* sender_address, int sender_addr_len, const char* receiver_address, int receiver_addr_len, unsigned long long amount, unsigned long long fee);
 
+// save randomly created and encrypted owner key
+int ecall_make_owner_key(char* sealed_owner_private_key, int* sealed_key_len);
+
+// decrypt the encrypted owner key file & load it into the enclave
+int ecall_load_owner_key(const char* sealed_owner_private_key, int sealed_key_len);
+
 // check my balance in the channel
 unsigned long long ecall_get_channel_balance(const char* channel_id, int ch_id_len, const char* user_address, int address_len);
 
