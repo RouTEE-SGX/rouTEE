@@ -17,28 +17,6 @@ void printf(const char* fmt, ...);
 // just print "hello world"
 void printf_helloworld();
 
-// add my channel to rouTEE (= deposit)
-int ecall_add_channel(const char* tx_id, int tx_id_len, unsigned int tx_index);
-
-// print all channels (just for debugging)
-void ecall_print_channels();
-
-// seal all channels
-void ecall_seal_channels();
-
-// unseal all channels
-void ecall_unseal_channels();
-
-// remove my channel from rouTEE (= withdraw)
-int ecall_remove_channel(const char* target_channel_id, int ch_id_len);
-
-// request payment for my channel
-int ecall_do_payment(const char* channel_id, int ch_id_len, const char* sender_address, int address_len, unsigned long long amount);
-
-// (old version)
-// -----------------------------------------------------------------------------------------------------------------------------------------------
-// (new version)
-
 // set routing fee
 int ecall_set_routing_fee(unsigned long long fee);
 

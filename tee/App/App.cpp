@@ -286,80 +286,6 @@ vector<string> parse_request(const char* request) {
     return params;
 }
 
-// add channel into the enclave
-int add_channel(char* request) {
-
-    // parse request as ecall function params
-    vector<string> params = parse_request(request);
-    if (params.size() != 3) {
-        return ERR_INVALID_PARAMS;
-    }
-    string tx_id = params[1];
-    unsigned int tx_index = strtoul(params[2].c_str(), NULL, 10);
-
-    int ecall_return;
-    int ecall_result = ecall_add_channel(global_eid, &ecall_return, tx_id.c_str(), tx_id.length(), tx_index);
-    printf("ecall_add_channel() -> result:%d / return:%d\n", ecall_result, ecall_return);
-    if (ecall_result != SGX_SUCCESS) {
-        error("ecall_add_channel");
-    }
-
-    return ecall_return;
-}
-
-int print_channels() {
-    int ecall_result = ecall_print_channels(global_eid);
-    if (ecall_result != SGX_SUCCESS) {
-        error("ecall_print_channels");
-    }
-
-    return NO_ERROR;
-}
-
-// remove channel from the enclave
-int remove_channel(char* request) {
-
-    // parse request as ecall function params
-    vector<string> params = parse_request(request);
-    if (params.size() != 2) {
-        return ERR_INVALID_PARAMS;
-    }
-    string target_ch_id = params[1];
-
-    // execute ecall
-    int ecall_return;
-    int ecall_result = ecall_remove_channel(global_eid, &ecall_return, target_ch_id.c_str(), target_ch_id.length());
-    printf("ecall_remove_channel() -> result:%d / return:%d\n", ecall_result, ecall_return);
-    if (ecall_result != SGX_SUCCESS) {
-        error("ecall_remove_channel");
-    }
-
-    return ecall_return;
-}
-
-// do 1 to 1 single channel payment
-int do_payment(char* request) {
-
-    // parse request as ecall function params
-    vector<string> params = parse_request(request);
-    if (params.size() != 4) {
-        return ERR_INVALID_PARAMS;
-    }
-    string channel_id = params[1];
-    string sender_address = params[2];
-    unsigned long long amount = strtoull(params[3].c_str(), NULL, 10);
-    
-    // execute ecall
-    int ecall_return;
-    int ecall_result = ecall_do_payment(global_eid, &ecall_return, channel_id.c_str(), channel_id.length(), sender_address.c_str(), sender_address.length(), amount);
-    printf("ecall_do_payment() -> result:%d / return:%d\n", ecall_result, ecall_return);
-    if (ecall_result != SGX_SUCCESS) {
-        error("ecall_do_payment");
-    }
-
-    return ecall_return;
-}
-
 // set routing fee
 int set_routing_fee(char* request) {
     // parse request as ecall function params
@@ -469,37 +395,6 @@ int do_multihop_payment(char* request) {
     return ecall_return;
 }
 
-// get the balance of the user in this channel
-const char* get_channel_balance(char* request) {
-
-    // parse request as ecall function params
-    vector<string> params = parse_request(request);
-    if (params.size() != 3) {
-        return error_to_msg(ERR_INVALID_PARAMS);
-    }
-    string channel_id = params[1];
-    string user_address = params[2];
-    
-    // execute ecall
-    unsigned long long ecall_return;
-    int ecall_result = ecall_get_channel_balance(global_eid, &ecall_return, channel_id.c_str(), channel_id.length(), user_address.c_str(), user_address.length());
-    printf("ecall_get_channel_balance() -> result:%d / return:%llu\n", ecall_result, ecall_return);
-    if (ecall_result != SGX_SUCCESS) {
-        error("ecall_do_payment");
-    }
-
-    if (ecall_return == MAX_UNSIGNED_LONG_LONG) {
-        // return error message
-        return "you cannot access to this channel's balance";
-    }
-    else {
-        // return the balance as a string
-        static char balance[30];
-        snprintf(balance, 30, "%llu", ecall_return);
-        return balance;
-    }
-}
-
 // execute client's command
 const char* execute_command(char* request) {
     char operation = request[0];
@@ -509,22 +404,6 @@ const char* execute_command(char* request) {
         // sample template code
         printf("operation push A executed\n");
         ecall_return = NO_ERROR;
-    }
-    else if (operation == OP_ADD_CHANNEL) {
-        printf("add channel operation executed\n");
-        ecall_return = add_channel(request);
-    }
-    else if (operation == OP_PRINT_CHANNELS) {
-        printf("print channels executed\n");
-        ecall_return = print_channels();
-    }
-    else if (operation == OP_REMOVE_CHANNEL) {
-        printf("remove channels executed\n");
-        ecall_return = remove_channel(request);
-    }
-    else if (operation == OP_DO_PAYMENT) {
-        printf("do payment executed\n");
-        ecall_return = do_payment(request);
     }
     else if (operation == OP_SET_ROUTING_FEE) {
         printf("set routing fee executed\n");
@@ -549,11 +428,6 @@ const char* execute_command(char* request) {
     else if (operation == OP_DO_MULTIHOP_PAYMENT) {
         printf("do multihop payment executed\n");
         ecall_return = do_multihop_payment(request);
-    }
-    else if (operation == OP_GET_CHANNEL_BALANCE) {
-        // tricky code to return the balance value
-        printf("get channel balance executed\n");
-        return get_channel_balance(request);
     }
     else{
         // wrong op_code

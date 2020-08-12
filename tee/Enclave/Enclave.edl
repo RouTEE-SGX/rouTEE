@@ -6,13 +6,6 @@ enclave {
         // define ECALLs here
         
         public void printf_helloworld();
-        public int ecall_add_channel([in, size=tx_id_len] const char* tx_id, int tx_id_len, unsigned int tx_index);
-        public void ecall_print_channels();
-        public void ecall_seal_channels();
-        public void ecall_unseal_channels();
-        public int ecall_remove_channel([in, size=ch_id_len] const char* target_ch_id, int ch_id_len);
-        public int ecall_do_payment([in, size=ch_id_len] const char* channel_id, int ch_id_len, [in, size=address_len] const char* sender_address, int address_len, unsigned long long amount);
-        public unsigned long long ecall_get_channel_balance([in, size=ch_id_len] const char* channel_id, int ch_id_len, [in, size=address_len] const char* user_address, int address_len);
         public int ecall_set_routing_fee(unsigned long long fee);
         public int ecall_set_routing_fee_address([in, size=fee_addr_len] const char* fee_address, int fee_addr_len);
         public int ecall_create_channel([in, size=tx_id_len] const char* tx_id, int tx_id_len, unsigned int tx_index);
