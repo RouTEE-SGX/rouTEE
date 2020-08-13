@@ -227,6 +227,38 @@ void error(const char* errmsg) {
     cleanup();
 }
 
+// load encrypted state from a file
+void load_state() {
+
+    // if there is no saved state, just terminate
+    struct stat buffer;
+    char sealed_state[MAX_SEALED_DATA_LENGTH];
+    if (stat (STATE_FILENAME, &buffer) != 0) {
+        printf("there is no saved state. just start rouTEE\n");
+        return;
+    } else {
+        // load sealed state from the file
+        printf("read sealed state from the file");
+        std::ifstream in(STATE_FILENAME);
+        std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        memcpy(sealed_state, contents.c_str(), contents.length());
+    }
+
+    // load state
+    printf("load state\n");
+    int ecall_return;
+    int ecall_result = ecall_load_state(global_eid, &ecall_return, sealed_state, sizeof sealed_state);
+    printf("ecall_load_state() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_load_state");
+    }
+    if (ecall_return != 0) {
+        error(error_to_msg(ecall_return));
+    }
+
+    printf("load state from a file\n");
+}
+
 // set owner key inside the enclave
 void set_owner() {
     
@@ -395,6 +427,33 @@ int do_multihop_payment(char* request) {
     return ecall_return;
 }
 
+// save sealed current state as a file
+void seal_state() {
+
+    // if there is no owner key, create new one
+    struct stat buffer;
+    char sealed_state[MAX_SEALED_DATA_LENGTH];
+
+    // get sealed current state
+    int ecall_return;
+    int sealed_state_len;
+    int ecall_result = ecall_seal_state(global_eid, &ecall_return, sealed_state, &sealed_state_len);
+    printf("ecall_seal_state() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_seal_state");
+    }
+
+    // save sealed state as a file
+    std::ofstream out(STATE_FILENAME);
+    if (!out){
+        error("cannot open file");
+    }
+    out.write(sealed_state, sealed_state_len);
+    out.close();
+
+    printf("seal_state() success!\n");
+}
+
 // execute client's command
 const char* execute_command(char* request) {
     char operation = request[0];
@@ -435,6 +494,12 @@ const char* execute_command(char* request) {
         ecall_return = ERR_INVALID_OP_CODE; // actually this is not ecall return value, ecall doesn't happen
     }
 
+    // save state inside the enclave
+    if (STATE_SAVE_EPOCH != 0 && state_save_counter % STATE_SAVE_EPOCH == 0) {
+        seal_state();
+    }
+    state_save_counter++;
+
     return error_to_msg(ecall_return);
 }
 
@@ -453,7 +518,11 @@ int SGX_CDECL main(int argc, char* argv[]){
         return -1;
     }
 
+    // if there is a saved state, load it
+    load_state();
+
     // set owner key
+    // TODO: merge this function with load_state()
     set_owner();
 
     // run socket server to get commands

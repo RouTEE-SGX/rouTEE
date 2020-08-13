@@ -20,7 +20,11 @@
 #define TOKEN_FILENAME  "enclave.token"
 #define ENCLAVE_FILENAME    "enclave.signed.so"
 #define OWNER_KEY_FILENAME "owner.key.encrypted"
+#define STATE_FILENAME  "state.encrypted"
 #define MAX_SEALED_DATA_LENGTH   10000
+
+#define STATE_SAVE_EPOCH    1 // 0 means do not save state
+int state_save_counter = 0;
 
 #define MAX_MSG_SIZE    1024
 #define MAX_CLIENTS 30
