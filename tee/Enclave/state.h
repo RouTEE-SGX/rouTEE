@@ -6,9 +6,32 @@
 using std::string;
 using std::map;
 
+// temp code delete this later
+#include <vector>
+using std::vector;
+
+// user infos
+class Account {
+
+    public:
+        unsigned long long balance;
+        unsigned long long nonce;
+        // string public_key; // need this?
+};
+
+// global state
 class State {
 
     public:
+        // collect all fields as a string with delimitor
+        string to_string();
+        // restore state from string
+        // void from_string(string state_str);
+        vector<string> from_string(string state_str); // just for debugging, change return type as a void later
+
+        // state version number (monotonically increasing counter)
+        unsigned long long stateID;
+
         // key which is generated in SGX (owner account of rouTEE)
         string owner_address;
         string owner_public_key;
@@ -18,9 +41,12 @@ class State {
         unsigned long long routing_fee;
         // address to get routing fees
         string fee_address;
+        // pending routing fees to owner
+        // pending_fees[payment_paticipant's_address] = routing fees pending for him
+        map<string, unsigned long long> pending_fees;
 
-        // map[user_address] = user_balance
-        map<string, unsigned long long> user_balances;
+        // users[user_address] = the user's Account
+        map<string, Account*> users;
 
         // deposit transactions
         // string tx_ids;
