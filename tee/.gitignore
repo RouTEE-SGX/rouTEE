@@ -3,3 +3,4 @@ client/client
 remake.sh
 owner.key.encrypted
 state.encrypted
+core
