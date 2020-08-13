@@ -11,12 +11,6 @@
 #include "state.h"
 #include "utils.h"
 
-// user address to the user's channels
-map<string, vector<Channel*>> addresses_to_channels;
-
-// map[channel_id] = Channel*
-map<string, Channel*> channels;
-
 // global state
 State state;
 
@@ -82,8 +76,21 @@ int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index
     string sender_addr = string(tx_id, tx_id_len) + "_" + long_long_to_string(tx_index);
     unsigned long long amount = 100;
 
-    // add user's balance
-    state.user_balances[sender_addr] += amount;
+    // check the user exists
+    map<string, Account*>::iterator iter = state.users.find(sender_addr);
+    if (iter == state.users.end()) {
+        // sender is not in the state, create new account
+        Account* acc = new Account;
+        acc->balance = 0;
+        acc->nonce = 0;
+        state.users[sender_addr] = acc;
+    }
+
+    // set user's balance
+    state.users[sender_addr]->balance += amount;
+
+    // increase state id
+    state.stateID++;
     
     printf("new channel created with rouTEE -> user: %s / %balance:%llu\n", sender_addr.c_str(), amount);
     return NO_ERROR;
@@ -94,9 +101,19 @@ void ecall_print_state() {
     printf("    owner address: %s\n", state.owner_address.c_str());
     printf("    routing fee: %llu\n", state.routing_fee);
     printf("    routing fee to %s\n", state.fee_address.c_str());
-    for (map<string, unsigned long long>::iterator iter = state.user_balances.begin(); iter != state.user_balances.end(); iter++){
-        printf("    user %s balance: %llu\n", (iter->first).c_str(), iter->second);
+    for (map<string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
+        printf("    user %s balance: %llu / nonce: %llu\n", (iter->first).c_str(), iter->second->balance, iter->second->nonce);
     }
+
+    // test code
+    string state_str = state.to_string();
+    printf("state to string: %s\n", state_str.c_str());
+    vector<string> fields = state.from_string(state_str);
+    for (vector<string>::const_iterator i = fields.begin(); i != fields.end(); ++i){
+        printf("state field: %s\n", i->c_str());
+    }
+    printf("state to string after restore: %s\n", state_str.c_str());
+
     return;
 }
 
@@ -111,8 +128,8 @@ int ecall_settle_balance(const char* receiver_address, int receiver_addr_len) {
 
     // check the receiver has more than 0 balance
     string receiver_addr = string(receiver_address, receiver_addr_len);
-    map<string, unsigned long long>::iterator iter = state.user_balances.find(receiver_addr);
-    if (iter == state.user_balances.end() || iter->second == 0) {
+    map<string, Account*>::iterator iter = state.users.find(receiver_addr);
+    if (iter == state.users.end() || iter->second->balance == 0) {
         // receiver is not in the state || has no balance
         return ERR_NOT_ENOUGH_BALANCE;
     }
@@ -124,9 +141,18 @@ int ecall_settle_balance(const char* receiver_address, int receiver_addr_len) {
     // ocall_send_tx();
     //
 
-    // remove the user from the state
-    printf("user %s get paid %llu satoshi\n", receiver_addr.c_str(), iter->second);
-    state.user_balances.erase(receiver_addr);
+    // set user's account
+    printf("user %s get paid %llu satoshi\n", receiver_addr.c_str(), iter->second->balance);
+    state.users[receiver_addr]->balance = 0;
+    state.users[receiver_addr]->nonce++; // prevent payment replay attack
+
+    //
+    // TODO: commit pending fee to rouTEE operator (= fee address)
+    //
+
+    // increase state id
+    state.stateID++;
+
     return NO_ERROR;
 }
 
@@ -141,8 +167,8 @@ int ecall_do_multihop_payment(const char* sender_address, int sender_addr_len, c
 
     // check the sender has more than amount + fee to send
     string sender_addr = string(sender_address, sender_addr_len);
-    map<string, unsigned long long>::iterator iter = state.user_balances.find(sender_addr);
-    if (iter == state.user_balances.end() || iter->second < amount + fee) {
+    map<string, Account*>::iterator iter = state.users.find(sender_addr);
+    if (iter == state.users.end() || iter->second->balance < amount + fee) {
         // sender is not in the state || has not enough balance
         return ERR_NOT_ENOUGH_BALANCE;
     }
@@ -152,18 +178,31 @@ int ecall_do_multihop_payment(const char* sender_address, int sender_addr_len, c
         return ERR_NOT_ENOUGH_FEE;
     }
 
-    // move balance
+    // check the receiver exists
     string receiver_addr = string(receiver_address, receiver_addr_len);
-    state.user_balances[sender_addr] -= (amount + fee);
-    state.user_balances[receiver_addr] += amount;
-    // state.user_balances[state.fee_address] += fee;
-    state.pending_fees[receiver_addr] += fee;
-
-    // remove 0 balance sender from the state
-    if (state.user_balances[sender_addr] == 0) {
-        state.user_balances.erase(sender_addr);
+    iter = state.users.find(receiver_addr);
+    if (iter == state.users.end()) {
+        // receiver is not in the state, create new account
+        Account* acc = new Account;
+        acc->balance = 0;
+        acc->nonce = 0;
+        state.users[receiver_addr] = acc;
     }
-    
+
+    // move balance
+    state.users[sender_addr]->balance -= (amount + fee);
+    state.users[receiver_addr]->balance += amount;
+
+    // set pending fees
+    state.pending_fees[sender_addr] += fee/2;
+    state.pending_fees[receiver_addr] += fee - fee/2;
+
+    // increase sender's nonce
+    state.users[sender_addr]->nonce++;
+
+    // increase state id
+    state.stateID++;
+
     printf("send %llu from %s to %s / fee %llu to %s\n", amount, sender_addr.c_str(), receiver_addr.c_str(), fee, state.fee_address.c_str());
     return NO_ERROR;
 }
@@ -214,6 +253,53 @@ int ecall_load_owner_key(const char* sealed_owner_private_key, int sealed_key_le
     // TODO: BITCOIN
     // set owner_public_key & owner_address
     // 
+
+    return NO_ERROR;
+}
+
+int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
+
+    // make state as a string
+    string state_str = state.to_string();
+
+    // seal the state
+    uint32_t sealed_data_size = sgx_calc_sealed_data_size(0, (uint32_t)state_str.length());
+    *sealed_state_len = sealed_data_size;
+    if (sealed_data_size == UINT32_MAX) {
+        return ERR_SGX_ERROR_UNEXPECTED;
+    }
+    sgx_sealed_data_t *sealed_state_buffer = (sgx_sealed_data_t *) malloc(sealed_data_size);
+    sgx_status_t status = sgx_seal_data(0, NULL, (uint32_t)state_str.length(), (uint8_t *) state_str.c_str(), sealed_data_size, sealed_state_buffer);
+    if (status != SGX_SUCCESS) {
+        return ERR_SGX_ERROR_SEAL_FAILED;
+    }
+
+    // copy sealed state to the app buffer
+    memcpy(sealed_state, sealed_state_buffer, sealed_data_size);
+    free(sealed_state_buffer);
+    return NO_ERROR;
+}
+
+int ecall_load_state(const char* sealed_state, int sealed_state_len) {
+    // for edge8r
+    (void) sealed_state_len;
+
+    // unseal the sealed private key
+    uint32_t unsealed_state_length = sgx_get_encrypt_txt_len((const sgx_sealed_data_t *) sealed_state);
+    uint8_t unsealed_state[unsealed_state_length];
+    sgx_status_t status = sgx_unseal_data((const sgx_sealed_data_t *) sealed_state, NULL, 0, unsealed_state, &unsealed_state_length);
+    if (status != SGX_SUCCESS) {
+        return ERR_SGX_ERROR_UNSEAL_FAILED;
+    }
+
+    // load global state
+    // state.owner_private_key.assign(unsealed_private_key, unsealed_private_key + unsealed_key_length);
+    // printf("owner private key: %s\n", state.owner_private_key.c_str());
+    string state_str;
+    state_str.assign(unsealed_state, unsealed_state + unsealed_state_length);
+    state.from_string(state_str);
+
+    printf("success loading state!\n");
 
     return NO_ERROR;
 }

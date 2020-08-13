@@ -41,8 +41,11 @@ int ecall_make_owner_key(char* sealed_owner_private_key, int* sealed_key_len);
 // decrypt the encrypted owner key file & load it into the enclave
 int ecall_load_owner_key(const char* sealed_owner_private_key, int sealed_key_len);
 
-// check my balance in the channel
-unsigned long long ecall_get_channel_balance(const char* channel_id, int ch_id_len, const char* user_address, int address_len);
+// seal current state
+int ecall_seal_state(char* sealed_state, int* sealed_state_len);
+
+// load state from sealed data
+int ecall_load_state(const char* sealed_state, int sealed_state_len);
 
 #if defined(__cplusplus)
 }
