@@ -4,3 +4,4 @@ remake.sh
 owner.key.encrypted
 state.encrypted
 core
+client/scripts/s*
