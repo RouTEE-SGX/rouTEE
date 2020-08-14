@@ -105,7 +105,9 @@ int main(void) {
       continue;
     }
 
+    // got script name (script name should start with 's')
     if (client_msg[0] == 's') {
+      // run script
       send_script(client_msg);
       continue;
     }
