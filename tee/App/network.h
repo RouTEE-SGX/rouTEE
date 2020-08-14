@@ -10,11 +10,11 @@
 #define OP_DO_PAYMENT   102 // f
 #define OP_GET_CHANNEL_BALANCE  103 // g
 
-#define OP_SET_ROUTING_FEE  104 // h
-#define OP_SET_ROUTING_FEE_ADDRESS  105 // i
-#define OP_CREATE_CHANNEL  106 // j
-#define OP_PRINT_STATE  107 // k
-#define OP_SETTLE_BALANCE   108 // l
-#define OP_DO_MULTIHOP_PAYMENT  109 // m
+#define OP_SET_ROUTING_FEE  104 // h (cmd: h fee)
+#define OP_SET_ROUTING_FEE_ADDRESS  105 // i (cmd: i fee_addr)
+#define OP_CREATE_CHANNEL  106 // j (cmd: j tx_id tx_index)
+#define OP_PRINT_STATE  107 // k (cmd: k)
+#define OP_SETTLE_BALANCE   108 // l (cmd: l receiver_addr)
+#define OP_DO_MULTIHOP_PAYMENT  109 // m (cmd: m sender_addr receiver_addr amount fee)
 
 #endif  // _NETWORK_H_
