@@ -21,7 +21,7 @@
 #define ENCLAVE_FILENAME    "enclave.signed.so"
 #define OWNER_KEY_FILENAME "owner.key.encrypted"
 #define STATE_FILENAME  "state.encrypted"
-#define MAX_SEALED_DATA_LENGTH   10000
+#define MAX_SEALED_DATA_LENGTH   1000000
 
 #define STATE_SAVE_EPOCH    1 // 0 means do not save state
 int state_save_counter = 0;
