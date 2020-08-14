@@ -40,6 +40,10 @@ int main(void) {
     // send a command
     printf("input cmd: ");
     gets(client_msg);
+    if ((uint32_t)strlen(client_msg) == 0) {
+      continue;
+    }
+
     if(send(client_socket, client_msg, strlen(client_msg), 0) < 0){
       printf("send error");
     }
