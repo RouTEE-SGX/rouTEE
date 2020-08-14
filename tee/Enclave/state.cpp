@@ -31,49 +31,51 @@ string State::to_string() {
     return state_str;
 }
 
-// restore state from string
-vector<string> State::from_string(string state_str) {
+// cut out a string token from long string
+string get_token(string& state_str) {
     // split string with delimitor
     string delimiter = ",";
     size_t pos = 0;
     string token;
-    vector<string> fields;
-    while ((pos = state_str.find(delimiter)) != std::string::npos) {
+    if ((pos = state_str.find(delimiter)) != std::string::npos) {
         token = state_str.substr(0, pos);
-        fields.push_back(token);
         state_str.erase(0, pos + delimiter.length());
+        return token;
     }
 
+}
+
+// restore state from string
+void State::from_string(string state_str) {
     // restore state
 
     // stateID
     int cnt = 0;
-    this->stateID = string_to_long_long(fields[cnt++]);
+    this->stateID = string_to_long_long(get_token(state_str));
 
     // owner
-    this->owner_address = fields[cnt++];
-    this->owner_public_key = fields[cnt++];
-    this->owner_private_key = fields[cnt++];
+    this->owner_address = get_token(state_str);
+    this->owner_public_key = get_token(state_str);
+    this->owner_private_key = get_token(state_str);
 
     // fee
-    this->routing_fee = string_to_long_long(fields[cnt++]);
-    this->fee_address = fields[cnt++];
+    this->routing_fee = string_to_long_long(get_token(state_str));
+    this->fee_address = get_token(state_str);
     this->pending_fees.clear();
-    int map_size = string_to_long_long(fields[cnt++]);
+    int map_size = string_to_long_long(get_token(state_str));
     for (int i = 0; i < map_size; i++) {
-        this->pending_fees[fields[cnt++]] = string_to_long_long(fields[cnt++]);
+        this->pending_fees[get_token(state_str)] = string_to_long_long(get_token(state_str));
     }
 
     // users
     this->users.clear();
-    map_size = string_to_long_long(fields[cnt++]);
+    map_size = string_to_long_long(get_token(state_str));
     for (int i = 0; i < map_size; i++) {
         Account* acc = new Account;
-        string user_addr = fields[cnt++];
-        acc->balance = string_to_long_long(fields[cnt++]);
-        acc->nonce = string_to_long_long(fields[cnt++]);
+        string user_addr = get_token(state_str);
+        acc->balance = string_to_long_long(get_token(state_str));
+        acc->nonce = string_to_long_long(get_token(state_str));
         this->users[user_addr] = acc;
     }
     
-    return fields;
 }
