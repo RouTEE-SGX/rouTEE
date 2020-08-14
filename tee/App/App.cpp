@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <iostream>
 #include <fstream>
+#include <time.h>
 
 #include "sgx_urts.h"
 #include "App.h"
@@ -652,8 +653,11 @@ int SGX_CDECL main(int argc, char* argv[]){
                     printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
 
                     // execute client's command
+                    clock_t begin = clock();
                     response = execute_command(request);
-                    printf("execution result: %s\n\n", response);
+                    clock_t end = clock();
+                    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+                    printf("execution result: %s (execution time: %d microsec = %.3f millisec = %f sec)\n\n", response, (int)(time_spent*1000000), time_spent*1000, time_spent);
 
                     // send result to the client
                     send(sd, response, strlen(response), 0);
