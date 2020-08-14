@@ -239,7 +239,7 @@ void load_state() {
         return;
     } else {
         // load sealed state from the file
-        printf("read sealed state from the file");
+        printf("read sealed state from the file\n");
         std::ifstream in(STATE_FILENAME);
         std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         memcpy(sealed_state, contents.c_str(), contents.length());

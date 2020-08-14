@@ -74,7 +74,7 @@ int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index
     //
     // temp code
     string sender_addr = string(tx_id, tx_id_len) + "_" + long_long_to_string(tx_index);
-    unsigned long long amount = 100;
+    unsigned long long amount = 1000000;
 
     // check the user exists
     map<string, Account*>::iterator iter = state.users.find(sender_addr);
@@ -102,17 +102,9 @@ void ecall_print_state() {
     printf("    routing fee: %llu\n", state.routing_fee);
     printf("    routing fee to %s\n", state.fee_address.c_str());
     for (map<string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
-        printf("    user %s balance: %llu / nonce: %llu\n", (iter->first).c_str(), iter->second->balance, iter->second->nonce);
+        printf("    address: %s -> balance: %llu / nonce: %llu\n", (iter->first).c_str(), iter->second->balance, iter->second->nonce);
     }
-
-    // test code
-    string state_str = state.to_string();
-    printf("state to string: %s\n", state_str.c_str());
-    vector<string> fields = state.from_string(state_str);
-    for (vector<string>::const_iterator i = fields.begin(); i != fields.end(); ++i){
-        printf("state field: %s\n", i->c_str());
-    }
-    printf("state to string after restore: %s\n", state_str.c_str());
+    printf("    total %d accounts exist\n", state.users.size());
 
     return;
 }

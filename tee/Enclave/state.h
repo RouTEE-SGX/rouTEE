@@ -26,8 +26,8 @@ class State {
         // collect all fields as a string with delimitor
         string to_string();
         // restore state from string
-        // void from_string(string state_str);
-        vector<string> from_string(string state_str); // just for debugging, change return type as a void later
+        void from_string(string state_str);
+        // vector<string> from_string(string state_str); // just for debugging, change return type as a void later
 
         // state version number (monotonically increasing counter)
         unsigned long long stateID;
