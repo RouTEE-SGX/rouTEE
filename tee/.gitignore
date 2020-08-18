@@ -5,3 +5,5 @@ owner.key.encrypted
 state.encrypted
 core
 client/scripts/s*
+client/scripts/runMakeScript
+
