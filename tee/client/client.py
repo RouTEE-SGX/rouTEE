@@ -31,10 +31,12 @@ def runScript(fileName):
 
     totalStartTime = datetime.now()
     elapsedTimeSum = 0
+    cnt = 0
     for command in rdr:
-        print(command[0])
+        print("script cmd", cnt, ":", command[0])
         if len(command) == 0:
             continue
+        cnt = cnt + 1
 
         # send command to server
         startTime = datetime.now()
@@ -60,14 +62,14 @@ def runScript(fileName):
 
         # logging execution time info
         if command[0][0] == 'j':
-            paymentCount = paymentCount + 1
-            paymentTimeSum = paymentTimeSum + elapsedMicrosec
+            createChannelCount = createChannelCount + 1
+            createChannelTimeSum = createChannelTimeSum + elapsedMicrosec
         elif command[0][0] == 'l':
             settleCount = settleCount + 1
             settleTimeSum = settleTimeSum + elapsedMicrosec
-        elif command[0][0] == 'm,':
-            createChannelCount = createChannelCount + 1
-            createChannelTimeSum = createChannelTimeSum + elapsedMicrosec
+        elif command[0][0] == 'm':
+            paymentCount = paymentCount + 1
+            paymentTimeSum = paymentTimeSum + elapsedMicrosec
 
     totalElapsed = datetime.now() - totalStartTime
     print("run script elapsed time:", totalElapsed, "\n")
