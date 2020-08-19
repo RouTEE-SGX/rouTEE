@@ -6,4 +6,5 @@ state.encrypted
 core
 client/scripts/s*
 client/scripts/runMakeScript
-
+client/resultLogs/*
+client/test.py
