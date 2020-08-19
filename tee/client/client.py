@@ -4,6 +4,7 @@
 import socket
 from datetime import datetime
 import csv
+import sys
 
 HOST = "127.0.0.1"
 PORT = 7223
@@ -13,8 +14,16 @@ client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # connect to the server
 client_socket.connect((HOST, PORT))
 
+# get file length
+def file_len(fileName):
+    with open(fileName) as f:
+        for i, l in enumerate(f):
+            pass
+    return i + 1
+
+# execute the script for rouTEE
 def runScript(fileName):
-    print("run script\n")
+    print("run script", fileName, "\n")
 
     f = open("scripts/"+fileName, 'r')
     rdr = csv.reader(f)
@@ -32,8 +41,11 @@ def runScript(fileName):
     totalStartTime = datetime.now()
     elapsedTimeSum = 0
     cnt = 0
+    cmdNumber = file_len("scripts/"+fileName)
+    printEpoch = cmdNumber/100
     for command in rdr:
-        print("script cmd", cnt, ":", command[0])
+        
+        # ignore '\n'
         if len(command) == 0:
             continue
         cnt = cnt + 1
@@ -45,20 +57,24 @@ def runScript(fileName):
         # get response from server
         data = client_socket.recv(1024)
         elapsed = datetime.now() - startTime
-        print(elapsed)
-        print('Received:', data.decode())
 
         # check the result
         if data.decode() != "SUCCESS":
             print("ERROR: command failed\n")
             return
 
-        # print elapsed time
+        # calculate elapsed time
         elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
         elapsedMillisec = elapsedMicrosec / 1000.0
         elapsedSec = elapsedMillisec / 1000.0
         elapsedTimeSum = elapsedTimeSum + elapsedMicrosec
-        print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
+
+        # print results
+        if cnt%printEpoch == 0:
+            print("script cmd (", cnt, "/", cmdNumber, ") :", command[0])
+            print("elapsed time:", elapsed)
+            print('Received:', data.decode())
+            print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
 
         # logging execution time info
         if command[0][0] == 'j':
@@ -94,6 +110,12 @@ def runScript(fileName):
 
 
 if __name__ == "__main__":
+
+    # if there is sys.argv input from command line, run a single script
+    if len(sys.argv) == 2:
+        scriptName = sys.argv[1]
+        runScript(scriptName)
+        sys.exit()
 
     while (True):
         command = input("input command: ")
