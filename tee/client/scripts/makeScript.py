@@ -1,4 +1,5 @@
 import random
+import sys
 
 def createChannels(channelNumber, scriptName):
 
@@ -22,18 +23,32 @@ def doRandomPayments(paymentNumber, maxUserNumber, scriptName):
 
 
 if __name__ == '__main__':
-    command = eval(input("which script do you want to make (1: createChannels / 2: doRandomPayments): "))
+
+    # if there is sys.argv input from command line, run a single script
+    if len(sys.argv) >= 2:
+        command = int(sys.argv[1])
+    else:
+        command = eval(input("which script do you want to make (1: createChannels / 2: doRandomPayments): "))
     
     if command == 1:
-        channelNumber = eval(input("how many channels: "))
-        scriptName = input("script name: ")
+        if len(sys.argv) >= 2:
+            channelNumber = int(sys.argv[2])
+            scriptName = sys.argv[3]
+            print(channelNumber, scriptName)
+        else:
+            channelNumber = eval(input("how many channels: "))
+            scriptName = input("script name: ")
         createChannels(channelNumber, scriptName)
 
     elif command == 2:
-        paymentNumber = eval(input("how many payments: "))
-        maxUserNumber = eval(input("what is max user index number: "))
-        scriptName = input("script name: ")
+        if len(sys.argv) >= 2:
+            paymentNumber = int(sys.argv[2])
+            maxUserNumber = int(sys.argv[3])
+            scriptName = sys.argv[4]
+        else:
+            paymentNumber = eval(input("how many payments: "))
+            maxUserNumber = eval(input("what is max user index number: "))
+            scriptName = input("script name: ")
         doRandomPayments(paymentNumber, maxUserNumber, scriptName)
 
-    else:
-        print("wrong command")
+    print("make script [", scriptName, "] Done")
