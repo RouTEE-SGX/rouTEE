@@ -74,7 +74,7 @@ int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index
     //
     // temp code
     string sender_addr = string(tx_id, tx_id_len) + "_" + long_long_to_string(tx_index);
-    unsigned long long amount = 1000000;
+    unsigned long long amount = 100000000;
 
     // check the user exists
     map<string, Account*>::iterator iter = state.users.find(sender_addr);
