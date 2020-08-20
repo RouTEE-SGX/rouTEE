@@ -34,7 +34,6 @@ if __name__ == '__main__':
         if len(sys.argv) >= 2:
             channelNumber = int(sys.argv[2])
             scriptName = sys.argv[3]
-            print(channelNumber, scriptName)
         else:
             channelNumber = eval(input("how many channels: "))
             scriptName = input("script name: ")
