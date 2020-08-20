@@ -26,15 +26,19 @@ done
 makeScriptCmd=${makeScriptCmd% *&} # cut out string " &" at the last
 docker exec -it routee bash -c "${makeScriptCmd}"
 
-# run create channels script & save log
-docker exec -it routee bash -c "cd && cd rouTEE/tee/client && python3 client.py scc${userNumber} > resultLogs/scc${userNumber}"
+# remove previous experiment's logs
+echo "\nRemoving previous experiment's logs"
+docker exec -it routee bash -c "cd && cd rouTEE/tee/client/resultLogs && rm s*"
 
-# run random payments scripts concurrently & save log
+# run create channels script & save log (2>&1: including error logs)
+docker exec -it routee bash -c "cd && cd rouTEE/tee/client && python3 client.py scc${userNumber} > resultLogs/scc${userNumber} 2>&1"
+
+# run random payments scripts concurrently & save log (2>&1: including error logs)
 paymentCmd=""
 for i in $RANGE
 do
 	scriptName="sp${userNumber}_${paymentNumber}_$i"
-	paymentCmd="${paymentCmd} cd && cd rouTEE/tee/client && python3 client.py ${scriptName} > resultLogs/${scriptName} &"
+	paymentCmd="${paymentCmd} cd && cd rouTEE/tee/client && python3 client.py ${scriptName} > resultLogs/${scriptName} 2>&1 &"
 done
 paymentCmd=${paymentCmd% *&} # cut out string " &" at the last
 echo "\nRunning payment scripts..."
