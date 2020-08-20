@@ -6,8 +6,12 @@ from datetime import datetime
 import csv
 import sys
 
+# rouTEE IP
 HOST = "127.0.0.1"
 PORT = 7223
+
+# command scripts for rouTEE
+SCRIPTSPATH = "scripts/"
 
 # open socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -25,7 +29,7 @@ def file_len(fileName):
 def runScript(fileName):
     print("run script", fileName, "\n")
 
-    f = open("scripts/"+fileName, 'r')
+    f = open(SCRIPTSPATH+fileName, 'r')
     rdr = csv.reader(f)
 
     # command count
@@ -41,7 +45,7 @@ def runScript(fileName):
     totalStartTime = datetime.now()
     elapsedTimeSum = 0
     cnt = 0
-    cmdNumber = file_len("scripts/"+fileName)
+    cmdNumber = file_len(SCRIPTSPATH+fileName)
     printEpoch = cmdNumber/100
     for command in rdr:
         
@@ -61,6 +65,7 @@ def runScript(fileName):
         # check the result
         if data.decode() != "SUCCESS":
             print("ERROR: command failed\n")
+            print("error msg:", data.decode())
             return
 
         # calculate elapsed time
