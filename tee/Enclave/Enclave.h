@@ -29,11 +29,17 @@ int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index
 // print all users' address & balance (just for debugging)
 void ecall_print_state();
 
-// take my balance at on-chain
+// settle request
 int ecall_settle_balance(const char* receiver_address, int receiver_addr_len);
+
+// create on-chain settle transaction
+int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx_len);
 
 // request rouTEE 2 hop payment (need routing fee)
 int ecall_do_multihop_payment(const char* sender_address, int sender_addr_len, const char* receiver_address, int receiver_addr_len, unsigned long long amount, unsigned long long fee);
+
+// insert blockchain's block (for SPV inside TEE)
+int ecall_insert_block(const char* block, int block_len);
 
 // save randomly created and encrypted owner key
 int ecall_make_owner_key(char* sealed_owner_private_key, int* sealed_key_len);

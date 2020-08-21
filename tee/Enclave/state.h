@@ -3,12 +3,10 @@
 
 #include <map>
 #include <string>
-using std::string;
-using std::map;
-
-// temp code delete this later
 #include <vector>
 using std::vector;
+using std::string;
+using std::map;
 
 // user infos
 class Account {
@@ -17,6 +15,14 @@ class Account {
         unsigned long long balance;
         unsigned long long nonce;
         // string public_key; // need this?
+};
+
+// settle request
+class SettleRequest {
+
+    public:
+        string address;
+        unsigned long long balance;
 };
 
 // global state
@@ -47,6 +53,9 @@ class State {
 
         // users[user_address] = the user's Account
         map<string, Account*> users;
+
+        // settle requests
+        vector<SettleRequest> settle_requests;
 
         // deposit transactions
         // string tx_ids;

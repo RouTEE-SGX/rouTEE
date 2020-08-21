@@ -106,6 +106,14 @@ void ecall_print_state() {
     }
     printf("    total %d accounts exist\n", state.users.size());
 
+    for (int i = 0; i < state.settle_requests.size(); i++) {
+        printf("    user %s settles %llu satoshi\n", state.settle_requests[i].address, state.settle_requests[i].balance);
+    }
+
+    for (map<string, unsigned long long>::iterator iter = state.pending_fees.begin(); iter != state.pending_fees.end(); iter++){
+        printf("    user %s pending fee: %llu satoshi\n", iter->first.c_str(), iter->second);
+    }
+
     return;
 }
 
@@ -126,17 +134,15 @@ int ecall_settle_balance(const char* receiver_address, int receiver_addr_len) {
         return ERR_NOT_ENOUGH_BALANCE;
     }
 
-    //
-    // TODO: BITCOIN
-    // make on-chain bitcoin tx
-    // tx = make_settle_tx();
-    // ocall_send_tx();
-    //
+    // push new settle request
+    state.settle_requests.push_back(SettleRequest());
+    state.settle_requests.back().address = receiver_addr;
+    state.settle_requests.back().balance = iter->second->balance;
 
     // set user's account
-    printf("user %s get paid %llu satoshi\n", receiver_addr.c_str(), iter->second->balance);
+    printf("user %s requests settlement: %llu satoshi\n", receiver_addr.c_str(), iter->second->balance);
     state.users[receiver_addr]->balance = 0;
-    state.users[receiver_addr]->nonce++; // prevent payment replay attack
+    state.users[receiver_addr]->nonce++; // prevent payment replay attack    
 
     //
     // TODO: commit pending fee to rouTEE operator (= fee address)
@@ -145,6 +151,47 @@ int ecall_settle_balance(const char* receiver_address, int receiver_addr_len) {
     // increase state id
     state.stateID++;
 
+    return NO_ERROR;
+}
+
+int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx_len) {
+
+    //
+    // TODO: BITCOIN
+    // check last settle tx has committed at on-chain (before 6 blocks)
+    // if (not ready to make settle tx) {
+    //     return ERR_CANNOT_MAKE_SETTLE_TX;
+    // }
+    //
+
+    // calculate proper pending fees for this settle tx
+    unsigned long long committed_pending_fee = 0;
+    string settle_user_addr;
+    unsigned long long settle_user_balance;
+    for (int i = 0; i < state.settle_requests.size(); i++) {
+        // get settle user info
+        settle_user_addr = state.settle_requests[i].address;
+        settle_user_balance = state.settle_requests[i].balance;
+
+        // deal with pending fees
+        committed_pending_fee += state.pending_fees[settle_user_addr];
+        state.pending_fees.erase(settle_user_addr);
+    }
+
+    // push new settle request for rouTEE's fee address
+    state.settle_requests.push_back(SettleRequest());
+    state.settle_requests.back().address = state.fee_address;
+    state.settle_requests.back().balance = committed_pending_fee;
+
+    //
+    // TODO: BITCOIN
+    // make on-chain bitcoin tx
+    // *settle_transaction = make_settle_tx(state.settle_requests);
+    // *settle_tx_len = len(settle_transaction);
+    // 
+
+    // delete all settle requests
+    state.settle_requests.clear();
     return NO_ERROR;
 }
 
@@ -197,6 +244,13 @@ int ecall_do_multihop_payment(const char* sender_address, int sender_addr_len, c
 
     printf("send %llu from %s to %s / fee %llu to %s\n", amount, sender_addr.c_str(), receiver_addr.c_str(), fee, state.fee_address.c_str());
     return NO_ERROR;
+}
+
+int ecall_insert_block(const char* block, int block_len) {
+    // 
+    // TODO: BITCOIN
+    // save bitcoin blocks
+    // 
 }
 
 int ecall_make_owner_key(char* sealed_owner_private_key, int* sealed_key_len) {
