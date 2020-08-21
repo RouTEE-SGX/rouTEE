@@ -16,5 +16,7 @@
 #define OP_PRINT_STATE  107 // k (cmd: k)
 #define OP_SETTLE_BALANCE   108 // l (cmd: l receiver_addr)
 #define OP_DO_MULTIHOP_PAYMENT  109 // m (cmd: m sender_addr receiver_addr amount fee)
+#define OP_MAKE_SETTLE_TRANSACTION  110 // n (cmd: n)
+#define OP_INSERT_BLOCK 111 // o (cmd: o block_data)
 
 #endif  // _NETWORK_H_
