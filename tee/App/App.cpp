@@ -406,6 +406,25 @@ int settle_balance(char* request) {
     return ecall_return;
 }
 
+// make on-chain settle tx
+int make_settle_transaction() {
+    int ecall_return;
+    char settle_transaction[MAX_SEALED_DATA_LENGTH];
+    int settle_tx_len;
+    int ecall_result = ecall_make_settle_transaction(global_eid, &ecall_return, settle_transaction, &settle_tx_len);
+    printf("ecall_make_settle_transaction() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_make_settle_transaction");
+    }
+
+    // 
+    // TODO: BITCOIN
+    // if successed to make tx, broadcast it
+    // 
+
+    return ecall_return;
+}
+
 // do multihop payment
 int do_multihop_payment(char* request) {
     // parse request as ecall function params
@@ -484,6 +503,10 @@ const char* execute_command(char* request) {
     else if (operation == OP_SETTLE_BALANCE) {
         printf("settle balance executed\n");
         ecall_return = settle_balance(request);
+    }
+    else if (operation == OP_MAKE_SETTLE_TRANSACTION) {
+        printf("make settle transaction executed\n");
+        ecall_return = make_settle_transaction();
     }
     else if (operation == OP_DO_MULTIHOP_PAYMENT) {
         printf("do multihop payment executed\n");
@@ -653,11 +676,8 @@ int SGX_CDECL main(int argc, char* argv[]){
                     printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
 
                     // execute client's command
-                    clock_t begin = clock();
                     response = execute_command(request);
-                    clock_t end = clock();
-                    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-                    printf("execution result: %s (execution time: %d microsec = %.3f millisec = %f sec)\n\n", response, (int)(time_spent*1000000), time_spent*1000, time_spent);
+                    printf("execution result: %s\n\n", response);
 
                     // send result to the client
                     send(sd, response, strlen(response), 0);
