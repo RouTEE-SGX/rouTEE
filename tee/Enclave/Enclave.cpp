@@ -92,7 +92,7 @@ int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index
     // increase state id
     state.stateID++;
     
-    printf("new channel created with rouTEE -> user: %s / %balance:%llu\n", sender_addr.c_str(), amount);
+    printf("new channel created with rouTEE -> user: %s / balance: %llu\n", sender_addr.c_str(), amount);
     return NO_ERROR;
 }
 
