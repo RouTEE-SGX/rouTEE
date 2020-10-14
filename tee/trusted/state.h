@@ -85,7 +85,7 @@ class Account {
         bool settle_request;        // True if there was a settle request
         unsigned long long settle_amount;
         // std::string public_key; // need this?
-        TeechanState state;
+        //TeechanState state;
 };
 
 // settle request

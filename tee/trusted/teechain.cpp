@@ -686,11 +686,35 @@ void create_new_account(const char* my_address, int address_len) {
     acc->pending_fee = 0;
     acc->settle_request = false;
     acc->settle_amount = 0;
-    acc->state = WaitingForFunds;
+    //acc->state = WaitingForFunds;
     state.users.insert(std::make_pair(addr, acc));
-    state.wait_funding_list.push_back(addr);
 
     return;
+}
+
+int ecall_setup_deposit_request_routee(char* user_output) {
+    if (!check_state(Ready)) {
+	    printf("Cannot setup deposit request; this enclave is not ready!");
+        return 1;
+    }
+    
+    if (!account_exist(my_address, address_len)) {
+        create_new_account(my_address, address_len);
+    }
+
+    std::string addr(my_address, address_len);
+
+    // insert user's address in wait funding list
+    // the enclave can check whether the user funded deposit or not
+    state.wait_funding_list.push_back(addr);
+
+
+    std::string output = "Owner address: " + state.owner_address + "\n";
+    output += "Owner public key: " + state.owner_public_key + "\n";
+
+    memcpy(user_output, output.c_str(), output.length() + 1);
+
+    return 0;
 }
 
 int ecall_create_channel_routee(const char* my_address, int address_len, const char* txid, int txid_len, unsigned long long deposit_amount, char* user_output) {
@@ -704,6 +728,9 @@ int ecall_create_channel_routee(const char* my_address, int address_len, const c
     }
 
     std::string addr(my_address, address_len);
+
+
+
     Account* account = state.users.find(addr)->second;
     account->balance += deposit_amount;
 
@@ -722,8 +749,8 @@ int ecall_print_state_routee(char* user_output) {
 
     // print all the state: all users' address and balance
     printf("    owner address: %s\n", state.owner_address.c_str());
-    printf("    routing fee: %llu\n", state.routing_fee);
-    printf("    routing fee to %s\n", state.fee_address.c_str());
+    printf("    routing fee amount: %llu\n", state.routing_fee);
+    printf("    routing fee address: %s\n", state.fee_address.c_str());
     for (std::map<std::string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
         printf("    address: %s -> balance: %llu / nonce: %llu / pending fee: %llu / settle amount: %llu\n", (iter->first).c_str(), iter->second->balance, iter->second->nonce, iter->second->pending_fee, iter->second->settle_amount);
     }
@@ -890,15 +917,6 @@ int ecall_do_multihop_payment_routee(const char* sender_address, int sender_addr
     ///output += "Payment amount: " + std::string(amount) + ", balance: " + std::string(sender_account->balance) + "\n";
 
     memcpy(user_output, output.c_str(), output.length() + 1);
-    return 0;
-}
-
-int ecall_setup_deposit_request_routee(char* user_output) {
-    std::string output = "Owner address: " + state.owner_address + "\n";
-    output += "Owner public key: " + state.owner_public_key + "\n";
-
-    memcpy(user_output, output.c_str(), output.length() + 1);
-
     return 0;
 }
 
