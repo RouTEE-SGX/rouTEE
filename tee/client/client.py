@@ -5,6 +5,8 @@ import socket
 from datetime import datetime
 import csv
 import sys
+import json
+import requests
 
 # rouTEE IP
 HOST = "127.0.0.1"
@@ -59,7 +61,7 @@ def runScript(fileName):
         client_socket.sendall(command[0].encode())
 
         # get response from server
-        data = client_socket.recv(1024)
+        data = client_socket.recv(4096)
         elapsed = datetime.now() - startTime
 
         # check the result
@@ -134,12 +136,20 @@ if __name__ == "__main__":
             runScript(command)
             continue
         
+        if command[0] == 'o':
+            blockNumber = int(command[2:])
+            req = requests.get("https://api.blockcypher.com/v1/btc/main/blocks/{0}".format(blockNumber))
+            #data = req.json()
+            data = str(json.dumps(req.json()))
+            command = 'o ' + data
+            print(command)
+
         # send command to server
         startTime = datetime.now()
         client_socket.sendall(command.encode())
 
         # get response from server
-        data = client_socket.recv(1024)
+        data = client_socket.recv(4096)
         elapsed = datetime.now() - startTime
         print(elapsed)
         print('Received:', data.decode())

@@ -1,10 +1,17 @@
-.config_*
-client/client
-remake.sh
-owner.key.encrypted
-state.encrypted
+*~
+trusted/teechain.o
+trusted/teechain_t.c
+trusted/teechain_t.h
+untrusted/teechain_u.c
+	untrusted/teechain_u.h
+teechain.signed.so
+	teechain.so
+test
 core
-client/scripts/s*
-client/scripts/runMakeScript
-client/resultLogs/*
-client/test.py
+
+untrusted/teechain_u.h
+teechain.so
+teechain
+
+trusted/*.o
+untrusted/*.o

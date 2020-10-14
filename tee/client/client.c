@@ -9,6 +9,9 @@
 #include <netinet/in.h>
 #include <time.h>
 
+#include <sys/time.h>
+#include <unistd.h>
+
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 7223
 
@@ -131,3 +134,4 @@ int main(void) {
 
   return 0;
 }
+
