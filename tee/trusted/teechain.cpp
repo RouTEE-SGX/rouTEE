@@ -688,6 +688,7 @@ void create_new_account(const char* my_address, int address_len) {
     acc->settle_amount = 0;
     acc->state = WaitingForFunds;
     state.users.insert(std::make_pair(addr, acc));
+    state.wait_funding_list.push_back(addr);
 
     return;
 }

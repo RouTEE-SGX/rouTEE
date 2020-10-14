@@ -127,7 +127,7 @@ class State {
         // users[user_address] = the user's Account
         std::map<std::string, Account*> users;
 
-        std::vector<std::string> fund_waiting_list;
+        std::vector<std::string> wait_funding_list;
         // settle requests
         //std::vector<SettleRequest> settle_requests;
         //std::map<std::string, unsigned long long> settle_requests;
