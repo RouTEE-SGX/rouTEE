@@ -14,6 +14,11 @@
 // global state
 State state;
 
+#include "PQV.h"
+
+// global elections
+map<string, Election*> elections;
+
 // invoke OCall to display the enclave buffer to the terminal screen
 void printf(const char* fmt, ...) {
 
@@ -357,4 +362,94 @@ void ecall_seal_channels() {
 
 void ecall_unseal_channels() {
     
+}
+
+// PQV functions
+
+int ecall_do_register_election(const char* election_ID, int election_ID_len, unsigned int policy_num) {
+
+    // check whether the election already exists
+    map<string, Election*>::iterator iter = elections.find(election_ID);
+    if (iter == elections.end()) {
+        // create new election
+        Election* elec = new Election;
+        elec->electionID = election_ID;
+        elec->policy_num = policy_num;
+        elec->ballot_box = new unsigned int[policy_num];
+        for (int i = 0; i < policy_num; i++) {
+            elec->ballot_box[i] = 0;
+        }
+
+        // insert to the map
+        elections[election_ID] = elec;
+    }
+
+    // printf("election %s registered\n", election_ID);
+
+    return NO_ERROR;
+}
+
+int ecall_do_voting(const char* election_ID, int election_ID_len, unsigned int policy_index, unsigned int ballot_num) {
+
+    // create new tx
+    Transaction* tx = new Transaction;
+    tx->policy_index = policy_index;
+    tx->ballot_num = ballot_num;
+
+    // insert to the tx vector
+    elections[election_ID]->transactions.push_back(tx);
+
+    // add ballot to total ballot num
+    elections[election_ID]->total_ballot_num += ballot_num;
+
+    return NO_ERROR;
+}
+
+int ecall_do_terminate_election(const char* election_ID, int election_ID_len) {
+    
+    Election *elec = elections[election_ID];
+
+    int applied_tx_count = 0;
+    for (int i = 0; i < elec->transactions.size(); i++) {
+        Transaction* tx = elec->transactions[i];
+
+        // generate random number
+        uint32_t rand;
+        sgx_read_rand((unsigned char *) &rand, 4);
+        rand = rand % elec->total_ballot_num;
+
+        // if the tx picked, add it to ballot box
+        // printf("rand: %u vs %u :ballot\n", rand, tx->ballot_num);
+        if (rand <= tx->ballot_num * tx->ballot_num) {
+            // printf("tx applied\n");
+            applied_tx_count++;
+            elec->ballot_box[tx->policy_index] += tx->ballot_num;
+        }
+        else {
+            // printf("tx not applied\n");
+        }
+
+    }
+
+    // get the winner policy
+    unsigned int max_ballot = 0;
+    unsigned int winner_policy_index = 0;
+    for (int i = 0; i < elec->policy_num; i++) {
+        if (max_ballot < elec->ballot_box[i]) {
+            max_ballot = elec->ballot_box[i];
+            winner_policy_index = i;
+        }
+    }
+
+    // for (int i = 0; i < elec->policy_num; i++) {
+    //     printf("policy %d got %u ballots\n", i, elec->ballot_box[i]);
+    // }
+
+    string eID = string(election_ID, election_ID_len);
+    elections.erase(eID);
+    
+    // printf("\nwinner policy: %d\n", winner_policy_index);
+    // printf("total %d txs (applied: %d txs)\n", elec->transactions.size(), applied_tx_count);
+
+    return NO_ERROR;
 }

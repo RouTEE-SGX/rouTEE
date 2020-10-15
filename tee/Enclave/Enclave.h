@@ -53,6 +53,11 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len);
 // load state from sealed data
 int ecall_load_state(const char* sealed_state, int sealed_state_len);
 
+// PQV functions
+int ecall_do_register_election(const char* election_ID, int election_ID_len, unsigned int policy_num);
+int ecall_do_voting(const char* election_ID, int election_ID_len, unsigned int policy_index, unsigned int ballot_num);
+int ecall_do_terminate_election(const char* election_ID, int election_ID_len);
+
 #if defined(__cplusplus)
 }
 #endif

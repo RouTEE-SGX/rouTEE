@@ -447,6 +447,66 @@ int do_multihop_payment(char* request) {
     return ecall_return;
 }
 
+// do register election
+int do_register_election(char* request) {
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    if (params.size() != 3) {
+        return ERR_INVALID_PARAMS;
+    }
+    string election_ID = params[1];
+    unsigned int policy_num = strtoul(params[2].c_str(), NULL, 10);
+
+    int ecall_return;
+    int ecall_result = ecall_do_register_election(global_eid, &ecall_return, election_ID.c_str(), election_ID.length(), policy_num);
+    // printf("ecall_do_register_election() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_do_register_election");
+    }
+
+    return ecall_return;
+}
+
+// do voting
+int do_voting(char* request) {
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    if (params.size() != 4) {
+        return ERR_INVALID_PARAMS;
+    }
+    string election_ID = params[1];
+    unsigned int policy_index = strtoul(params[2].c_str(), NULL, 10);
+    unsigned int ballot_num = strtoul(params[3].c_str(), NULL, 10);
+
+    int ecall_return;
+    int ecall_result = ecall_do_voting(global_eid, &ecall_return, election_ID.c_str(), election_ID.length(), policy_index, ballot_num);
+    // printf("ecall_do_voting() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_do_voting");
+    }
+
+    return ecall_return;
+}
+
+// do terminate election
+int do_terminate_election(char* request) {
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    if (params.size() != 2) {
+        return ERR_INVALID_PARAMS;
+    }
+    string election_ID = params[1];
+
+    int ecall_return;
+    int ecall_result = ecall_do_terminate_election(global_eid, &ecall_return, election_ID.c_str(), election_ID.length());
+    printf("ecall_do_terminate_election() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_do_terminate_election");
+    }
+
+    return ecall_return;
+}
+
 // save sealed current state as a file
 void seal_state() {
 
@@ -512,6 +572,20 @@ const char* execute_command(char* request) {
         printf("do multihop payment executed\n");
         ecall_return = do_multihop_payment(request);
     }
+
+    else if (operation == OP_REGISTER_ELECTION) {
+        // printf("do register election executed\n");
+        ecall_return = do_register_election(request);
+    }
+    else if (operation == OP_DO_VOTING) {
+        // printf("do voting executed\n");
+        ecall_return = do_voting(request);
+    }
+    else if (operation == OP_TERMINATE_ELECTION) {
+        printf("do terminate election executed\n");
+        ecall_return = do_terminate_election(request);
+    }
+
     else{
         // wrong op_code
         printf("this op code doesn't exist\n");
@@ -673,11 +747,11 @@ int SGX_CDECL main(int argc, char* argv[]){
                 else {
                     // set the string terminating NULL byte on the end of the data read
                     request[read_len] = '\0';
-                    printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
+                    // printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
 
                     // execute client's command
                     response = execute_command(request);
-                    printf("execution result: %s\n\n", response);
+                    // printf("execution result: %s\n\n", response);
 
                     // send result to the client
                     send(sd, response, strlen(response), 0);

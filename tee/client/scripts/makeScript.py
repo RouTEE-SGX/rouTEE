@@ -20,7 +20,15 @@ def doRandomPayments(paymentNumber, maxUserNumber, scriptName):
             # cmd: sender receiver sendAmount routingFee
             f.write("m user_" + str(randomSenderAddr) + " user_" + str(randomReceiverAddr) + " " + str(1) + " " + str(2) + "\n")
 
+def doRandomVotings(votingNumber, maxPolicyNumber, scriptName):
 
+    with open(scriptName, "w+") as f:
+        for i in range(votingNumber):
+            # select random policy to vote
+            randomPolicyIndex = random.randint(0, maxPolicyNumber-1)
+
+            # cmd: policyIndex ballotNum (hardcoded: 100)
+            f.write("q e " + str(randomPolicyIndex) + " 100\n")
 
 if __name__ == '__main__':
 
@@ -28,7 +36,7 @@ if __name__ == '__main__':
     if len(sys.argv) >= 2:
         command = int(sys.argv[1])
     else:
-        command = eval(input("which script do you want to make (1: createChannels / 2: doRandomPayments): "))
+        command = eval(input("which script do you want to make (1: createChannels / 2: doRandomPayments / 3: doRandomVotings): "))
     
     if command == 1:
         if len(sys.argv) >= 2:
@@ -49,5 +57,11 @@ if __name__ == '__main__':
             maxUserNumber = eval(input("what is max user index number: "))
             scriptName = input("script name: ")
         doRandomPayments(paymentNumber, maxUserNumber, scriptName)
+
+    elif command == 3:
+        votingNumber = eval(input("how many votings: "))
+        maxPolicyNumber = eval(input("how many policies: "))
+        scriptName = input("script name: ")
+        doRandomVotings(votingNumber, maxPolicyNumber, scriptName)
 
     print("make script [", scriptName, "] Done")

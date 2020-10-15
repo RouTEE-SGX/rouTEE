@@ -19,4 +19,9 @@
 #define OP_MAKE_SETTLE_TRANSACTION  110 // n (cmd: n)
 #define OP_INSERT_BLOCK 111 // o (cmd: o block_data)
 
+// PQV operations
+#define OP_REGISTER_ELECTION 112 // p (cmd: p electionID policy_num)
+#define OP_DO_VOTING 113 // q (cmd: q election_ID policy_index ballot_num)
+#define OP_TERMINATE_ELECTION 114 // r (cmd: r election_ID)
+
 #endif  // _NETWORK_H_
