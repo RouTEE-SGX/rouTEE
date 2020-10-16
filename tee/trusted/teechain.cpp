@@ -8,6 +8,7 @@
 #include <vector>
 #include <stdexcept>
 #include <cstring>
+#include <string>
 
 #include <univalue.h>
 #include <secp256k1.h>
@@ -628,8 +629,8 @@ int ecall_primary_routee(bool use_monotonic_counters, char* user_output) {
 }
 
 int ecall_set_routing_fee_routee(unsigned long long routing_fee, char* user_output) {
-    if (!check_state(Primary)) {
-	    printf("Cannot setup deposits; this enclave is not a primary!");
+    if (!check_state(Primary) && !check_state(Ready)) {
+	    printf("Cannot setup deposits; this enclave is not a primary nor ready!");
         return 1;
     }
 
@@ -638,30 +639,29 @@ int ecall_set_routing_fee_routee(unsigned long long routing_fee, char* user_outp
     //memcpy(user_output, output.c_str(), output.length() + 1);
     printf("Set routing fee for rouTEE: %llu\n", state.routing_fee);
     if (std::strcmp(state.fee_address.c_str(), "") != 0) {
-        printf("Routing fee and fee address setup are done. Ready for rouTEE\n");
+        printf("Routing fee and fee address setup are done. Ready for rouTEE!\n");
         teechain_state = Ready;
     }
-    std::string output = "";
+    std::string output = "Set routing fee amount for rouTEE: " + TOSTR(state.routing_fee) + "\n";
     memcpy(user_output, output.c_str(), output.length() + 1);
 
     return 0;
 }
 
 int ecall_set_routing_fee_address_routee(const char* routing_fee_address, int address_len, char* user_output) {
-    if (!check_state(Primary)) {
-	    printf("Cannot setup deposits; this enclave is not a primary!");
+    if (!check_state(Primary) && !check_state(Ready)) {
+	    printf("Cannot setup deposits; this enclave is not a primary nor ready!");
         return 1;
     }
-
+    // Set routing fee redeem address for rouTEE 
     state.fee_address = std::string(routing_fee_address, address_len);
-    //std::string output = "Set routing fee address for rouTEE: " + state.fee_address + "\n";
-    //memcpy(user_output, output.c_str(), output.length() + 1);
+
     printf("Set routing fee address for rouTEE: %s\n", state.fee_address.c_str());
     if (state.routing_fee != 0) {
-        printf("Routing fee and fee address setup are done. Ready for rouTEE\n");
+        printf("Routing fee and fee address setup are done. Ready for rouTEE!\n");
         teechain_state = Ready;
     }
-    std::string output = "";
+    std::string output = "Set routing fee address for rouTEE: " + state.fee_address + "\n";
     memcpy(user_output, output.c_str(), output.length() + 1);
 
     return 0;
@@ -669,7 +669,7 @@ int ecall_set_routing_fee_address_routee(const char* routing_fee_address, int ad
 
 
 bool account_exist(const char* my_address, int address_len) {
-    std::string addr(my_address, address_len); 
+    std::string addr(my_address, address_len);
     // There are no matched account for given bitcoin address
     if (state.users.find(addr) == state.users.end()) {
         return false;
@@ -763,7 +763,7 @@ int ecall_setup_deposit_request_routee(const char* my_address, int address_len, 
 
 int ecall_create_channel_routee(const char* my_address, int address_len, const char* txid, int txid_len, unsigned long long deposit_amount, char* user_output) {
     if (!check_state(Ready)) {
-	    printf("Cannot create routee channel; this enclave is not a primary!");
+	    printf("Cannot create routee channel; this enclave is not ready!");
         return 1;
     }
     
@@ -786,13 +786,13 @@ int ecall_create_channel_routee(const char* my_address, int address_len, const c
 }
 
 int ecall_print_state_routee(char* user_output) {
-    if (!check_state(Ready)) {
-	    printf("Cannot print routee state; this enclave is not a primary!");
+    if (!check_state(Primary) && !check_state(Ready)) {
+	    printf("Cannot print routee state; this enclave is not a primary nor ready!");
         return 1;
     }
 
     // print all the state: all users' address and balance
-    printf("    owner address: %s\n", state.owner_address.c_str());
+    // printf("    owner address: %s\n", state.owner_address.c_str());
     printf("    routing fee amount: %llu\n", state.routing_fee);
     printf("    routing fee address: %s\n", state.fee_address.c_str());
     for (std::map<std::string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
@@ -890,12 +890,12 @@ static bool settle_routee(Account* user_account, std::string& output) {
 
 int ecall_settle_balance_routee(const char* my_address, int address_len, char* user_output) {
     if (!check_state(Ready)) {
-	    printf("Cannot settle routee balance; this enclave is not a primary!");
-        return 1;
+	    printf("Cannot settle routee balance; this enclave is not ready!");
+        return REQUEST_FAILED;
     }
 
     if (!account_exist(my_address, address_len)) {
-	    printf("Cannot settle routee balance; there are no account!");
+	    printf("Cannot settle routee balance; there are no corresponding account!");
         return REQUEST_FAILED;
     }
 
@@ -925,8 +925,8 @@ int ecall_settle_balance_routee(const char* my_address, int address_len, char* u
 
 int ecall_do_multihop_payment_routee(const char* sender_address, int sender_address_len, const char* receiver_address, int receiver_address_len, unsigned long long amount, char* user_output) {
     if (!check_state(Ready)) {
-	    printf("Cannot do multihop payment routee; this enclave is not a primary!");
-        return 1;
+	    printf("Cannot do multihop payment routee; this enclave is not ready!");
+        return REQUEST_FAILED;
     }
 
     if (!account_exist(sender_address, sender_address_len)) {

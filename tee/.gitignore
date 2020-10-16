@@ -12,6 +12,7 @@ core
 untrusted/teechain_u.h
 teechain.so
 teechain
+teechain_private.pem
 
-trusted/*.o
-untrusted/*.o
+trusted/**/*.o
+untrusted/**/*.o
