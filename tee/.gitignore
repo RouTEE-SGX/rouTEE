@@ -16,3 +16,10 @@ teechain_private.pem
 
 trusted/**/*.o
 untrusted/**/*.o
+
+client/resultLogs
+client/scripts
+
+remake.sh
+state.encrypted
+owner.key.encrypted
