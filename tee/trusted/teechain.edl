@@ -67,6 +67,8 @@ enclave {
                 [user_check] char* user_output);
 
         public int ecall_setup_deposit_request_routee(
+                [in, size=address_len] const char* my_address,
+                int address_len,
                 [user_check] char* user_output);
         
         public int ecall_make_owner_key_routee(

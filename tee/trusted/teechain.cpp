@@ -615,12 +615,12 @@ int ecall_primary_routee(bool use_monotonic_counters, char* user_output) {
     write_to_stable_storage = use_monotonic_counters;
 
     // generate sgx key
-    make_owner_key_routee();
+    //make_owner_key_routee();
 
     std::string output = "Your Enclave has been made into a Primary rouTEE node!\n";
     //output += "To use it, please fund your enclave by setting up your funding deposits!\n";
-    output += "Public key: " + state.owner_public_key + "\n";
-    output += "Bitcoin address: " + state.owner_address + "\n";
+    //output += "Public key: " + state.owner_public_key + "\n";
+    //output += "Bitcoin address: " + state.owner_address + "\n";
     printf("Random number for certification: %llu\n", state.owner_certificate);
 
     memcpy(user_output, output.c_str(), output.length() + 1);
@@ -680,37 +680,81 @@ bool account_exist(const char* my_address, int address_len) {
 void create_new_account(const char* my_address, int address_len) {
     std::string addr(my_address, address_len);
 
+    // initialize ECC State for Bitcoin Library
+    initializeECCState();
+    // generate and print bitcoin addresses to be paid into by the user
+    // generate new bitcoin pub/private key and address
+    CKey key;
+    key.MakeNewKey(true /* compressed */);
+    CPubKey pubkey = key.GetPubKey();
+
+    CKeyID keyid = pubkey.GetID();
+    CTxDestination* dest = new CTxDestination;
+    dest->class_type = 2;
+    dest->keyID = &keyid;
+    CScript script = GetScriptForDestination(*dest);
+
+    // get redeem script
+    std::string script_asm = ScriptToAsmStr(script);
+
+    // TODO: clean up using the bitcoin core code! For now this works as we hardcode the redeem scripts...
+    std::string redeem_script;
+    if (debug) {
+        redeem_script = "76a914c0cbe7ba8f82ef38aed886fba742942a9893497788ac"; // hard coded for tests!
+    } else {
+        std::string hash_string = script_asm.substr(18, 40); // 18 is offset of hash in asm, 40 is length of RIPEMD160 in hex
+        redeem_script = "76a914" + hash_string + "88ac";  // the P2PKH script format
+    }
+
+    CBitcoinAddress address;
+    address.Set(pubkey.GetID());
+
+    std::string generated_bitcoin_address = address.ToString();
+    std::string generated_public_key = HexStr(key.GetPubKey());
+    std::string generated_private_key = CBitcoinSecret(key).ToString();
+
     Account* acc = new Account;
+
+    // save generated public/private keys info
+    acc->enclave_address = generated_bitcoin_address;
+    acc->public_key = generated_public_key;
+    acc->private_key = generated_private_key;
+    acc->redeem_script = redeem_script;
+
+    acc->user_address = addr;
     acc->balance = 0;
     acc->nonce = 0;
     acc->pending_fee = 0;
     acc->settle_request = false;
     acc->settle_amount = 0;
-    //acc->state = WaitingForFunds;
-    state.users.insert(std::make_pair(addr, acc));
 
+    printf("%s\n", addr.c_str());
+    state.users.insert(std::make_pair(addr, acc));
     return;
 }
 
-int ecall_setup_deposit_request_routee(char* user_output) {
+int ecall_setup_deposit_request_routee(const char* my_address, int address_len, char* user_output) {
     if (!check_state(Ready)) {
 	    printf("Cannot setup deposit request; this enclave is not ready!");
         return 1;
     }
     
     if (!account_exist(my_address, address_len)) {
+        printf("Create new account for user");
+        printf("User address: %s\n", my_address);
         create_new_account(my_address, address_len);
     }
 
     std::string addr(my_address, address_len);
+    Account* account = state.users.find(addr)->second;
 
     // insert user's address in wait funding list
     // the enclave can check whether the user funded deposit or not
     state.wait_funding_list.push_back(addr);
 
 
-    std::string output = "Owner address: " + state.owner_address + "\n";
-    output += "Owner public key: " + state.owner_public_key + "\n";
+    std::string output = "Send bitcoin to " + account->enclave_address + "\n";
+    output += "Enclave public key: " + account->public_key + "\n";
 
     memcpy(user_output, output.c_str(), output.length() + 1);
 
@@ -724,14 +768,14 @@ int ecall_create_channel_routee(const char* my_address, int address_len, const c
     }
     
     if (!account_exist(my_address, address_len)) {
-        create_new_account(my_address, address_len);
+        printf("Cannot create routee channel; account does not exist!");
+        return 1;
+        //create_new_account(my_address, address_len);
     }
 
     std::string addr(my_address, address_len);
-
-
-
     Account* account = state.users.find(addr)->second;
+
     account->balance += deposit_amount;
 
     printf("    Account address: %s, balance: %llu, amount: %llu\n", addr.c_str(), account->balance, deposit_amount);

@@ -260,6 +260,11 @@ struct LocalSetRoutingFeeAddressRouteeMsg {
     char routing_fee_address[BITCOIN_ADDRESS_LEN];
 };
 
+struct LocalSetupDepositRequestRouteeMsg {
+    char msg_op[1];
+    char my_address[BITCOIN_ADDRESS_LEN];
+};
+
 struct LocalCreateChannelRouteeMsg {
     char msg_op[1];
     char my_address[BITCOIN_ADDRESS_LEN];

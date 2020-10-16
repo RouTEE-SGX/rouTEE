@@ -79,13 +79,17 @@ bool check_state(TeechanState state);
 class Account {
 
     public:
+        std::string enclave_address;
+        std::string public_key;
+        std::string private_key;
+        std::string redeem_script;
+        std::string user_address;
         unsigned long long balance;         // Balance for this account
         unsigned long long nonce;           // To prevent replay attack
         unsigned long long pending_fee;    // Pending routing fee for this account
         bool settle_request;        // True if there was a settle request
-        unsigned long long settle_amount;
+        unsigned long long settle_amount;   // The amount of settlement
         // std::string public_key; // need this?
-        //TeechanState state;
 };
 
 // settle request

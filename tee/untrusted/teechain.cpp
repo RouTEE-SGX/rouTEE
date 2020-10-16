@@ -852,9 +852,12 @@ static void do_multihop_payment_routee(char* data, int client_fd) {
 }
 
 static void setup_deposit_request_routee(char* data, int client_fd) {
+    struct LocalSetupDepositRequestRouteeMsg *msg = (struct LocalSetupDepositRequestRouteeMsg*) data;
+    std::string my_address(msg->my_address, BITCOIN_ADDRESS_LEN);
+
     char user_output[MAX_ECALL_RETURN_LENGTH];
     int ecall_return;
-    int command_return = ecall_setup_deposit_request_routee(global_eid, &ecall_return, user_output);
+    int command_return = ecall_setup_deposit_request_routee(global_eid, &ecall_return, my_address.c_str(), my_address.length(), user_output);
     if (command_return != SGX_SUCCESS || ecall_return == REQUEST_CRASHED) {
         send_ack(client_fd, OP_LOCAL_FAIL, "ecall_setup_deposit_request_routee");
         error("ecall_setup_deposit_request_routee");

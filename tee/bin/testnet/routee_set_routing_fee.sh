@@ -61,7 +61,11 @@ done
 
 sleep 1
 
-./teechain routee_setup_deposit_request -p $OWNER_PORT
+./teechain routee_setup_deposit_request $ALICE_ADDR -p $OWNER_PORT
+
+sleep 1
+
+./teechain routee_print_state -p $OWNER_PORT
 
 sleep 1
 

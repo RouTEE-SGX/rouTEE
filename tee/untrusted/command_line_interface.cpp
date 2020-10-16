@@ -644,10 +644,19 @@ static void local_do_multihop_payment_routee(int argc, char* argv[]) {
 }
 
 static void local_setup_deposit_request_routee(int argc, char* argv[]) {
-    if (!enough_arguments_for_command(0, argc)) usage();
+    if (!enough_arguments_for_command(1, argc)) usage();
+
+    std::string my_address(argv[optind + 1]);
+    validate_address(my_address);
+
+    printf("my_address: %s\n", argv[optind + 1]);
+    // construct deposit setup request message with data
+    struct LocalSetupDepositRequestRouteeMsg msg; // zero initialize the struct
+    msg.msg_op[0] = OP_LOCAL_SETUP_DEPOSIT_REQUEST_ROUTEE;
+    memcpy(msg.my_address, my_address.c_str(), BITCOIN_ADDRESS_LEN);
 
     // send setup message
-    local_issue_command(local_sockfd, OP_LOCAL_SETUP_DEPOSIT_REQUEST_ROUTEE);
+    send_on_socket((char*) &msg, sizeof(struct LocalSetupDepositRequestRouteeMsg), local_sockfd);
     local_wait_for_response_and_close(local_sockfd, "local_setup_deposit_request_routee");
 }
 
