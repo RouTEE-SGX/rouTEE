@@ -70,6 +70,11 @@ enclave {
                 [in, size=address_len] const char* my_address,
                 int address_len,
                 [user_check] char* user_output);
+
+        public int ecall_insert_block_routee(
+                [in, size=block_info_len] const char* block_info,
+                int block_info_len,
+                [user_check] char* user_output);
         
         public int ecall_make_owner_key_routee(
                 [user_check] char* user_output);                           

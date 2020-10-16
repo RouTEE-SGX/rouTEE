@@ -964,6 +964,20 @@ int ecall_do_multihop_payment_routee(const char* sender_address, int sender_addr
     return 0;
 }
 
+int ecall_insert_block_routee(const char* block_info, int block_info_len, char* user_output) {
+    if (!check_state(Ready)) {
+	    printf("Cannot insert block for routee; this enclave is not ready!");
+        return REQUEST_FAILED;
+    }
+
+    printf("Insert block: %s", std::string(block_info, block_info_len).c_str());
+
+    std::string output = "New block was inserted successfully\n";
+
+    memcpy(user_output, output.c_str(), output.length() + 1);
+    return 0;
+}
+
 int ecall_make_owner_key_routee(char* user_output) {
     if (!check_state(Ready)) {
 	    printf("Cannot make owner key routee; this enclave is not a primary!");

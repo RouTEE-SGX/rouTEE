@@ -288,4 +288,9 @@ struct LocalDoMultihopPaymentRouteeMsg {
     unsigned long long routing_fee;
 };
 
+struct LocalInsertBlockRouteeMsg {
+    char msg_op[1];
+    int block_number;
+};
+
 #endif /* !_NETWORK_H_ */

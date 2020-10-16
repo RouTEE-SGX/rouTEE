@@ -36,6 +36,9 @@
 #include "utils.h"
 #include "backups.h"
 
+// For http request
+#include <curl/curl.h>
+
 extern bool debug;
 extern bool benchmark;
 
@@ -908,25 +911,60 @@ static void load_owner_key_routee(char* data, int client_fd) {
     send_ack(client_fd, OP_LOCAL_ACK, user_output);
 }
 
+size_t callBackFunk(char* ptr, size_t size, size_t nmemb, std::string* stream)
+{
+    int realsize = size * nmemb;
+    stream->append(ptr, realsize);
+    return realsize;
+}
+
+std::string url_get_proc (const char url[])
+{
+    CURL *curl;
+    CURLcode res;
+    curl = curl_easy_init();
+    std::string chunk;
+
+    if (curl)
+        {
+        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, callBackFunk);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (std::string*)&chunk);
+        curl_easy_setopt(curl, CURLOPT_PROXY, "");
+        res = curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
+        }
+    if (res != CURLE_OK) {
+        std::cout << "curl error" << std::endl;
+        exit (1);
+    }
+
+    return chunk;
+}
+
 static void insert_block_routee(char* data, int client_fd) {
-    /*
-    struct LocalInsertBlockRouteeMsg *msg = (struct LocalInsertBlockRouteeMsg*) (data);
-    //std::string sender_address(msg->sender_address, BITCOIN_ADDRESS_LEN);
-    //std::string receiver_address(msg->receiver_address, BITCOIN_ADDRESS_LEN);
-    //unsigned long long amount = msg->amount; 
-    std::string block(msg->block, BLOCK_LEN);
-    //unsigned long long miner_fee = msg->miner_fee;
+
+    struct LocalInsertBlockRouteeMsg *msg = (struct LocalInsertBlockRouteeMsg*) data;
+    int block_number = msg->block_number;
+
+    std::string url_target = "https://api.blockcypher.com/v1/btc/main/blocks/" + std::to_string(block_number);
+    std::string str_out = url_get_proc(url_target.c_str());
 
     char user_output[MAX_ECALL_RETURN_LENGTH];
     int ecall_return;
-    int command_return = ecall_insert_block_routee(global_eid, &ecall_return, sender_address.c_str(), sender_address.length(), receiver_address.c_str(), receiver_address.length(), amount, user_output);
-    if (command_return != SGX_SUCCESS || ecall_return != 0) {
+    int command_return = ecall_insert_block_routee(global_eid, &ecall_return, str_out.c_str(), str_out.length(), user_output);
+    if (command_return != SGX_SUCCESS || ecall_return == REQUEST_CRASHED) {
+        send_ack(client_fd, OP_LOCAL_FAIL, "ecall_insert_block_routee");
         error("ecall_insert_block_routee");
     }
 
+    if (ecall_return == REQUEST_FAILED) {
+        printf("Unable to insert block routee!");
+        send_ack(client_fd, OP_LOCAL_ACK, "Unable to insert block routee");
+        return;
+    }
+    
     send_ack(client_fd, OP_LOCAL_ACK, user_output);
-    */
-    return;
 }
 
 // provisions the primary enclave with the number of deposits to create

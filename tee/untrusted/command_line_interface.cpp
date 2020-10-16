@@ -660,6 +660,21 @@ static void local_setup_deposit_request_routee(int argc, char* argv[]) {
     local_wait_for_response_and_close(local_sockfd, "local_setup_deposit_request_routee");
 }
 
+static void local_insert_block_routee(int argc, char* argv[]) {
+    if (!enough_arguments_for_command(1, argc)) usage();
+
+    int block_number = atoi(argv[optind + 1]);
+
+    // construct deposit setup request message with data
+    struct LocalInsertBlockRouteeMsg msg; // zero initialize the struct
+    msg.msg_op[0] = OP_LOCAL_INSERT_BLOCK_ROUTEE;
+    msg.block_number = block_number;
+
+    // send setup message
+    send_on_socket((char*) &msg, sizeof(struct LocalInsertBlockRouteeMsg), local_sockfd);
+    local_wait_for_response_and_close(local_sockfd, "local_insert_block_routee");
+}
+
 static void local_make_owner_key_routee(int argc, char* argv[]) {
     if (!enough_arguments_for_command(0, argc)) usage();
 
@@ -781,6 +796,10 @@ static void validate_and_execute_command(int argc, char* argv[]) {
     } else if (streq(command, "routee_setup_deposit_request")) {
         printf("setup deposit request executed\n");
         local_setup_deposit_request_routee(argc, argv);
+
+    } else if (streq(command, "routee_insert_block")) {
+        printf("insert block executed\n");
+        local_insert_block_routee(argc, argv);
 
     }
 

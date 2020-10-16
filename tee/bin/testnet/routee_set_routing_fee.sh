@@ -83,6 +83,8 @@ sleep 1
 
 ./teechain routee_print_state -p $OWNER_PORT
 
+./teechain routee_insert_block 1000 -p $OWNER_PORT
+
 ./teechain shutdown -p $OWNER_PORT
 
 popd # return to bin directory
