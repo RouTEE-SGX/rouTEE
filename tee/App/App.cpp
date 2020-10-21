@@ -13,7 +13,7 @@
 #include "sgx_urts.h"
 #include "App.h"
 #include "Enclave_u.h"
-#include "network.h"
+#include "../Enclave/network.h"
 #include "../Enclave/errors.h"
 
 using std::string;
