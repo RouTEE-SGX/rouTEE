@@ -5,18 +5,71 @@ import socket
 from datetime import datetime
 import csv
 import sys
+# python crypto library example: https://blog.naver.com/chandong83/221886840586
+from Cryptodome.Cipher import AES
+from Cryptodome.Random import get_random_bytes
 
-# rouTEE IP
-HOST = "127.0.0.1"
+# rouTEE IP address
+SERVER_IP = "127.0.0.1"
 PORT = 7223
-
-# command scripts for rouTEE
-SCRIPTSPATH = "scripts/"
 
 # open socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # connect to the server
-client_socket.connect((HOST, PORT))
+client_socket.connect((SERVER_IP, PORT))
+
+# command scripts for rouTEE
+SCRIPTSPATH = "scripts/"
+
+# encryption/decryption setting
+KEY_SIZE = 16 # bytes
+NONCE_SIZE = 12 # bytes
+
+# print byte array
+def print_hex_bytes(name, byte_array):
+    print('{} len[{}]: '.format(name, len(byte_array)), end='')
+    for idx, c in enumerate(byte_array):
+        print("{:02x}".format(int(c)), end='')
+    print("")
+
+# generate random key
+def gen_random_key():
+    return get_random_bytes(KEY_SIZE)
+
+# generate random nonce (= Initialization Vector, IV)
+def gen_random_nonce():
+    return get_random_bytes(NONCE_SIZE)
+
+# AES-GCM encryption
+def enc(key, aad, nonce, plain_data):
+
+    # AES-GCM cipher
+    cipher = AES.new(key, AES.MODE_GCM, nonce)
+
+    # add AAD (Additional Associated Data)
+    # cipher.update(aad)
+
+    # encrypt plain data & get MAC tag
+    cipher_data = cipher.encrypt(plain_data)
+    mac = cipher.digest()
+    return cipher_data, mac
+
+# AES-GCM decryption
+def dec(key, aad, nonce, cipher_data, mac):
+
+    # AES128-GCM cipher
+    cipher = AES.new(key, AES.MODE_GCM, nonce)
+    
+    # add AAD (Additional Associated Data)
+    # cipher.update(aad)
+
+    try:
+        # try decrypt
+        plain_data = cipher.decrypt_and_verify(cipher_data, mac)
+        return plain_data
+    except ValueError:
+        # ERROR: wrong MAC tag, data is contaminated
+        return None
 
 # get file length
 def file_len(fileName):
@@ -113,6 +166,66 @@ def runScript(fileName):
     return
 
 
+def secure_command(command):
+
+    # encrypt command with (hardcoded) symmetric key
+    key = bytes([0x0,0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xa,0xb,0xc,0xd,0xe,0xf])
+    aad = bytes([0])
+    nonce = gen_random_nonce()
+    # nonce = bytes([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0])
+    # nonce = bytes([97,12,55,129,186,128,245,53,110,248,233,193])
+    print("command[2:]:", command[2:])
+    enc_cmd, mac = enc(key, aad, nonce, command[2:].encode('utf-8'))
+    secure_cmd = mac + nonce + enc_cmd
+    print("key:", key)
+    print("mac:", mac)
+    print("nonce:", nonce)
+    print("enc:", enc_cmd)
+    print("bytes concat result:", secure_cmd)
+
+    for i in range(len(key)):
+        print("key", i, ":", int(key[i]))
+    
+    for i in range(len(mac)):
+        print("mac:", i, ":", int(mac[i]))
+    
+    for i in range(len(nonce)):
+        print("nonce:", i, ":", int(nonce[i]))
+
+    for i in range(len(enc_cmd)):
+        print("enc_cmd:", i, ":", int(enc_cmd[i]))
+
+    for i in range(len(secure_cmd)):
+        print("secure_cmd:", i, ":", int(secure_cmd[i]))
+
+    secure_cmd = str("p mySessionID ").encode('utf-8') + secure_cmd
+    print("secure_cmd:", secure_cmd)
+
+    # send command to server
+    startTime = datetime.now()
+    client_socket.sendall(secure_cmd)
+
+    # get response from server
+    data = client_socket.recv(1024)
+    elapsed = datetime.now() - startTime
+
+    # calculate elapsed time
+    elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
+    elapsedMillisec = elapsedMicrosec / 1000.0
+    elapsedSec = elapsedMillisec / 1000.0
+
+    print("elapsed:", elapsed)
+    print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
+
+    #
+    # TODO: decrypt response
+    #
+
+    # check the result
+    if data.decode() != "SUCCESS":
+        print("ERROR: command failed\n")
+        print("error msg:", data.decode())
+        return
 
 if __name__ == "__main__":
 
@@ -134,6 +247,11 @@ if __name__ == "__main__":
             runScript(command)
             continue
         
+        if command[0] == 't':
+            # execute secure_command
+            secure_command(command)
+            continue
+
         # send command to server
         startTime = datetime.now()
         client_socket.sendall(command.encode())
