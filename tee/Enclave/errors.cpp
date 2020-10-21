@@ -30,6 +30,8 @@ const char* error_to_msg(int err) {
             return "sgx unsealing failed";
         case ERR_SGX_ERROR_DECRYPT_FAILED:
             return "sgx decryption failed";
+        case ERR_SGX_ERROR_ENCRYPT_FAILED:
+            return "sgx encryption failed";
         default:
             return "wrong error index";
     }

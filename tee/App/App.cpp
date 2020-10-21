@@ -447,25 +447,6 @@ int do_multihop_payment(char* request) {
     return ecall_return;
 }
 
-// give encrypted cmd to rouTEE
-int secure_command(char* request, int request_len) {
-    // parse request as ecall function params
-    vector<string> params = parse_request(request);
-    string sessionID = params[1];
-    char* encrypted_cmd = request+3+sessionID.length(); // 3+sessionID.length() means length of this string: "p sessionID " (not encrypted data)
-
-    // request_len is required because when encrypted_cmd contains '0', then this '0' is accepted as '\0': the end of the string
-    // so to know the correct request length, we need this request_len param
-    int ecall_return;
-    int ecall_result = ecall_secure_command(global_eid, &ecall_return, sessionID.c_str(), sessionID.length(), encrypted_cmd, request_len-3-sessionID.length());
-    printf("ecall_secure_command() -> result:%d / return:%d\n", ecall_result, ecall_return);
-    if (ecall_result != SGX_SUCCESS) {
-        error("ecall_secure_command");
-    }
-
-    return ecall_return;
-}
-
 // save sealed current state as a file
 void seal_state() {
 
@@ -493,8 +474,33 @@ void seal_state() {
     printf("seal_state() success!\n");
 }
 
+// give encrypted cmd to rouTEE
+int secure_command(char* request, int request_len, char* encrypted_response, int* encrypted_response_len) {
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    string sessionID = params[1];
+    char* encrypted_cmd = request+3+sessionID.length(); // 3+sessionID.length() means length of this string: "p sessionID " (not encrypted data)
+
+    // request_len is required because when encrypted_cmd contains '0', then this '0' is accepted as '\0': the end of the string
+    // so to know the correct request length, we need this request_len param
+    int ecall_return;
+    int ecall_result = ecall_secure_command(global_eid, &ecall_return, sessionID.c_str(), sessionID.length(), encrypted_cmd, request_len-3-sessionID.length(), encrypted_response, encrypted_response_len);
+    printf("ecall_secure_command() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_secure_command");
+    }
+
+    // save state inside the enclave
+    if (STATE_SAVE_EPOCH != 0 && state_save_counter % STATE_SAVE_EPOCH == 0) {
+        seal_state();
+    }
+    state_save_counter++;
+
+    return ecall_return;
+}
+
 // execute client's command
-const char* execute_command(char* request, int request_len) {
+const char* execute_command(char* request) {
     char operation = request[0];
     int ecall_return;
 
@@ -530,10 +536,6 @@ const char* execute_command(char* request, int request_len) {
     else if (operation == OP_DO_MULTIHOP_PAYMENT) {
         printf("do multihop payment executed\n");
         ecall_return = do_multihop_payment(request);
-    }
-    else if (operation == OP_SECURE_COMMAND) {
-        printf("secure command executed\n");
-        ecall_return = secure_command(request, request_len);
     }
     else{
         // wrong op_code
@@ -696,14 +698,36 @@ int SGX_CDECL main(int argc, char* argv[]){
                 else {
                     // set the string terminating NULL byte on the end of the data read
                     request[read_len] = '\0';
-                    printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
+                    // printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
 
                     // execute client's command
-                    response = execute_command(request, read_len);
-                    printf("execution result: %s\n\n", response);
+                    char operation = request[0];
+                    if (operation == OP_SECURE_COMMAND) {
+                        // buffer for encrypted response from ecall
+                        char encrypted_response[MAX_SEALED_DATA_LENGTH];
+                        int encrypted_response_len;
 
-                    // send result to the client
-                    send(sd, response, strlen(response), 0);
+                        // execute client's command
+                        int error_index = secure_command(request, read_len, encrypted_response, &encrypted_response_len);
+                        if (error_index != NO_ERROR) {
+                            response = "failed secure_command()";
+                            send(sd, response, strlen(response), 0);
+                        }
+                        else {
+                            // send encrypted response to the client
+                            send(sd, encrypted_response, encrypted_response_len, 0);
+                        }
+
+                    }
+                    else {
+                        // execute client's command
+                        response = execute_command(request);
+                        
+                        // send result to the client
+                        send(sd, response, strlen(response), 0);
+                    }
+                    // printf("execution result: %s\n\n", response);
+
                 }
             }
         }
