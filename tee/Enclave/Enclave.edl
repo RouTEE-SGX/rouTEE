@@ -13,6 +13,7 @@ enclave {
         public int ecall_settle_balance([in, size=receiver_addr_len] const char* receiver_address, int receiver_addr_len);
         public int ecall_make_settle_transaction([user_check] const char* settle_transaction, [in, out] int* settle_tx_len);
         public int ecall_do_multihop_payment([in, size=sender_addr_len] const char* sender_address, int sender_addr_len, [in, size=receiver_addr_len] const char* receiver_address, int receiver_addr_len, unsigned long long amount, unsigned long long fee);
+        public int ecall_secure_command([in, size=sessionID_len] const char* sessionID, int sessionID_len, [in, size=encrypted_cmd_len] const char* encrypted_cmd, int encrypted_cmd_len);
         public int ecall_make_owner_key([user_check] char* sealed_owner_private_key, [in, out] int* sealed_key_len);
         public int ecall_load_owner_key([in, size=sealed_key_len] const char* sealed_owner_private_key, int sealed_key_len);
         public int ecall_seal_state([user_check] char* sealed_state, [in, out] int* sealed_state_len);

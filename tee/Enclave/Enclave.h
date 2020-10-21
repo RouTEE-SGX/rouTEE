@@ -41,6 +41,9 @@ int ecall_do_multihop_payment(const char* sender_address, int sender_addr_len, c
 // insert blockchain's block (for SPV inside TEE)
 int ecall_insert_block(const char* block, int block_len);
 
+// give encrypted command to rouTEE
+int ecall_secure_command(const char* sessionID, int sessionID_len, const char* encrypted_cmd, int encrypted_cmd_len);
+
 // save randomly created and encrypted owner key
 int ecall_make_owner_key(char* sealed_owner_private_key, int* sealed_key_len);
 

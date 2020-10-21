@@ -18,5 +18,6 @@
 #define OP_DO_MULTIHOP_PAYMENT  109 // m (cmd: m sender_addr receiver_addr amount fee)
 #define OP_MAKE_SETTLE_TRANSACTION  110 // n (cmd: n)
 #define OP_INSERT_BLOCK 111 // o (cmd: o block_data)
+#define OP_SECURE_COMMAND 112 // p (cmd: p sessionID encrypted_command_data)
 
 #endif  // _NETWORK_H_

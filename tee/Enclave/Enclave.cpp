@@ -11,6 +11,10 @@
 #include "state.h"
 #include "utils.h"
 
+#define SGX_AESGCM_MAC_SIZE 16
+#define SGX_AESGCM_IV_SIZE 12
+#define BUFLEN 2048
+
 // global state
 State state;
 
@@ -251,6 +255,66 @@ int ecall_insert_block(const char* block, int block_len) {
     // TODO: BITCOIN
     // save bitcoin blocks
     // 
+}
+
+int ecall_secure_command(const char* sessionID, int sessionID_len, const char* encrypted_cmd, int encrypted_cmd_len) {
+
+    // decrypt cmd
+    uint8_t *encMessage = (uint8_t *) encrypted_cmd;
+	uint8_t p_dst[BUFLEN] = {0};
+    string session_ID = string(sessionID, sessionID_len);
+    
+    // sgx_aes_gcm_128bit_key_t *session_key = &(state.users[session_ID]->session_key);
+    // test code
+    sgx_aes_gcm_128bit_key_t skey = { 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf };
+    sgx_aes_gcm_128bit_key_t *session_key = &skey;
+
+    for (int i = 0;i<encrypted_cmd_len;i++){
+        printf("enc %d: %d\n", i, encMessage[i]);
+    }
+
+    size_t decMessageLen = encrypted_cmd_len - SGX_AESGCM_MAC_SIZE - SGX_AESGCM_IV_SIZE;
+	sgx_status_t status = sgx_rijndael128GCM_decrypt(
+		session_key,
+		encMessage + SGX_AESGCM_MAC_SIZE + SGX_AESGCM_IV_SIZE,
+		decMessageLen,
+		p_dst,
+		encMessage + SGX_AESGCM_MAC_SIZE,
+        SGX_AESGCM_IV_SIZE,
+		NULL, 0,
+		(sgx_aes_gcm_128bit_tag_t *) encMessage);
+    
+
+    if (status == SGX_SUCCESS){
+        printf("SGX_SUCCESS\n");
+    }
+    if (status == SGX_ERROR_INVALID_PARAMETER){
+        printf("SGX_ERROR_INVALID_PARAMETER\n");
+    }
+    if (status == SGX_ERROR_MAC_MISMATCH){
+        printf("SGX_ERROR_MAC_MISMATCH\n");
+    }
+    if (status == SGX_ERROR_OUT_OF_MEMORY){
+        printf("SGX_ERROR_OUT_OF_MEMORY\n");
+    }
+    if (status == SGX_ERROR_UNEXPECTED){
+        printf("SGX_ERROR_UNEXPECTED\n");
+    }
+
+    if (status != SGX_SUCCESS) {
+        return ERR_SGX_ERROR_DECRYPT_FAILED;
+    }
+    
+    char *decMessage = (char *) malloc((decMessageLen+1)*sizeof(char));
+	memcpy(decMessage, p_dst, decMessageLen);
+    decMessage[decMessageLen] = '\0';
+    printf("decrypted cmd: %s\n", decMessage);
+
+    //
+    // TODO: execute decrypted cmd
+    //
+
+    return NO_ERROR;
 }
 
 int ecall_make_owner_key(char* sealed_owner_private_key, int* sealed_key_len) {
