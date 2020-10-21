@@ -23,6 +23,7 @@ SCRIPTSPATH = "scripts/"
 
 # encryption/decryption setting
 KEY_SIZE = 16 # bytes
+MAC_SIZE = 16 # bytes
 NONCE_SIZE = 12 # bytes
 
 # print byte array
@@ -217,15 +218,22 @@ def secure_command(command):
     print("elapsed:", elapsed)
     print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
 
-    #
-    # TODO: decrypt response
-    #
+    # decrypt response from rouTEE
+    mac = bytes(data[:MAC_SIZE])
+    nonce = bytes(data[MAC_SIZE:MAC_SIZE+NONCE_SIZE])
+    cipher_data = bytes(data[MAC_SIZE+NONCE_SIZE:])
+    result = dec(key, aad, nonce, cipher_data, mac)
 
     # check the result
-    if data.decode() != "SUCCESS":
-        print("ERROR: command failed\n")
-        print("error msg:", data.decode())
-        return
+    if result is not None:
+        print("decrypted result:", result.decode())
+        if result.decode() != "SUCCESS":
+            print("ERROR: command failed\n")
+            print("error msg:", result.decode())
+    else:
+        print("ERROR: something went wrong, plain response msg:", data.decode())
+    
+    print()
 
 if __name__ == "__main__":
 
