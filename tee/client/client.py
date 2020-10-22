@@ -173,34 +173,10 @@ def secure_command(command):
     key = bytes([0x0,0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xa,0xb,0xc,0xd,0xe,0xf])
     aad = bytes([0])
     nonce = gen_random_nonce()
-    # nonce = bytes([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0])
-    # nonce = bytes([97,12,55,129,186,128,245,53,110,248,233,193])
-    print("command[2:]:", command[2:])
+    print("plain text command:", command[2:])
     enc_cmd, mac = enc(key, aad, nonce, command[2:].encode('utf-8'))
     secure_cmd = mac + nonce + enc_cmd
-    print("key:", key)
-    print("mac:", mac)
-    print("nonce:", nonce)
-    print("enc:", enc_cmd)
-    print("bytes concat result:", secure_cmd)
-
-    for i in range(len(key)):
-        print("key", i, ":", int(key[i]))
-    
-    for i in range(len(mac)):
-        print("mac:", i, ":", int(mac[i]))
-    
-    for i in range(len(nonce)):
-        print("nonce:", i, ":", int(nonce[i]))
-
-    for i in range(len(enc_cmd)):
-        print("enc_cmd:", i, ":", int(enc_cmd[i]))
-
-    for i in range(len(secure_cmd)):
-        print("secure_cmd:", i, ":", int(secure_cmd[i]))
-
     secure_cmd = str("p mySessionID ").encode('utf-8') + secure_cmd
-    print("secure_cmd:", secure_cmd)
 
     # send command to server
     startTime = datetime.now()
@@ -226,12 +202,14 @@ def secure_command(command):
 
     # check the result
     if result is not None:
-        print("decrypted result:", result.decode())
+        print("response decryption success")
         if result.decode() != "SUCCESS":
-            print("ERROR: command failed\n")
-            print("error msg:", result.decode())
+            print("ERROR: command failed")
+            print("result:", result.decode())
+        else:
+            print("result:", result.decode())
     else:
-        print("ERROR: something went wrong, plain response msg:", data.decode())
+        print("ERROR: decryption failed, (maybe) plain response msg:", data.decode())
     
     print()
 
