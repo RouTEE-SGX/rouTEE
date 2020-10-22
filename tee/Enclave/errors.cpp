@@ -24,14 +24,14 @@ const char* error_to_msg(int err) {
             return "need higher routing fee";
         case ERR_SGX_ERROR_UNEXPECTED:
             return "sgx error: SGX_ERROR_UNEXPECTED";
-        case ERR_SGX_ERROR_SEAL_FAILED:
-            return "sgx sealing failed";
-        case ERR_SGX_ERROR_UNSEAL_FAILED:
-            return "sgx unsealing failed";
-        case ERR_SGX_ERROR_DECRYPT_FAILED:
-            return "sgx decryption failed";
-        case ERR_SGX_ERROR_ENCRYPT_FAILED:
-            return "sgx encryption failed";
+        case ERR_SEAL_FAILED:
+            return "sealing failed";
+        case ERR_UNSEAL_FAILED:
+            return "unsealing failed";
+        case ERR_DECRYPT_FAILED:
+            return "AES-GCM decryption failed";
+        case ERR_ENCRYPT_FAILED:
+            return "AES-GCM encryption failed";
         default:
             return "wrong error index";
     }
