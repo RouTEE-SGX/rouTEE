@@ -440,7 +440,10 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     // error index of encryption result
     int encryption_result;
 
+    //
     // decrypt cmd
+    //
+
     uint8_t *encMessage = (uint8_t *) encrypted_cmd;
 	uint8_t p_dst[BUFLEN] = {0};
     string session_ID = string(sessionID, sessionID_len);
@@ -478,7 +481,9 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     decMessage[decMessageLen] = '\0';
     printf("decrypted cmd: %s\n", decMessage);
 
+    //
     // execute decrypted cmd
+    //
 
     // parse the command to get parameters
     vector<string> params;
@@ -538,6 +543,10 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
         // invalid opcode
         operation_result = ERR_INVALID_OP_CODE;
     }
+
+    //
+    // encrypt response
+    //
 
     // encrypt the response for client & return NO_ERROR to hide the ecall result from rouTEE host
     encryption_result = make_encrypted_response(operation_result, session_key, encrypted_response, encrypted_response_len);
