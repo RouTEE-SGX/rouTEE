@@ -32,6 +32,10 @@ const char* error_to_msg(int err) {
             return "AES-GCM decryption failed";
         case ERR_ENCRYPT_FAILED:
             return "AES-GCM encryption failed";
+        case ERR_NO_RECEIVER:
+            return "payment receiver not exists in state";
+        case ERR_RECEIVER_NOT_READY:
+            return "payment receiver has low latest SPV block number";
         default:
             return "wrong error index";
     }

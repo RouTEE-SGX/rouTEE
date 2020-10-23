@@ -144,6 +144,15 @@ int secure_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_inde
     
     printf("new channel created with rouTEE -> user: %s / balance: %llu\n", sender_addr.c_str(), amount);
     return NO_ERROR;
+
+    // 
+    // above code is just for debugging
+    // 
+    // real implementation for secure_ready_for_deposit()
+    // 1. params: sender's settlement address
+    // 2. return: randomly genereated address to receive deposit from sender & latest block info in rouTEE header chain
+    //
+
 }
 
 void ecall_print_state() {
@@ -346,13 +355,14 @@ int secure_do_multihop_payment(const char* sender_address, int sender_addr_len, 
     // }
     //
 
-    // check the sender has more than amount + fee to send
+    // check the sender exists & has more than amount + fee to send
     string sender_addr = string(sender_address, sender_addr_len);
     map<string, Account*>::iterator iter = state.users.find(sender_addr);
     if (iter == state.users.end() || iter->second->balance < amount + fee) {
         // sender is not in the state || has not enough balance
         return ERR_NOT_ENOUGH_BALANCE;
     }
+    Account* sender_acc = iter->second;
 
     // check routing fee
     if (fee < state.routing_fee) {
@@ -363,23 +373,37 @@ int secure_do_multihop_payment(const char* sender_address, int sender_addr_len, 
     string receiver_addr = string(receiver_address, receiver_addr_len);
     iter = state.users.find(receiver_addr);
     if (iter == state.users.end()) {
-        // receiver is not in the state, create new account
-        Account* acc = new Account;
-        acc->balance = 0;
-        acc->nonce = 0;
-        state.users[receiver_addr] = acc;
+        // receiver is not in the state
+        return ERR_NO_RECEIVER;
     }
+    Account* receiver_acc = iter->second;
+
+    // check the receiver is ready to get paid (temporarily deprecated for easy tests)
+    // if (sender_acc->min_requested_block_number > receiver_acc->latest_SPV_block_number) {
+    //     return ERR_RECEIVER_NOT_READY;
+    // }
 
     // move balance
-    state.users[sender_addr]->balance -= (amount + fee);
-    state.users[receiver_addr]->balance += amount;
+    sender_acc->balance -= (amount + fee);
+    receiver_acc->balance += amount;
 
     // set pending fees
     state.pending_fees[sender_addr] += fee/2;
     state.pending_fees[receiver_addr] += fee - fee/2;
 
     // increase sender's nonce
-    state.users[sender_addr]->nonce++;
+    sender_acc->nonce++;
+
+    // update receiver's requested_block_number
+    if (receiver_acc->min_requested_block_number < sender_acc->min_requested_block_number) {
+        receiver_acc->min_requested_block_number = sender_acc->min_requested_block_number;
+    }
+
+    // update sender's requested_block_number
+    if (sender_acc->balance == 0) {
+        // sender spent all balance -> reset min requested block number
+        sender_acc->min_requested_block_number = 0;
+    }
 
     // increase state id
     state.stateID++;
@@ -388,10 +412,39 @@ int secure_do_multihop_payment(const char* sender_address, int sender_addr_len, 
     return NO_ERROR;
 }
 
+// update user's latest SPV block
+int secure_update_latest_SPV_block(string user_address, int user_addr_len, unsigned long long block_number) {
+
+    // check the user exists
+    string user_addr = string(user_address, user_addr_len);
+    map<string, Account*>::iterator iter = state.users.find(user_addr);
+    if (iter == state.users.end()) {
+        // the user not exist
+        return ERR_;
+    }
+    Account* user_acc = iter->second;
+
+    // check user has same block with rouTEE
+    // if () {
+    //     ;
+    // }
+
+    // check the block number is larger than user's previous latest block number
+    if (user_acc->latest_SPV_block_number < block_number) {
+        // update block number
+        user_acc->latest_SPV_block_number = block_number;
+    }    
+    
+    return NO_ERROR;
+}
+
 int ecall_insert_block(const char* block, int block_len) {
     // 
     // TODO: BITCOIN
-    // save bitcoin blocks
+    // SPV verify the new bitcoin block
+    // verify tx merkle root hash
+    // iterate txs to find deposit tx to update user balance state
+    //             to find settle tx to give pending routing fee to rouTEE host's fee address
     // 
 }
 
@@ -537,6 +590,22 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
 
             // execute operation
             operation_result = secure_do_multihop_payment(sender_address.c_str(), sender_address.length(), receiver_address.c_str(), receiver_address.length(), amount, fee);
+        }
+    }
+    else if (operation == OP_UPDATE_LATEST_SPV_BLOCK) {
+        // update user's latest SPV block
+        if (params.size() != 2) {
+            // invalid parameter count
+            operation_result = ERR_INVALID_PARAMS;
+        }
+        else {
+            // get parameters
+            string user_address = params[1]
+            unsigned long long block_number = strtoul(params[2].c_str(), NULL, 10);
+            // string block_hash = params[3];
+
+            // execute operation
+            operation_result = secure_update_latest_SPV_block(user_address.c_str(), user_address.length(), block_number);
         }
     }
     else {

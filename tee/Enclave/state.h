@@ -14,6 +14,11 @@ class Account {
     public:
         unsigned long long balance;
         unsigned long long nonce;
+
+        // if sender's min_requested_block_number <= receiver's latest_SPV_block_number, payment success
+        unsigned long long min_requested_block_number;
+        unsigned long long latest_SPV_block_number;
+        
         // string public_key; // need this?
 };
 
@@ -31,6 +36,7 @@ class State {
     public:
         // collect all fields as a string with delimitor
         string to_string();
+
         // restore state from string
         void from_string(string state_str);
         // vector<string> from_string(string state_str); // just for debugging, change return type as a void later
@@ -38,15 +44,17 @@ class State {
         // state version number (monotonically increasing counter)
         unsigned long long stateID;
 
-        // key which is generated in SGX (owner account of rouTEE)
+        // key which is generated inside SGX (rouTEE's ID)
         string owner_address;
         string owner_public_key;
         string owner_private_key;
 
         // multi-hop payment fee
         unsigned long long routing_fee;
+
         // address to get routing fees
         string fee_address;
+
         // pending routing fees to owner
         // pending_fees[payment_paticipant's_address] = routing fees pending for him
         map<string, unsigned long long> pending_fees;

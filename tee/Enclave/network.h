@@ -19,5 +19,6 @@
 #define OP_MAKE_SETTLE_TRANSACTION  110 // n (cmd: n)
 #define OP_INSERT_BLOCK 111 // o (cmd: o block_data)
 #define OP_SECURE_COMMAND 112 // p (cmd: p sessionID encrypted_command_data)
+#define OP_UPDATE_LATEST_SPV_BLOCK 113 // q (cmd: q user_address blocknumber)
 
 #endif  // _NETWORK_H_
