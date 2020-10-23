@@ -27,7 +27,7 @@ class SettleRequest {
 
     public:
         string address;
-        unsigned long long balance;
+        unsigned long long amount;
 };
 
 // global state

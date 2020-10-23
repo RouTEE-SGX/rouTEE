@@ -166,7 +166,7 @@ void ecall_print_state() {
     printf("    total %d accounts exist\n", state.users.size());
 
     for (int i = 0; i < state.settle_requests.size(); i++) {
-        printf("    user %s settles %llu satoshi\n", state.settle_requests[i].address, state.settle_requests[i].balance);
+        printf("    user %s settles %llu satoshi\n", state.settle_requests[i].address, state.settle_requests[i].amount);
     }
 
     for (map<string, unsigned long long>::iterator iter = state.pending_fees.begin(); iter != state.pending_fees.end(); iter++){
@@ -196,7 +196,7 @@ int ecall_settle_balance(const char* user_address, int user_addr_len) {
     // push new settle request
     state.settle_requests.push_back(SettleRequest());
     state.settle_requests.back().address = user_addr;
-    state.settle_requests.back().balance = iter->second->balance;
+    state.settle_requests.back().amount = iter->second->balance;
 
     // set user's account
     printf("user %s requests settlement: %llu satoshi\n", user_addr.c_str(), iter->second->balance);
@@ -236,7 +236,7 @@ int secure_settle_balance(const char* user_address, int user_addr_len) {
     // push new settle request
     state.settle_requests.push_back(SettleRequest());
     state.settle_requests.back().address = user_addr;
-    state.settle_requests.back().balance = user_acc->balance;
+    state.settle_requests.back().amount = user_acc->balance;
 
     // set user's account
     printf("user %s requests settlement: %llu satoshi\n", user_addr.c_str(), user_acc->balance);
@@ -266,11 +266,11 @@ int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx
     // calculate proper pending fees for this settle tx
     unsigned long long committed_pending_fee = 0;
     string settle_user_addr;
-    unsigned long long settle_user_balance;
+    unsigned long long settle_amount;
     for (int i = 0; i < state.settle_requests.size(); i++) {
         // get settle user info
         settle_user_addr = state.settle_requests[i].address;
-        settle_user_balance = state.settle_requests[i].balance;
+        settle_amount = state.settle_requests[i].amount;
 
         // deal with pending fees
         committed_pending_fee += state.pending_fees[settle_user_addr];
@@ -280,7 +280,7 @@ int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx
     // push new settle request for rouTEE's fee address
     state.settle_requests.push_back(SettleRequest());
     state.settle_requests.back().address = state.fee_address;
-    state.settle_requests.back().balance = committed_pending_fee;
+    state.settle_requests.back().amount = committed_pending_fee;
 
     //
     // TODO: BITCOIN
