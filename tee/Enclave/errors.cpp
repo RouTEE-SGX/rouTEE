@@ -36,6 +36,8 @@ const char* error_to_msg(int err) {
             return "payment receiver not exists in state";
         case ERR_RECEIVER_NOT_READY:
             return "payment receiver has low latest SPV block number";
+        case ERR_ADDRESS_NOT_EXIST:
+            return "this address is not in the state";
         default:
             return "wrong error index";
     }

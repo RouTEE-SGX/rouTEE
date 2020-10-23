@@ -420,7 +420,7 @@ int secure_update_latest_SPV_block(string user_address, int user_addr_len, unsig
     map<string, Account*>::iterator iter = state.users.find(user_addr);
     if (iter == state.users.end()) {
         // the user not exist
-        return ERR_;
+        return ERR_ADDRESS_NOT_EXIST;
     }
     Account* user_acc = iter->second;
 
@@ -600,7 +600,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
         }
         else {
             // get parameters
-            string user_address = params[1]
+            string user_address = params[1];
             unsigned long long block_number = strtoul(params[2].c_str(), NULL, 10);
             // string block_hash = params[3];
 
