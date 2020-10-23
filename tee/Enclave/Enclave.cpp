@@ -176,32 +176,32 @@ void ecall_print_state() {
     return;
 }
 
-int ecall_settle_balance(const char* receiver_address, int receiver_addr_len) {
+int ecall_settle_balance(const char* user_address, int user_addr_len) {
     //
     // TODO: BITCOIN
-    // check authority to get paid the balance (ex. receiver's signature with settlement params)
+    // check authority to get paid the balance (ex. user's signature with settlement params)
     // if (no authority to get balance) {
     //     return ERR_NO_AUTHORITY;
     // }
     //
 
-    // check the receiver has more than 0 balance
-    string receiver_addr = string(receiver_address, receiver_addr_len);
-    map<string, Account*>::iterator iter = state.users.find(receiver_addr);
+    // check the user has more than 0 balance
+    string user_addr = string(user_address, user_addr_len);
+    map<string, Account*>::iterator iter = state.users.find(user_addr);
     if (iter == state.users.end() || iter->second->balance == 0) {
-        // receiver is not in the state || has no balance
+        // user is not in the state || has no balance
         return ERR_NOT_ENOUGH_BALANCE;
     }
 
     // push new settle request
     state.settle_requests.push_back(SettleRequest());
-    state.settle_requests.back().address = receiver_addr;
+    state.settle_requests.back().address = user_addr;
     state.settle_requests.back().balance = iter->second->balance;
 
     // set user's account
-    printf("user %s requests settlement: %llu satoshi\n", receiver_addr.c_str(), iter->second->balance);
-    state.users[receiver_addr]->balance = 0;
-    state.users[receiver_addr]->nonce++; // prevent payment replay attack    
+    printf("user %s requests settlement: %llu satoshi\n", user_addr.c_str(), iter->second->balance);
+    state.users[user_addr]->balance = 0;
+    state.users[user_addr]->nonce++; // prevent payment replay attack    
 
     //
     // TODO: commit pending fee to rouTEE operator (= fee address)
@@ -215,32 +215,33 @@ int ecall_settle_balance(const char* receiver_address, int receiver_addr_len) {
 
 // operation function for secure_command
 // ecall_settle_balance() function should be removed later
-int secure_settle_balance(const char* receiver_address, int receiver_addr_len) {
+int secure_settle_balance(const char* user_address, int user_addr_len) {
     //
     // TODO: BITCOIN
-    // check authority to get paid the balance (ex. receiver's signature with settlement params)
+    // check authority to get paid the balance (ex. user's signature with settlement params)
     // if (no authority to get balance) {
     //     return ERR_NO_AUTHORITY;
     // }
     //
 
-    // check the receiver has more than 0 balance
-    string receiver_addr = string(receiver_address, receiver_addr_len);
-    map<string, Account*>::iterator iter = state.users.find(receiver_addr);
+    // check the user has more than 0 balance
+    string user_addr = string(user_address, user_addr_len);
+    map<string, Account*>::iterator iter = state.users.find(user_addr);
     if (iter == state.users.end() || iter->second->balance == 0) {
-        // receiver is not in the state || has no balance
+        // user is not in the state || has no balance
         return ERR_NOT_ENOUGH_BALANCE;
     }
+    Account* user_acc = iter->second;
 
     // push new settle request
     state.settle_requests.push_back(SettleRequest());
-    state.settle_requests.back().address = receiver_addr;
-    state.settle_requests.back().balance = iter->second->balance;
+    state.settle_requests.back().address = user_addr;
+    state.settle_requests.back().balance = user_acc->balance;
 
     // set user's account
-    printf("user %s requests settlement: %llu satoshi\n", receiver_addr.c_str(), iter->second->balance);
-    state.users[receiver_addr]->balance = 0;
-    state.users[receiver_addr]->nonce++; // prevent payment replay attack    
+    printf("user %s requests settlement: %llu satoshi\n", user_addr.c_str(), user_acc->balance);
+    user_acc->balance = 0;
+    user_acc->nonce++; // prevent payment replay attack    
 
     //
     // TODO: commit pending fee to rouTEE operator (= fee address)

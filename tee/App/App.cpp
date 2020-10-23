@@ -394,10 +394,10 @@ int settle_balance(char* request) {
     if (params.size() != 2) {
         return ERR_INVALID_PARAMS;
     }
-    string receiver_address = params[1];
+    string user_address = params[1];
 
     int ecall_return;
-    int ecall_result = ecall_settle_balance(global_eid, &ecall_return, receiver_address.c_str(), receiver_address.length());
+    int ecall_result = ecall_settle_balance(global_eid, &ecall_return, user_address.c_str(), user_address.length());
     printf("ecall_settle_balance() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_settle_balance");

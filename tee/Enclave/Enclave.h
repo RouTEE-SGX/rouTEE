@@ -30,7 +30,7 @@ int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index
 void ecall_print_state();
 
 // settle request
-int ecall_settle_balance(const char* receiver_address, int receiver_addr_len);
+int ecall_settle_balance(const char* user_address, int user_addr_len);
 
 // create on-chain settle transaction
 int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx_len);
