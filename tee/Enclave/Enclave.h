@@ -23,6 +23,9 @@ int ecall_set_routing_fee(unsigned long long fee);
 // set routing fee address
 int ecall_set_routing_fee_address(const char* fee_address, int fee_addr_len);
 
+// settle request for routing fee
+int ecall_settle_routing_fee(unsigned long long amount);
+
 // print all users' address & balance (just for debugging)
 void ecall_print_state();
 

@@ -42,6 +42,8 @@ const char* error_to_msg(int err) {
             return "not ready for settlement yet";
         case ERR_CANNOT_CHANGE_TO_LOWER_BLOCK:
             return "cannot change to lower block";
+        case ERR_TOO_LOW_AMOUNT_TO_SETTLE:
+            return "too low amount to settle";
         default:
             return "wrong error index";
     }

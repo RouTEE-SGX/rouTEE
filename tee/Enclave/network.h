@@ -16,5 +16,6 @@
 #define OP_UPDATE_LATEST_SPV_BLOCK 113 // q (cmd: q user_address blocknumber)
 #define OP_INSERT_DEPOSIT_TX 114 // r (cmd: r sender_address amount block_number)
 #define OP_INSERT_SETTLE_TX 117 // u (cmd: u)
+#define OP_SETTLE_ROUTING_FEE 118 // v (cmd: v amount)
 
 #endif  // _NETWORK_H_

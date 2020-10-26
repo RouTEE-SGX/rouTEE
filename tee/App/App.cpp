@@ -357,6 +357,25 @@ int set_routing_fee_address(char* request) {
     return ecall_return;
 }
 
+// settle request for routing fee
+int settle_routing_fee(char* request) {
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+    if (params.size() != 2) {
+        return ERR_INVALID_PARAMS;
+    }
+    unsigned long long amount = strtoull(params[1].c_str(), NULL, 10);
+
+    int ecall_return;
+    int ecall_result = ecall_settle_routing_fee(global_eid, &ecall_return, amount);
+    printf("ecall_settle_routing_fee() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_settle_routing_fee");
+    }
+
+    return ecall_return;
+}
+
 // print state
 int print_state() {
     int ecall_result = ecall_print_state(global_eid);
@@ -498,6 +517,10 @@ const char* execute_command(char* request) {
     else if (operation == OP_INSERT_DEPOSIT_TX) {
         printf("insert deposit tx executed\n");
         ecall_return = insert_deposit_tx(request);
+    }
+    else if (operation == OP_SETTLE_ROUTING_FEE) {
+        printf("settle routing fee executed\n");
+        ecall_return = settle_routing_fee(request);
     }
     else if (operation == OP_INSERT_SETTLE_TX) {
         printf("insert settle tx executed\n");
