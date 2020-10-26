@@ -44,6 +44,8 @@ const char* error_to_msg(int err) {
             return "cannot change to lower block";
         case ERR_TOO_LOW_AMOUNT_TO_SETTLE:
             return "too low amount to settle";
+        case ERR_TOO_LOW_DEPOSIT:
+            return "too low amount of deposit";
         default:
             return "wrong error index";
     }

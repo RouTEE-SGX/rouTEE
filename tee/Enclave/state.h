@@ -38,8 +38,16 @@ class Deposit {
 class SettleRequest {
 
     public:
+        // address of user who requested settlement
         string address;
+
+        // settle request amount
         unsigned long long amount;
+
+        // tax for settlement to pay settle tx fee
+        // so user actually get settled (amount - balance_for_settle_tx_fee)
+        // this is calculated at ecall_make_settle_transaction()
+        unsigned long long balance_for_settle_tx_fee;
 };
 
 // infos for broadcasted settle tx, can be used to revert the settle tx later
@@ -101,9 +109,11 @@ class State {
         string fee_address;
 
         // about routing fee
+        // (payment_count + deposit_count) * routing_fee = routing_fee_waiting + routing_fee_pending + routing_fee_confirmed + routing_fee_settled
         unsigned long long routing_fee_waiting;         // amount of fee which will be included in settle tx
         unsigned long long routing_fee_confirmed;       // amount of fee which is ready to be settled for rouTEE host
-        
+        unsigned long long routing_fee_settled;         // amount of fee which is requested to be settled by rouTEE host (includes settle tx fee, not actually paid value)
+
         // several infos for pending settle txs
         queue<PendingSettleTxInfo> pending_settle_tx_infos;
 
@@ -121,12 +131,12 @@ class State {
         // waiting settle requests
         queue<SettleRequest> settle_requests_waiting;
 
-        // total amount of balances from users to pay on-chain settle tx fee
+        // total amount of balances from users to pay on-chain settle tx fee, which rouTEE currently have (same as Reserve Requirement System)
         unsigned long long balances_for_settle_tx_fee;
 
         // average on-chain tx fee per byte
         // for simple test: set this 0, to make tx fee 0
-        unsigned long long avg_tx_fee_per_byte;
+        unsigned long long avg_tx_fee_per_byte = 1;
 
         // deposits
         queue<Deposit> deposits;
@@ -135,6 +145,15 @@ class State {
 
         // bitcoin block headers
         // queue<Block> blocks;
+
+        // variables for debugging
+        // d_total_deposit = total_balances + d_total_settle_amount + d_total_balances_for_settle_tx_fee
+        //                  + routing_fee_waiting + pending_routing_fees (calculated from pending settle tx info) + routing_fee_confirmed
+        // d_total_balances_for_settle_tx_fee = balances_for_settle_tx_fee + d_total_settle_tx_fee
+        unsigned long long d_total_deposit; // accumulated sum of all deposits
+        unsigned long long d_total_balances_for_settle_tx_fee; // accumulated sum of taxes for settle tx fee
+        unsigned long long d_total_settle_tx_fee; // accumulated sum of tx fee which rouTEE paid for all settle tx
+        unsigned long long d_total_settle_amount; // accumulated sum of settle amount which users were paid actually
 
 };
 
