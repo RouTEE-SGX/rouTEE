@@ -357,26 +357,6 @@ int set_routing_fee_address(char* request) {
     return ecall_return;
 }
 
-// create channel with rouTEE
-int create_channel(char* request) {
-    // parse request as ecall function params
-    vector<string> params = parse_request(request);
-    if (params.size() != 3) {
-        return ERR_INVALID_PARAMS;
-    }
-    string tx_id = params[1];
-    unsigned int tx_index = strtoul(params[2].c_str(), NULL, 10);
-
-    int ecall_return;
-    int ecall_result = ecall_create_channel(global_eid, &ecall_return, tx_id.c_str(), tx_id.length(), tx_index);
-    printf("ecall_create_channel() -> result:%d / return:%d\n", ecall_result, ecall_return);
-    if (ecall_result != SGX_SUCCESS) {
-        error("ecall_create_channel");
-    }
-
-    return ecall_return;
-}
-
 // print state
 int print_state() {
     int ecall_result = ecall_print_state(global_eid);
@@ -385,25 +365,6 @@ int print_state() {
     }
 
     return NO_ERROR;
-}
-
-// settle my balance
-int settle_balance(char* request) {
-    // parse request as ecall function params
-    vector<string> params = parse_request(request);
-    if (params.size() != 2) {
-        return ERR_INVALID_PARAMS;
-    }
-    string user_address = params[1];
-
-    int ecall_return;
-    int ecall_result = ecall_settle_balance(global_eid, &ecall_return, user_address.c_str(), user_address.length());
-    printf("ecall_settle_balance() -> result:%d / return:%d\n", ecall_result, ecall_return);
-    if (ecall_result != SGX_SUCCESS) {
-        error("ecall_settle_balance");
-    }
-
-    return ecall_return;
 }
 
 // make on-chain settle tx
@@ -425,26 +386,35 @@ int make_settle_transaction() {
     return ecall_return;
 }
 
-// do multihop payment
-int do_multihop_payment(char* request) {
+// insert deposit tx (for debugging)
+int insert_deposit_tx(char* request) {
     // parse request as ecall function params
     vector<string> params = parse_request(request);
-    if (params.size() != 5) {
+    if (params.size() != 4) {
         return ERR_INVALID_PARAMS;
     }
     string sender_address = params[1];
-    string receiver_address = params[2];
-    unsigned long long amount = strtoul(params[3].c_str(), NULL, 10);
-    unsigned long long fee = strtoul(params[4].c_str(), NULL, 10);
+    unsigned long long amount = strtoull(params[2].c_str(), NULL, 10);
+    unsigned long long block_number = strtoull(params[3].c_str(), NULL, 10);
 
-    int ecall_return;
-    int ecall_result = ecall_do_multihop_payment(global_eid, &ecall_return, sender_address.c_str(), sender_address.length(), receiver_address.c_str(), receiver_address.length(), amount, fee);
-    printf("ecall_do_multihop_payment() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    int ecall_result = deal_with_deposit_tx(global_eid, sender_address.c_str(), sender_address.length(), amount, block_number);
+    printf("deal_with_deposit_tx() -> result:%d\n", ecall_result);
     if (ecall_result != SGX_SUCCESS) {
-        error("ecall_do_multihop_payment");
+        error("deal_with_deposit_tx");
     }
 
-    return ecall_return;
+    return NO_ERROR;
+}
+
+// insert settle tx (for debugging)
+int insert_settle_tx(char* request) {
+    int ecall_result = deal_with_settlement_tx(global_eid);
+    printf("deal_with_settlement_tx() -> result:%d\n", ecall_result);
+    if (ecall_result != SGX_SUCCESS) {
+        error("deal_with_settlement_tx");
+    }
+
+    return NO_ERROR;
 }
 
 // save sealed current state as a file
@@ -517,25 +487,21 @@ const char* execute_command(char* request) {
         printf("set routing fee address executed\n");
         ecall_return = set_routing_fee_address(request);
     }
-    else if (operation == OP_CREATE_CHANNEL) {
-        printf("create channel executed\n");
-        ecall_return = create_channel(request);
-    }
     else if (operation == OP_PRINT_STATE) {
         printf("print state executed\n");
         ecall_return = print_state();
-    }
-    else if (operation == OP_SETTLE_BALANCE) {
-        printf("settle balance executed\n");
-        ecall_return = settle_balance(request);
     }
     else if (operation == OP_MAKE_SETTLE_TRANSACTION) {
         printf("make settle transaction executed\n");
         ecall_return = make_settle_transaction();
     }
-    else if (operation == OP_DO_MULTIHOP_PAYMENT) {
-        printf("do multihop payment executed\n");
-        ecall_return = do_multihop_payment(request);
+    else if (operation == OP_INSERT_DEPOSIT_TX) {
+        printf("insert deposit tx executed\n");
+        ecall_return = insert_deposit_tx(request);
+    }
+    else if (operation == OP_INSERT_SETTLE_TX) {
+        printf("insert settle tx executed\n");
+        ecall_return = insert_settle_tx(request);
     }
     else{
         // wrong op_code

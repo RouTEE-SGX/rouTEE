@@ -4,29 +4,30 @@
 // collect all state fields as a string with delimitor
 string State::to_string() {
 
+    string state_str = "";
     string delimitor = ",";
 
     // stateID
-    string state_str = long_long_to_string(this->stateID) + delimitor;
+    state_str += long_long_to_string(this->stateID) + delimitor;
 
-    // owner
-    state_str += this->owner_address + delimitor;
-    state_str += this->owner_public_key + delimitor;
-    state_str += this->owner_private_key + delimitor;
+    // // owner
+    // state_str += this->owner_address + delimitor;
+    // state_str += this->owner_public_key + delimitor;
+    // state_str += this->owner_private_key + delimitor;
 
-    // fee
-    state_str += long_long_to_string(this->routing_fee) + delimitor;
-    state_str += this->fee_address + delimitor;
-    state_str += long_long_to_string(this->pending_fees.size()) + delimitor;
-    for (map<string, unsigned long long>::iterator iter = this->pending_fees.begin(); iter != this->pending_fees.end(); iter++){
-        state_str += iter->first + delimitor + long_long_to_string(iter->second) + delimitor;
-    }
+    // // fee
+    // state_str += long_long_to_string(this->routing_fee) + delimitor;
+    // state_str += this->fee_address + delimitor;
+    // state_str += long_long_to_string(this->pending_fees.size()) + delimitor;
+    // for (map<string, unsigned long long>::iterator iter = this->pending_fees.begin(); iter != this->pending_fees.end(); iter++){
+    //     state_str += iter->first + delimitor + long_long_to_string(iter->second) + delimitor;
+    // }
 
-    // users
-    state_str += long_long_to_string(this->users.size()) + delimitor;
-    for (map<string, Account*>::iterator iter = this->users.begin(); iter != this->users.end(); iter++){
-        state_str += iter->first + delimitor + long_long_to_string(iter->second->balance) + delimitor + long_long_to_string(iter->second->nonce) + delimitor;
-    }
+    // // users
+    // state_str += long_long_to_string(this->users.size()) + delimitor;
+    // for (map<string, Account*>::iterator iter = this->users.begin(); iter != this->users.end(); iter++){
+    //     state_str += iter->first + delimitor + long_long_to_string(iter->second->balance) + delimitor + long_long_to_string(iter->second->nonce) + delimitor;
+    // }
 
     return state_str;
 }
@@ -47,35 +48,35 @@ string get_token(string& state_str) {
 
 // restore state from string
 void State::from_string(string state_str) {
-    // restore state
+    // // restore state
 
-    // stateID
-    int cnt = 0;
-    this->stateID = string_to_long_long(get_token(state_str));
+    // // stateID
+    // int cnt = 0;
+    // this->stateID = string_to_long_long(get_token(state_str));
 
-    // owner
-    this->owner_address = get_token(state_str);
-    this->owner_public_key = get_token(state_str);
-    this->owner_private_key = get_token(state_str);
+    // // owner
+    // this->owner_address = get_token(state_str);
+    // this->owner_public_key = get_token(state_str);
+    // this->owner_private_key = get_token(state_str);
 
-    // fee
-    this->routing_fee = string_to_long_long(get_token(state_str));
-    this->fee_address = get_token(state_str);
-    this->pending_fees.clear();
-    int map_size = string_to_long_long(get_token(state_str));
-    for (int i = 0; i < map_size; i++) {
-        this->pending_fees[get_token(state_str)] = string_to_long_long(get_token(state_str));
-    }
+    // // fee
+    // this->routing_fee = string_to_long_long(get_token(state_str));
+    // this->fee_address = get_token(state_str);
+    // this->pending_fees.clear();
+    // int map_size = string_to_long_long(get_token(state_str));
+    // for (int i = 0; i < map_size; i++) {
+    //     this->pending_fees[get_token(state_str)] = string_to_long_long(get_token(state_str));
+    // }
 
-    // users
-    this->users.clear();
-    map_size = string_to_long_long(get_token(state_str));
-    for (int i = 0; i < map_size; i++) {
-        Account* acc = new Account;
-        string user_addr = get_token(state_str);
-        acc->balance = string_to_long_long(get_token(state_str));
-        acc->nonce = string_to_long_long(get_token(state_str));
-        this->users[user_addr] = acc;
-    }
+    // // users
+    // this->users.clear();
+    // map_size = string_to_long_long(get_token(state_str));
+    // for (int i = 0; i < map_size; i++) {
+    //     Account* acc = new Account;
+    //     string user_addr = get_token(state_str);
+    //     acc->balance = string_to_long_long(get_token(state_str));
+    //     acc->nonce = string_to_long_long(get_token(state_str));
+    //     this->users[user_addr] = acc;
+    // }
     
 }

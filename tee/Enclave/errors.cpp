@@ -38,6 +38,10 @@ const char* error_to_msg(int err) {
             return "payment receiver has low latest SPV block number";
         case ERR_ADDRESS_NOT_EXIST:
             return "this address is not in the state";
+        case ERR_SETTLE_NOT_READY:
+            return "not ready for settlement yet";
+        case ERR_CANNOT_CHANGE_TO_LOWER_BLOCK:
+            return "cannot change to lower block";
         default:
             return "wrong error index";
     }

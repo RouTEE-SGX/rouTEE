@@ -16,6 +16,10 @@
 #define SGX_AESGCM_IV_SIZE 12 // bytes
 #define BUFLEN 2048
 
+// bitcoin Pay-to-PubkeyHash tx size info (approximately, tx size = input_num * input_size + output_num * output_size)
+#define TX_INPUT_SIZE 150 // bytes
+#define TX_OUTPUT_SIZE 40 // bytes
+
 #include <sgx_thread.h>
 sgx_thread_mutex_t state_mutex = SGX_THREAD_MUTEX_INITIALIZER;
 
@@ -64,48 +68,7 @@ int ecall_set_routing_fee_address(const char* fee_address, int fee_addr_len){
     return NO_ERROR;
 }
 
-int ecall_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index) {
-    
-    // 
-    // TODO: BITCOIN
-    // get this tx info (receiver) & compare the tx receiver vs rouTEE owner key
-    // 
-    // temp code
-    string receiver_addr = "";
-    if (receiver_addr != state.owner_address) {
-        return ERR_INVALID_RECEIVER;
-    }
-
-    // 
-    // TODO: BITCOIN
-    // get this tx info (ex. sender address & amount)
-    //
-    // temp code
-    string sender_addr = string(tx_id, tx_id_len) + "_" + long_long_to_string(tx_index);
-    unsigned long long amount = 100000000;
-
-    // check the user exists
-    map<string, Account*>::iterator iter = state.users.find(sender_addr);
-    if (iter == state.users.end()) {
-        // sender is not in the state, create new account
-        Account* acc = new Account;
-        acc->balance = 0;
-        acc->nonce = 0;
-        state.users[sender_addr] = acc;
-    }
-
-    // set user's balance
-    state.users[sender_addr]->balance += amount;
-
-    // increase state id
-    state.stateID++;
-    
-    printf("new channel created with rouTEE -> user: %s / balance: %llu\n", sender_addr.c_str(), amount);
-    return NO_ERROR;
-}
-
 // operation function for secure_command
-// ecall_create_channel() function should be removed later
 int secure_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index) {
     
     // 
@@ -148,7 +111,7 @@ int secure_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_inde
     // 
     // above code is just for debugging
     // 
-    // real implementation for secure_ready_for_deposit()
+    // real implementation for secure_get_ready_for_deposit()
     // 1. params: sender's settlement address
     // 2. return: randomly genereated address to receive deposit from sender & latest block info in rouTEE header chain
     //
@@ -157,65 +120,81 @@ int secure_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_inde
 
 void ecall_print_state() {
     // print all the state: all users' address and balance
-    printf("    owner address: %s\n", state.owner_address.c_str());
-    printf("    routing fee: %llu\n", state.routing_fee);
-    printf("    routing fee to %s\n", state.fee_address.c_str());
+    printf("\n\n\n\n\n\n\n\n\n\n******************** START PRINT STATE ********************\n");
+
+    printf("\n\n\n***** owner info *****\n\n");
+    printf("owner address: %s\n", state.owner_address.c_str());
+
+    printf("\n\n\n\n\n***** user account info *****\n\n");
     for (map<string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
-        printf("    address: %s -> balance: %llu / nonce: %llu\n", (iter->first).c_str(), iter->second->balance, iter->second->nonce);
+        printf("address: %s -> balance: %llu / nonce: %llu / min_requested_block_number: %llu / latest_SPV_block_number: %llu\n", 
+            (iter->first).c_str(), iter->second->balance, iter->second->nonce, iter->second->min_requested_block_number, iter->second->latest_SPV_block_number);
     }
-    printf("    total %d accounts exist\n", state.users.size());
+    printf("\n=> total %d accounts / total %llu satoshi\n", state.users.size(), state.total_balances);
 
-    for (int i = 0; i < state.settle_requests.size(); i++) {
-        printf("    user %s settles %llu satoshi\n", state.settle_requests[i].address, state.settle_requests[i].amount);
+    printf("\n\n\n\n\n***** deposits *****\n\n");
+    int queue_size = state.deposits.size();
+    for (int i = 0; i< queue_size; i++) {
+        Deposit deposit = state.deposits.front();
+        printf("deposit %d: txhash: %s / txindex: %d\n", i, deposit.tx_hash, deposit.tx_index);
+        state.deposits.pop();
+        state.deposits.push(deposit);
     }
 
-    for (map<string, unsigned long long>::iterator iter = state.pending_fees.begin(); iter != state.pending_fees.end(); iter++){
-        printf("    user %s pending fee: %llu satoshi\n", iter->first.c_str(), iter->second);
+    printf("\n\n\n\n\n***** waiting settle requests *****\n\n");
+    queue_size = state.settle_requests_waiting.size();
+    for (int i = 0; i < queue_size; i++) {
+        SettleRequest sr = state.settle_requests_waiting.front();
+        printf("user address: %s / amount: %llu satoshi\n", sr.address, sr.amount);
+
+        // to iterate queue elements
+        state.settle_requests_waiting.pop();
+        state.settle_requests_waiting.push(sr);
     }
 
+    printf("\n\n\n\n\n***** pending settle requests *****\n\n");
+    queue_size = state.pending_settle_tx_infos.size();
+    unsigned long long pending_routing_fees = 0;
+    for (int i = 0; i < queue_size; i++) {
+        PendingSettleTxInfo psti = state.pending_settle_tx_infos.front();
+        printf("pending settle tx %d: pending routing fee: %llu satoshi\n", i, psti.pending_routing_fees);
+        pending_routing_fees += psti.pending_routing_fees;
+        int deposits_size = psti.used_deposits.size();
+        for (int j = 0; j < deposits_size; j++) {
+            Deposit deposit = psti.used_deposits.front();
+            printf("    used deposit %d: txhash: %s / txindex: %d\n", j, deposit.tx_hash, deposit.tx_index);
+            psti.used_deposits.pop();
+            psti.used_deposits.push(deposit);
+        }
+        int settle_requests_size = psti.pending_settle_requests.size();
+        for (int j = 0; j < settle_requests_size; j++) {
+            SettleRequest sr = psti.pending_settle_requests.front();
+            printf("    user address: %s / settle amount: %llu satoshi\n", sr.address, sr.amount);
+
+            // to iterate queue elements
+            psti.pending_settle_requests.pop();
+            psti.pending_settle_requests.push(sr);
+        }
+        printf("\n");
+
+        // to iterate queue elements
+        state.pending_settle_tx_infos.pop();
+        state.pending_settle_tx_infos.push(psti);
+    }
+
+    printf("\n\n\n\n\n***** routing fees *****\n\n");
+    printf("routing fee per payment: %llu satoshi\n", state.routing_fee);
+    printf("routing fee address: %s\n", state.fee_address.c_str());
+    printf("waiting routing fees: %llu satoshi\n", state.routing_fee_waiting);
+    printf("pending routing fees: %llu satoshi\n", pending_routing_fees);
+    printf("confirmed routing fees: %llu satoshi\n", state.routing_fee_confirmed);
+
+    printf("\n\n\n******************** END PRINT STATE ********************\n");
     return;
 }
 
-int ecall_settle_balance(const char* user_address, int user_addr_len) {
-    //
-    // TODO: BITCOIN
-    // check authority to get paid the balance (ex. user's signature with settlement params)
-    // if (no authority to get balance) {
-    //     return ERR_NO_AUTHORITY;
-    // }
-    //
-
-    // check the user has more than 0 balance
-    string user_addr = string(user_address, user_addr_len);
-    map<string, Account*>::iterator iter = state.users.find(user_addr);
-    if (iter == state.users.end() || iter->second->balance == 0) {
-        // user is not in the state || has no balance
-        return ERR_NOT_ENOUGH_BALANCE;
-    }
-
-    // push new settle request
-    state.settle_requests.push_back(SettleRequest());
-    state.settle_requests.back().address = user_addr;
-    state.settle_requests.back().amount = iter->second->balance;
-
-    // set user's account
-    printf("user %s requests settlement: %llu satoshi\n", user_addr.c_str(), iter->second->balance);
-    state.users[user_addr]->balance = 0;
-    state.users[user_addr]->nonce++; // prevent payment replay attack    
-
-    //
-    // TODO: commit pending fee to rouTEE operator (= fee address)
-    //
-
-    // increase state id
-    state.stateID++;
-
-    return NO_ERROR;
-}
-
 // operation function for secure_command
-// ecall_settle_balance() function should be removed later
-int secure_settle_balance(const char* user_address, int user_addr_len) {
+int secure_settle_balance(const char* user_address, int user_addr_len, unsigned long long amount) {
     //
     // TODO: BITCOIN
     // check authority to get paid the balance (ex. user's signature with settlement params)
@@ -224,28 +203,33 @@ int secure_settle_balance(const char* user_address, int user_addr_len) {
     // }
     //
 
-    // check the user has more than 0 balance
+    // check the user has enough balance
     string user_addr = string(user_address, user_addr_len);
     map<string, Account*>::iterator iter = state.users.find(user_addr);
-    if (iter == state.users.end() || iter->second->balance == 0) {
-        // user is not in the state || has no balance
+    if (iter == state.users.end() || iter->second->balance < amount) {
+        // user is not in the state || has not enough balance
         return ERR_NOT_ENOUGH_BALANCE;
     }
     Account* user_acc = iter->second;
 
-    // push new settle request
-    state.settle_requests.push_back(SettleRequest());
-    state.settle_requests.back().address = user_addr;
-    state.settle_requests.back().amount = user_acc->balance;
+    // push new waiting settle request
+    state.settle_requests_waiting.push(SettleRequest());
+    state.settle_requests_waiting.back().address = user_addr;
+    state.settle_requests_waiting.back().amount = amount;
 
     // set user's account
-    printf("user %s requests settlement: %llu satoshi\n", user_addr.c_str(), user_acc->balance);
-    user_acc->balance = 0;
+    printf("user %s requests settlement: %llu satoshi\n", user_addr.c_str(), amount);
+    user_acc->balance -= amount;
     user_acc->nonce++; // prevent payment replay attack    
 
-    //
-    // TODO: commit pending fee to rouTEE operator (= fee address)
-    //
+    // update user's requested_block_number
+    if (user_acc->balance == 0) {
+        // user settled all balance -> reset min requested block number
+        user_acc->min_requested_block_number = 0;
+    }
+
+    // update total balances
+    state.total_balances -= amount;
 
     // increase state id
     state.stateID++;
@@ -255,98 +239,60 @@ int secure_settle_balance(const char* user_address, int user_addr_len) {
 
 int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx_len) {
 
-    //
-    // TODO: BITCOIN
-    // check last settle tx has committed at on-chain (before 6 blocks)
-    // if (not ready to make settle tx) {
-    //     return ERR_CANNOT_MAKE_SETTLE_TX;
-    // }
-    //
-
-    // calculate proper pending fees for this settle tx
-    unsigned long long committed_pending_fee = 0;
-    string settle_user_addr;
-    unsigned long long settle_amount;
-    for (int i = 0; i < state.settle_requests.size(); i++) {
-        // get settle user info
-        settle_user_addr = state.settle_requests[i].address;
-        settle_amount = state.settle_requests[i].amount;
-
-        // deal with pending fees
-        committed_pending_fee += state.pending_fees[settle_user_addr];
-        state.pending_fees.erase(settle_user_addr);
-    }
-
-    // push new settle request for rouTEE's fee address
-    state.settle_requests.push_back(SettleRequest());
-    state.settle_requests.back().address = state.fee_address;
-    state.settle_requests.back().amount = committed_pending_fee;
-
-    //
-    // TODO: BITCOIN
-    // make on-chain bitcoin tx
-    // *settle_transaction = make_settle_tx(state.settle_requests);
-    // *settle_tx_len = len(settle_transaction);
     // 
-
-    // delete all settle requests
-    state.settle_requests.clear();
-    return NO_ERROR;
-}
-
-int ecall_do_multihop_payment(const char* sender_address, int sender_addr_len, const char* receiver_address, int receiver_addr_len, unsigned long long amount, unsigned long long fee) {
+    // TODO: check rouTEE is ready to settle
+    // ex. check there is no pending settle tx || more than 3 users requested settlement
     //
+    if (state.pending_settle_tx_infos.size() != 0 || state.settle_requests_waiting.size() < state.min_settle_users_num) {
+        return ERR_SETTLE_NOT_READY;
+    }
+
+    // 
     // TODO: BITCOIN
-    // check authority to send (ex. sender's signature with these params)
-    // if (no authority to send) {
-    //     return ERR_NO_AUTHORITY;
-    // }
-    //
+    // ex. unsigned long long routing_fees_to_be_confirmed = make_settle_tx(settle_transaction, settle_tx_len);
+    // returns (routing_fees_pending * total_settle_amount / total_balances)
+    // and fill in settle_transaction and settle_tx_len
+    // and move SettleRequest from state.settle_requests_waiting to state.settle_requests_pending
+    // and state.settle_tx_hashes_pending.push(settle_tx_hash)
+    // 
+    // temp code
+    // save infos of this settle tx
+    PendingSettleTxInfo psti;
+    psti.tx_hash = "0x_settle_tx_hash";
+    psti.pending_balances = 0;
+    int tx_input_num = state.deposits.size();
+    int tx_output_num = state.settle_requests_waiting.size() + 1; // +1 means leftover_deposit
+    printf("settle tx intput num: %d / settle tx output num: %d\n", tx_input_num, tx_output_num);
+    while(!state.settle_requests_waiting.empty()) {
+        SettleRequest sr = state.settle_requests_waiting.front();
+        printf("settle tx output: to %s / %llu satoshi\n", sr.address.c_str(), sr.amount);
+        psti.pending_balances += sr.amount;
 
-    // check the sender has more than amount + fee to send
-    string sender_addr = string(sender_address, sender_addr_len);
-    map<string, Account*>::iterator iter = state.users.find(sender_addr);
-    if (iter == state.users.end() || iter->second->balance < amount + fee) {
-        // sender is not in the state || has not enough balance
-        return ERR_NOT_ENOUGH_BALANCE;
+        // change settle requests status: from waiting to pending
+        state.settle_requests_waiting.pop();
+        psti.pending_settle_requests.push(sr);
     }
-
-    // check routing fee
-    if (fee < state.routing_fee) {
-        return ERR_NOT_ENOUGH_FEE;
+    while(!state.deposits.empty()) {
+        // move deposits: from unused to used
+        Deposit deposit = state.deposits.front();
+        state.deposits.pop();
+        psti.used_deposits.push(deposit);
     }
+    printf("routing fee waiting: %llu / psti.pending balances: %llu / state.total balance: %llu\n", state.routing_fee_waiting, psti.pending_balances, state.total_balances);
+    psti.pending_routing_fees = state.routing_fee_waiting * psti.pending_balances / (state.total_balances + psti.pending_balances);
+    state.routing_fee_waiting -= psti.pending_routing_fees;
+    int settle_tx_size = TX_INPUT_SIZE * tx_input_num + TX_OUTPUT_SIZE * tx_output_num;
+    psti.pending_tx_fee = state.avg_tx_fee_per_byte * settle_tx_size;
+    state.pending_settle_tx_infos.push(psti);
+    state.balances_for_settle_tx_fee -= psti.pending_tx_fee;
+    Deposit leftover_deposit;
+    state.deposits.push(leftover_deposit);
+    psti.leftover_deposit = leftover_deposit;
 
-    // check the receiver exists
-    string receiver_addr = string(receiver_address, receiver_addr_len);
-    iter = state.users.find(receiver_addr);
-    if (iter == state.users.end()) {
-        // receiver is not in the state, create new account
-        Account* acc = new Account;
-        acc->balance = 0;
-        acc->nonce = 0;
-        state.users[receiver_addr] = acc;
-    }
-
-    // move balance
-    state.users[sender_addr]->balance -= (amount + fee);
-    state.users[receiver_addr]->balance += amount;
-
-    // set pending fees
-    state.pending_fees[sender_addr] += fee/2;
-    state.pending_fees[receiver_addr] += fee - fee/2;
-
-    // increase sender's nonce
-    state.users[sender_addr]->nonce++;
-
-    // increase state id
-    state.stateID++;
-
-    printf("send %llu from %s to %s / fee %llu to %s\n", amount, sender_addr.c_str(), receiver_addr.c_str(), fee, state.fee_address.c_str());
     return NO_ERROR;
 }
 
 // operation function for secure_command
-// ecall_do_multihop_payment() function should be removed later
 int secure_do_multihop_payment(const char* sender_address, int sender_addr_len, const char* receiver_address, int receiver_addr_len, unsigned long long amount, unsigned long long fee) {
     //
     // TODO: BITCOIN
@@ -388,9 +334,10 @@ int secure_do_multihop_payment(const char* sender_address, int sender_addr_len, 
     sender_acc->balance -= (amount + fee);
     receiver_acc->balance += amount;
 
-    // set pending fees
-    state.pending_fees[sender_addr] += fee/2;
-    state.pending_fees[receiver_addr] += fee - fee/2;
+    // add routing fee for this payment
+    state.routing_fee_waiting += fee;
+    // update total balances
+    state.total_balances -= fee;
 
     // increase sender's nonce
     sender_acc->nonce++;
@@ -414,13 +361,20 @@ int secure_do_multihop_payment(const char* sender_address, int sender_addr_len, 
 }
 
 // update user's latest SPV block
-int secure_update_latest_SPV_block(string user_address, int user_addr_len, unsigned long long block_number) {
+int secure_update_latest_SPV_block(const char* user_address, int user_addr_len, unsigned long long block_number) {
+
+    //
+    // TODO: BITCOIN
+    // check authority to change SPV block
+    // ex. verify user's signature
+    //
 
     // check the user exists
     string user_addr = string(user_address, user_addr_len);
     map<string, Account*>::iterator iter = state.users.find(user_addr);
     if (iter == state.users.end()) {
         // the user not exist
+        printf("address %s is not in the state\n", user_addr);
         return ERR_ADDRESS_NOT_EXIST;
     }
     Account* user_acc = iter->second;
@@ -434,9 +388,88 @@ int secure_update_latest_SPV_block(string user_address, int user_addr_len, unsig
     if (user_acc->latest_SPV_block_number < block_number) {
         // update block number
         user_acc->latest_SPV_block_number = block_number;
-    }    
+    }
+    else {
+        // cannot change to lower block
+        return ERR_CANNOT_CHANGE_TO_LOWER_BLOCK;
+    }
     
     return NO_ERROR;
+}
+
+// this is not ecall function, but this can be used as ecall to debugging
+void deal_with_deposit_tx(const char* sender_address, int sender_addr_len, unsigned long long amount, unsigned long long block_number) {
+
+    string sender_addr = string(sender_address, sender_addr_len);
+
+    // check the user exists
+    map<string, Account*>::iterator iter = state.users.find(sender_addr);
+    if (iter == state.users.end()) {
+        // sender is not in the state, create new account
+        Account* acc = new Account;
+        acc->balance = 0;
+        acc->nonce = 0;
+        acc->latest_SPV_block_number = 0;
+        state.users[sender_addr] = acc;
+    }
+
+    // take some of the deposit to pay tx fee later
+    unsigned long long balance_for_tx_fee = state.avg_tx_fee_per_byte * TX_INPUT_SIZE;
+    state.balances_for_settle_tx_fee += balance_for_tx_fee;
+
+    // update user's balance
+    unsigned long long balance_for_user = amount - balance_for_tx_fee;
+    state.users[sender_addr]->balance += balance_for_user;
+
+    // update total balances
+    state.total_balances += balance_for_user;
+
+    // update user's min_requested_block_number
+    if (balance_for_user > 0) {
+        state.users[sender_addr]->min_requested_block_number = block_number;
+    }
+
+    // add deposit
+    Deposit deposit;
+    deposit.tx_hash = "some_tx_hash";
+    deposit.tx_index = 0;
+    deposit.manager_private_key = "0xmanager";
+    state.deposits.push(deposit);
+
+    // increase state id
+    state.stateID++;
+    
+    printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", sender_addr.c_str(), balance_for_user, balance_for_tx_fee);
+}
+
+// this is not ecall function, but this can be used as ecall to debugging
+void deal_with_settlement_tx() {
+
+    // get this settle tx's info
+    // settle txs are included in bitcoin with sequencial order, so just get the first pending settle tx from queue
+    PendingSettleTxInfo psti = state.pending_settle_tx_infos.front();
+    state.pending_settle_tx_infos.pop();
+
+    // confirm routing fee for this settle tx
+    printf("deal with settle tx -> rouTEE owner got paid pending routing fee: %llu satoshi\n", psti.pending_routing_fees);
+    state.routing_fee_confirmed += psti.pending_routing_fees;
+
+    // dequeue pending settle requests for this settle tx (print for debugging, can delete this later)
+    int queue_size = psti.pending_settle_requests.size();
+    for (int i = 0; i < queue_size; i++) {
+        SettleRequest sr = psti.pending_settle_requests.front();
+        printf("deal with settle tx -> user: %s / settled %llu satoshi\n", sr.address, sr.amount);
+        psti.pending_settle_requests.pop();
+    }
+
+    // dequeue used deposits for this settle tx (print for debugging, can delete this later)
+    queue_size = psti.used_deposits.size();
+    for (int i = 0; i < queue_size; i++) {
+        Deposit deposit = psti.used_deposits.front();
+        printf("deal with settle tx -> used deposit hash: %s\n", deposit.tx_hash);
+        psti.used_deposits.pop();
+    }
+
 }
 
 int ecall_insert_block(const char* block, int block_len) {
@@ -444,8 +477,9 @@ int ecall_insert_block(const char* block, int block_len) {
     // TODO: BITCOIN
     // SPV verify the new bitcoin block
     // verify tx merkle root hash
-    // iterate txs to find deposit tx to update user balance state
-    //             to find settle tx to give pending routing fee to rouTEE host's fee address
+    // iterate txs to call deal_with_deposit_tx() when find deposit tx
+    //             to call deal_with_settlement_tx() when find settlement tx
+    // update average tx fee
     // 
 }
 
@@ -558,22 +592,23 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
             string tx_id = params[1];
             unsigned int tx_index = strtoul(params[2].c_str(), NULL, 10);
 
-            // execute operation
+            // execute operation (TODO: should be changed to secure_get_ready_for_deposit() function)
             operation_result = secure_create_channel(tx_id.c_str(), tx_id.length(), tx_index);
         }
     }
     else if (operation == OP_SETTLE_BALANCE) {
         // settle balance request
-        if (params.size() != 2) {
+        if (params.size() != 3) {
             // invalid parameter count
             operation_result = ERR_INVALID_PARAMS;
         }
         else {
             // get parameters
             string receiver_address = params[1];
+            unsigned long long amount = strtoul(params[2].c_str(), NULL, 10);
 
             // execute operation
-            operation_result = secure_settle_balance(receiver_address.c_str(), receiver_address.length());
+            operation_result = secure_settle_balance(receiver_address.c_str(), receiver_address.length(), amount);
         }
     }
     else if (operation == OP_DO_MULTIHOP_PAYMENT) {
@@ -595,7 +630,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     }
     else if (operation == OP_UPDATE_LATEST_SPV_BLOCK) {
         // update user's latest SPV block
-        if (params.size() != 2) {
+        if (params.size() != 3) {
             // invalid parameter count
             operation_result = ERR_INVALID_PARAMS;
         }
