@@ -342,9 +342,9 @@ int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx
 
     // 
     // TODO: check rouTEE is ready to settle
-    // ex. check there is no pending settle tx || more than 3 users requested settlement
+    // ex. check there is no pending settle tx || at least 1 user requested settlement
     //
-    if (state.pending_settle_tx_infos.size() != 0 || state.settle_requests_waiting.size() < state.min_settle_users_num) {
+    if (state.pending_settle_tx_infos.size() != 0 || state.settle_requests_waiting.size() == 0) {
         return ERR_SETTLE_NOT_READY;
     }
 
@@ -543,7 +543,7 @@ int secure_update_latest_SPV_block(string user_address, unsigned long long block
 }
 
 // this is not ecall function, but this can be used as ecall to debugging
-// TODO: do not send sender_address param, change this as manager_address and get deposit infos from DepositRequest (do this later for simple experiment)
+// TODO: do not send sender_address param, change this to manager_address and get deposit infos from state.deposit_requests[manager_address] (do this later for simple experiment)
 void deal_with_deposit_tx(const char* sender_address, int sender_addr_len, unsigned long long amount, unsigned long long block_number) {
 
     // will take some of the deposit to pay tx fee later
@@ -607,6 +607,83 @@ void deal_with_deposit_tx(const char* sender_address, int sender_addr_len, unsig
     }
 
     return;
+
+    // ---------------------------------------------------------------------------------------------------------------------------------------------------
+
+    /*
+    // real implementation for this function
+    // change param: sender_address -> manager_address
+    // void deal_with_deposit_tx(string manager_address, string tx_hash, int tx_index, unsigned long long amount, unsigned long long block_number) {
+
+    // will take some of the deposit to pay tx fee later
+    unsigned long long balance_for_tx_fee = state.avg_tx_fee_per_byte * TX_INPUT_SIZE * TAX_RATE_FOR_SETTLE_TX;
+
+    // will take some of the deposit to induce rouTEE host not to forcely terminate the rouTEE program (= incentive driven agent assumption)
+    // = just simply pay routing fee
+
+    // check sender sent enough deposit amount
+    unsigned long long minimum_amount_of_deposit = balance_for_tx_fee + state.routing_fee;
+    if (amount <= minimum_amount_of_deposit) {
+        printf("too low amount of deposit, minimum amount is %llu\n", minimum_amount_of_deposit);
+        return;
+    }
+
+    // get the deposit request for this deposit tx
+    DepositRequest dr = state.deposit_requests[manager_address];
+
+    // check the user exists
+    string sender_addr = dr.sender_address;
+    map<string, Account*>::iterator iter = state.users.find(sender_addr);
+    if (iter == state.users.end()) {
+        // sender is not in the state, create new account
+        Account* acc = new Account;
+        acc->balance = 0;
+        acc->nonce = 0;
+        acc->latest_SPV_block_number = 0;
+        state.users[sender_addr] = acc;
+    }
+
+    // update settle address
+    state.users[sender_addr]->settle_address = dr.settle_address;
+
+    // now take some of the deposit
+    state.balances_for_settle_tx_fee += balance_for_tx_fee;
+    state.routing_fee_waiting += state.routing_fee;
+
+    // update user's balance
+    unsigned long long balance_for_user = amount - balance_for_tx_fee - state.routing_fee;
+    state.users[sender_addr]->balance += balance_for_user;
+
+    // update total balances
+    state.total_balances += balance_for_user;
+
+    // update user's min_requested_block_number
+    if (balance_for_user > 0) {
+        state.users[sender_addr]->min_requested_block_number = block_number;
+    }
+
+    // add deposit
+    Deposit deposit;
+    deposit.tx_hash = tx_hash;
+    deposit.tx_index = tx_index;
+    deposit.manager_private_key = dr.manager_private_key;
+    state.deposits.push(deposit);
+
+    // increase state id
+    state.stateID++;
+
+    // for debugging
+    state.d_total_deposit += amount;
+    state.d_total_balances_for_settle_tx_fee += balance_for_tx_fee;
+
+    // print result
+    if (doPrint) {
+        printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", dr.sender_address.c_str(), balance_for_user, balance_for_tx_fee);
+    }
+
+    return;
+    */
+
 }
 
 // this is not ecall function, but this can be used as ecall to debugging
@@ -652,7 +729,8 @@ int ecall_insert_block(const char* block, int block_len) {
     // verify tx merkle root hash
     // iterate txs to call deal_with_deposit_tx() when find deposit tx
     //             to call deal_with_settlement_tx() when find settlement tx
-    // update average tx fee
+    // update average tx fee (state.avg_tx_fee_per_byte)
+    // insert the block to state.blocks
     // 
 }
 
@@ -708,7 +786,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
 	uint8_t p_dst[BUFLEN] = {0};
     string session_ID = string(sessionID, sessionID_len);
     
-    // sgx_aes_gcm_128bit_key_t *session_key = &(state.users[session_ID]->session_key);
+    // sgx_aes_gcm_128bit_key_t *session_key = state.session_keys[session_ID];
     // test code
     sgx_aes_gcm_128bit_key_t skey = { 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf };
     sgx_aes_gcm_128bit_key_t *session_key = &skey;

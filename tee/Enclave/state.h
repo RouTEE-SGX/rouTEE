@@ -113,10 +113,6 @@ class State {
         string owner_public_key;
         string owner_private_key;
 
-        // randomly generated keys to receive deposit from users
-        // manager_private_keys[manager_address] = manager_private_key
-        map<string, string> manager_private_keys;
-
         // total amount of user balances in rouTEE
         unsigned long long total_balances;
 
@@ -142,10 +138,6 @@ class State {
         // session_keys[session_ID] = session_key
         map<string, sgx_aes_gcm_128bit_key_t*> session_keys;
 
-        // minimum number of users to make settlement tx
-        // ex. 1 means make settlement tx for every settlement request
-        int min_settle_users_num = 1;
-
         // waiting settle requests
         queue<SettleRequest> settle_requests_waiting;
 
@@ -156,12 +148,11 @@ class State {
         // for simple test: set this 0, to make tx fee 0
         unsigned long long avg_tx_fee_per_byte = 1;
 
-        // deposits
-        queue<Deposit> deposits;
         // deposit_requests[manager_address] = deposit_request
         map<string, DepositRequest> deposit_requests;
-        // string tx_ids;
-        // unsigned int tx_indexes;
+
+        // confirmed unused deposits, which rouTEE currently owns
+        queue<Deposit> deposits;        
 
         // bitcoin block headers
         // vector<Block> blocks;
