@@ -6,7 +6,7 @@
 
 #define OP_SET_ROUTING_FEE  104 // h (cmd: h fee)
 #define OP_SET_ROUTING_FEE_ADDRESS  105 // i (cmd: i fee_addr)
-#define OP_CREATE_CHANNEL  106 // j (cmd: j tx_id tx_index)
+#define OP_GET_READY_FOR_DEPOSIT  106 // j (cmd: j sender_address settle_address)
 #define OP_PRINT_STATE  107 // k (cmd: k)
 #define OP_SETTLE_BALANCE   108 // l (cmd: l receiver_addr amount)
 #define OP_DO_MULTIHOP_PAYMENT  109 // m (cmd: m sender_addr receiver_addr amount fee)

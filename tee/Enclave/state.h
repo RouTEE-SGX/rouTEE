@@ -22,6 +22,9 @@ class Account {
         // if sender's min_requested_block_number <= receiver's latest_SPV_block_number, payment success
         unsigned long long min_requested_block_number;
         unsigned long long latest_SPV_block_number;
+
+        // when user requests settlement, rouTEE sends balance to this address
+        string settle_address;
         
         // string public_key; // need this?
 };
@@ -32,6 +35,21 @@ class Deposit {
         string tx_hash;
         int tx_index;
         string manager_private_key;
+};
+
+class DepositRequest {
+    public:
+        // user should send deposit to this private key's address
+        string manager_private_key;
+
+        // when find deposit tx, balance goes to this address
+        string sender_address;
+
+        // when the user requests settlement, balances goes to this address
+        string settle_address;
+
+        // kind of timestamp: when the user requested deposit
+        unsigned long long block_number;
 };
 
 // settle request
@@ -140,11 +158,13 @@ class State {
 
         // deposits
         queue<Deposit> deposits;
+        // deposit_requests[manager_address] = deposit_request
+        map<string, DepositRequest> deposit_requests;
         // string tx_ids;
         // unsigned int tx_indexes;
 
         // bitcoin block headers
-        // queue<Block> blocks;
+        // vector<Block> blocks;
 
         // variables for debugging
         // d_total_deposit = total_balances + d_total_settle_amount + d_total_balances_for_settle_tx_fee

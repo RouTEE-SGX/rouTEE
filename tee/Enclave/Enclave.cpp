@@ -111,53 +111,34 @@ int ecall_settle_routing_fee(unsigned long long amount) {
 }
 
 // operation function for secure_command
-int secure_create_channel(const char* tx_id, int tx_id_len, unsigned int tx_index) {
-    
-    // 
-    // TODO: BITCOIN
-    // get this tx info (receiver) & compare the tx receiver vs rouTEE owner key
-    // 
+string secure_get_ready_for_deposit(string sender_address, string settle_address) {
+
+    // TODO: change these temp codes below correctly
+
+    // generate random private key to receive deposit from the sender
     // temp code
-    string receiver_addr = "";
-    if (receiver_addr != state.owner_address) {
-        return ERR_INVALID_RECEIVER;
-    }
+    uint32_t rand;
+    sgx_read_rand((unsigned char *) &rand, 4);
+    rand = rand % 10000;
+    string random_private_key = "0xrandPrivateKey_" + long_long_to_string(rand);
+    printf("generated random private key: %s\n", random_private_key.c_str());
+    string random_address = "0xrandAddr_" + long_long_to_string(rand);
 
-    // 
-    // TODO: BITCOIN
-    // get this tx info (ex. sender address & amount)
-    //
+    // get latest block in rouTEE
     // temp code
-    string sender_addr = string(tx_id, tx_id_len) + "_" + long_long_to_string(tx_index);
-    unsigned long long amount = 100000000;
+    unsigned long long latest_block_number = 10;
 
-    // check the user exists
-    map<string, Account*>::iterator iter = state.users.find(sender_addr);
-    if (iter == state.users.end()) {
-        // sender is not in the state, create new account
-        Account* acc = new Account;
-        acc->balance = 0;
-        acc->nonce = 0;
-        state.users[sender_addr] = acc;
-    }
+    // add deposit request
+    DepositRequest deposit_request;
+    deposit_request.manager_private_key = random_private_key;
+    deposit_request.sender_address = sender_address;
+    deposit_request.settle_address = settle_address;
+    deposit_request.block_number = latest_block_number;
+    state.deposit_requests[random_address] = deposit_request;
 
-    // set user's balance
-    state.users[sender_addr]->balance += amount;
-
-    // increase state id
-    state.stateID++;
-    
-    printf("new channel created with rouTEE -> user: %s / balance: %llu\n", sender_addr.c_str(), amount);
-    return NO_ERROR;
-
-    // 
-    // above code is just for debugging
-    // 
-    // real implementation for secure_get_ready_for_deposit()
-    // 1. params: sender's settlement address
-    // 2. return: randomly genereated address to receive deposit from sender & latest block info in rouTEE header chain
-    //
-
+    // send random address & block info to the sender
+    string response_msg = random_address + " " + long_long_to_string(latest_block_number);
+    return response_msg;
 }
 
 void ecall_print_state() {
@@ -173,6 +154,12 @@ void ecall_print_state() {
             (iter->first).c_str(), iter->second->balance, iter->second->nonce, iter->second->min_requested_block_number, iter->second->latest_SPV_block_number);
     }
     printf("\n=> total %d accounts / total %llu satoshi\n", state.users.size(), state.total_balances);
+
+    printf("\n\n\n\n\n***** deposit requests *****\n\n");
+    for (map<string, DepositRequest>::iterator iter = state.deposit_requests.begin(); iter != state.deposit_requests.end(); iter++){
+        printf("manager address: %s -> sender address: %s / settle_address: %s / block number:%llu\n", 
+            (iter->first).c_str(), iter->second.sender_address.c_str(), iter->second.settle_address.c_str(), iter->second.block_number);
+    }
 
     printf("\n\n\n\n\n***** deposits *****\n\n");
     int queue_size = state.deposits.size();
@@ -515,6 +502,7 @@ int secure_update_latest_SPV_block(const char* user_address, int user_addr_len, 
 }
 
 // this is not ecall function, but this can be used as ecall to debugging
+// TODO: do not send sender_address param, change this as manager_address and get deposit infos from DepositRequest (do this later for simple experiment)
 void deal_with_deposit_tx(const char* sender_address, int sender_addr_len, unsigned long long amount, unsigned long long block_number) {
 
     // will take some of the deposit to pay tx fee later
@@ -616,9 +604,9 @@ int ecall_insert_block(const char* block, int block_len) {
     // 
 }
 
-int make_encrypted_response(int result_error_index, sgx_aes_gcm_128bit_key_t *session_key, char* encrypted_response, int* encrypted_response_len) {
+int make_encrypted_response(const char* response_msg, sgx_aes_gcm_128bit_key_t *session_key, char* encrypted_response, int* encrypted_response_len) {
+
     // return encrypted response to client
-    const char* response_msg = error_to_msg(result_error_index);
     printf("response_msg: %s\n", response_msg);
     uint8_t *response = (uint8_t *) response_msg;
     size_t len = strlen(response_msg);
@@ -690,7 +678,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
         // return encrypted response to client
         // make encrypted response 
         // and return NO_ERROR to hide the ecall result from rouTEE host
-        encryption_result = make_encrypted_response(ERR_DECRYPT_FAILED, session_key, encrypted_response, encrypted_response_len);
+        encryption_result = make_encrypted_response(error_to_msg(ERR_DECRYPT_FAILED), session_key, encrypted_response, encrypted_response_len);
         if (encryption_result != NO_ERROR) {
             return ERR_ENCRYPT_FAILED;
         }
@@ -714,7 +702,8 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     // find appropriate operation
     char operation = params[0][0];
     int operation_result;
-    if (operation == OP_CREATE_CHANNEL) {
+    const char* response_msg;
+    if (operation == OP_GET_READY_FOR_DEPOSIT) {
         // add deposit request
         if (params.size() != 3) {
             // invalid parameter count
@@ -722,11 +711,12 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
         }
         else {
             // get parameters
-            string tx_id = params[1];
-            unsigned int tx_index = strtoul(params[2].c_str(), NULL, 10);
+            string sender_address = params[1];
+            string settle_address = params[2];
 
-            // execute operation (TODO: should be changed to secure_get_ready_for_deposit() function)
-            operation_result = secure_create_channel(tx_id.c_str(), tx_id.length(), tx_index);
+            // execute operation
+            operation_result = -1;
+            response_msg = secure_get_ready_for_deposit(sender_address, settle_address).c_str();
         }
     }
     else if (operation == OP_SETTLE_BALANCE) {
@@ -787,7 +777,10 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     //
 
     // encrypt the response for client & return NO_ERROR to hide the ecall result from rouTEE host
-    encryption_result = make_encrypted_response(operation_result, session_key, encrypted_response, encrypted_response_len);
+    if (operation_result != -1) {
+        response_msg = error_to_msg(operation_result);
+    }
+    encryption_result = make_encrypted_response(response_msg, session_key, encrypted_response, encrypted_response_len);
     if (encryption_result != NO_ERROR) {
         return ERR_ENCRYPT_FAILED;
     }
