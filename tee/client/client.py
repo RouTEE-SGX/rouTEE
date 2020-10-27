@@ -203,11 +203,7 @@ def secure_command(command):
     # check the result
     if result is not None:
         print("response decryption success")
-        if result.decode() != "SUCCESS":
-            print("ERROR: command failed")
-            print("result:", result.decode())
-        else:
-            print("result:", result.decode())
+        print("result:", result.decode())
     else:
         print("ERROR: decryption failed, (maybe) plain response msg:", data.decode())
     

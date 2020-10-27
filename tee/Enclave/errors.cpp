@@ -5,48 +5,48 @@ const char* error_to_msg(int err) {
         case NO_ERROR:
             return "SUCCESS";
         case ERR_INVALID_OP_CODE:
-            return "this op code doesn't exist";
+            return "ERROR: this op code doesn't exist";
         case ERR_INVALID_CHANNEL:
-            return "invalid channel";
+            return "ERROR: invalid channel";
         case ERR_NO_CHANNEL:
-            return "there is no channel like that";
+            return "ERROR: there is no channel like that";
         case ERR_INVALID_PARAMS:
-            return "invalid op params";
+            return "ERROR: invalid op params";
         case ERR_INVALID_USER:
-            return "the user is not in that channel";
+            return "ERROR: the user is not in that channel";
         case ERR_NOT_ENOUGH_BALANCE:
-            return "the user has not enough balance";
+            return "ERROR: the user has not enough balance";
         case ERR_ALREADY_EXIST_CHANNEL:
-            return "this channel is already added before";
+            return "ERROR: this channel is already added before";
         case ERR_INVALID_RECEIVER:
-            return "your tx didn't send BTC to the owner address";
+            return "ERROR: your tx didn't send BTC to the owner address";
         case ERR_NOT_ENOUGH_FEE:
-            return "need higher routing fee";
+            return "ERROR: need higher routing fee";
         case ERR_SGX_ERROR_UNEXPECTED:
-            return "sgx error: SGX_ERROR_UNEXPECTED";
+            return "ERROR: sgx error: SGX_ERROR_UNEXPECTED";
         case ERR_SEAL_FAILED:
-            return "sealing failed";
+            return "ERROR: sealing failed";
         case ERR_UNSEAL_FAILED:
-            return "unsealing failed";
+            return "ERROR: unsealing failed";
         case ERR_DECRYPT_FAILED:
-            return "AES-GCM decryption failed";
+            return "ERROR: AES-GCM decryption failed";
         case ERR_ENCRYPT_FAILED:
-            return "AES-GCM encryption failed";
+            return "ERROR: AES-GCM encryption failed";
         case ERR_NO_RECEIVER:
-            return "payment receiver not exists in state";
+            return "ERROR: payment receiver not exists in state";
         case ERR_RECEIVER_NOT_READY:
-            return "payment receiver has low latest SPV block number";
+            return "ERROR: payment receiver has low latest SPV block number";
         case ERR_ADDRESS_NOT_EXIST:
-            return "this address is not in the state";
+            return "ERROR: this address is not in the state";
         case ERR_SETTLE_NOT_READY:
-            return "not ready for settlement yet";
+            return "ERROR: not ready for settlement yet";
         case ERR_CANNOT_CHANGE_TO_LOWER_BLOCK:
-            return "cannot change to lower block";
+            return "ERROR: cannot change to lower block";
         case ERR_TOO_LOW_AMOUNT_TO_SETTLE:
-            return "too low amount to settle";
+            return "ERROR: too low amount to settle";
         case ERR_TOO_LOW_DEPOSIT:
-            return "too low amount of deposit";
+            return "ERROR: too low amount of deposit";
         default:
-            return "wrong error index";
+            return "ERROR: this error index does not exist";
     }
 }
