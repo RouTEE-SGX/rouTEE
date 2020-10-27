@@ -12,6 +12,7 @@
 #include "utils.h"
 #include "network.h"
 
+// for AES-GCM128 encription / decription
 #define SGX_AESGCM_MAC_SIZE 16 // bytes
 #define SGX_AESGCM_IV_SIZE 12 // bytes
 #define BUFLEN 2048
@@ -38,11 +39,6 @@ void printf(const char* fmt, ...) {
     vsnprintf(buf, BUFSIZ, fmt, ap);
     va_end(ap);
     ocall_print_string(buf); // OCall
-}
-
-// Ecall: print hello world to the terminal screen
-void printf_helloworld() {
-    printf("Hello World!\n");
 }
 
 int ecall_set_routing_fee(unsigned long long fee){

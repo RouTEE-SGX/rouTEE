@@ -14,9 +14,6 @@ void printf(const char* fmt, ...);
 // Ecalls
 //
 
-// just print "hello world"
-void printf_helloworld();
-
 // set routing fee
 int ecall_set_routing_fee(unsigned long long fee);
 

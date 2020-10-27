@@ -5,7 +5,6 @@ enclave {
     trusted {
         // define ECALLs here
         
-        public void printf_helloworld();
         public int ecall_set_routing_fee(unsigned long long fee);
         public int ecall_set_routing_fee_address([in, size=fee_addr_len] const char* fee_address, int fee_addr_len);
         public int ecall_settle_routing_fee(unsigned long long amount);
