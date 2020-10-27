@@ -12,6 +12,9 @@
 #include "utils.h"
 #include "network.h"
 
+// print ecall results on screen or not
+const bool doPrint = true;
+
 // for AES-GCM128 encription / decription
 #define SGX_AESGCM_MAC_SIZE 16 // bytes
 #define SGX_AESGCM_IV_SIZE 12 // bytes
@@ -44,35 +47,50 @@ void printf(const char* fmt, ...) {
 int ecall_set_routing_fee(unsigned long long fee){
     //
     // TODO: BITCOIN
-    // check authority to set new routing fee (ex. routing_fee_address's signature)
+    // check authority to set new routing fee (ex. rouTEE host's signature)
     // if (cannot set new routing fee) {
     //     return ERR_NO_AUTHORITY;
     // }
     //
 
+    // set routing fee
     state.routing_fee = fee;
+
+    // print result
+    if (doPrint) {
+        printf("set routing fee as %llu satoshi\n", fee);
+    }
+
     return NO_ERROR;
 }
 
 int ecall_set_routing_fee_address(const char* fee_address, int fee_addr_len){
     //
     // TODO: BITCOIN
-    // check authority to set new routing fee address (ex. older routing_fee_address's signature)
+    // check authority to set new routing fee address (ex. rouTEE host's signature)
     // if (cannot set new routing fee address) {
     //     return ERR_NO_AUTHORITY;
     // }
     //
 
+    // set routing fee address
     state.fee_address = string(fee_address, fee_addr_len);
+
+    // print result
+    if (doPrint) {
+        printf("set routing fee address as %s satoshi\n", state.fee_address.c_str());
+    }
+
     return NO_ERROR;
 }
 
 int ecall_settle_routing_fee(unsigned long long amount) {
-
     // 
     // TODO: BITCOIN
-    // check authority
-    // verify fee address signature
+    // check authority to settle routing fee (ex. rouTEE host's signature)
+    // if (cannot settle routing fee) {
+    //     return ERR_NO_AUTHORITY;
+    // }
     //
 
     // amount should be bigger than minimum settle amount
@@ -94,14 +112,16 @@ int ecall_settle_routing_fee(unsigned long long amount) {
     state.settle_requests_waiting.back().amount = amount;
 
     // set user's account
-    printf("user %s requests settlement: %llu satoshi\n", state.fee_address.c_str(), amount);
-    // user_acc->balance -= amount;
-    // user_acc->nonce++; // prevent payment replay attack
     state.routing_fee_confirmed -= amount;
     state.routing_fee_settled += amount;
 
     // increase state id
     state.stateID++;
+
+    // print result
+    if (doPrint) {
+        printf("user %s requests settlement: %llu satoshi\n", state.fee_address.c_str(), amount);
+    }
 
     return NO_ERROR;
 }
@@ -117,7 +137,6 @@ string secure_get_ready_for_deposit(string sender_address, string settle_address
     sgx_read_rand((unsigned char *) &rand, 4);
     rand = rand % 10000;
     string random_private_key = "0xrandPrivateKey_" + long_long_to_string(rand);
-    printf("generated random private key: %s\n", random_private_key.c_str());
     string random_address = "0xrandAddr_" + long_long_to_string(rand);
 
     // get latest block in rouTEE
@@ -132,9 +151,13 @@ string secure_get_ready_for_deposit(string sender_address, string settle_address
     deposit_request.block_number = latest_block_number;
     state.deposit_requests[random_address] = deposit_request;
 
+    // print result
+    if (doPrint) {
+        printf("random manager address: %s / block number: %llu\n", random_address.c_str(), latest_block_number);
+    }
+
     // send random address & block info to the sender
-    string response_msg = random_address + " " + long_long_to_string(latest_block_number);
-    return response_msg;
+    return random_address + " " + long_long_to_string(latest_block_number);
 }
 
 void ecall_print_state() {
@@ -289,7 +312,6 @@ int secure_settle_balance(string user_address, unsigned long long amount) {
     state.settle_requests_waiting.back().amount = amount;
 
     // set user's account
-    printf("user %s requests settlement: %llu satoshi\n", user_address.c_str(), amount);
     user_acc->balance -= amount;
     user_acc->nonce++; // prevent payment replay attack    
 
@@ -307,6 +329,11 @@ int secure_settle_balance(string user_address, unsigned long long amount) {
 
     // for debugging
     state.d_total_settle_amount += amount;
+
+    // print result
+    if (doPrint) {
+        printf("user %s requested settlement: %llu satoshi\n", user_address.c_str(), amount);
+    }
 
     return NO_ERROR;
 }
@@ -343,23 +370,29 @@ int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx
         balance_for_settle_tx_fee = ((tx_output_num * TX_OUTPUT_SIZE) + TX_INPUT_SIZE) / settle_users_num * state.avg_tx_fee_per_byte * TAX_RATE_FOR_SETTLE_TX;
     }
     else {
-        // there is no user balance left, no routing fee left
-        // this means this settle tx is to settle all routing_fee_confirmed alone
-        printf("there is nothing left to settle. this settle tx cleans all the things.\n");
-
         // so just give balances_for_settle_tx_fee to state.fee_address
-        printf("CLEAN UP SETTLE TX: give %llu bouns to fee address\n", state.balances_for_settle_tx_fee);
-        state.settle_requests_waiting.front().amount += state.balances_for_settle_tx_fee;
-        state.d_total_balances_for_settle_tx_fee -= state.balances_for_settle_tx_fee;
-        state.routing_fee_settled += state.balances_for_settle_tx_fee;
+        unsigned long long bonus = state.balances_for_settle_tx_fee;
+        state.settle_requests_waiting.front().amount += bonus;
+        state.d_total_balances_for_settle_tx_fee -= bonus;
+        state.routing_fee_settled += bonus;
         state.balances_for_settle_tx_fee = 0;
         balance_for_settle_tx_fee = (TX_INPUT_SIZE + TX_OUTPUT_SIZE) * state.avg_tx_fee_per_byte;
+
+        // print result
+        if (doPrint) {
+            // there is no user balance left, no routing fee left
+            // this means this settle tx is to settle all routing_fee_confirmed alone
+            printf("there is nothing left to settle. this settle tx cleans all the things.\n");
+            printf("bonus for clean-up settle tx: give %llu satoshi to fee address\n", bonus);
+        }
     }
-    printf("settle tx intput num: %d / settle tx output num: %d\n", tx_input_num, tx_output_num);
+    
     while(!state.settle_requests_waiting.empty()) {
         SettleRequest sr = state.settle_requests_waiting.front();
-        printf("settle tx output: to %s / %llu satoshi\n", sr.address.c_str(), sr.amount);
         psti.pending_balances += sr.amount;
+        if (doPrint) {
+            printf("settle tx output: to %s / %llu satoshi\n", sr.address.c_str(), sr.amount);
+        }
 
         // change settle requests status: from waiting to pending
         // & calculate settlement tax
@@ -370,13 +403,12 @@ int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx
         state.d_total_settle_amount -= sr.balance_for_settle_tx_fee;
         psti.pending_settle_requests.push(sr);
     }
-    while(!state.deposits.empty()) {
+    while (!state.deposits.empty()) {
         // move deposits: from unused to used
         Deposit deposit = state.deposits.front();
         state.deposits.pop();
         psti.used_deposits.push(deposit);
     }
-    printf("routing fee waiting: %llu / psti.pending balances: %llu / state.total balance: %llu\n", state.routing_fee_waiting, psti.pending_balances, state.total_balances);
     psti.pending_routing_fees = state.routing_fee_waiting * psti.pending_balances / (state.total_balances + psti.pending_balances);
     state.routing_fee_waiting -= psti.pending_routing_fees;
     int settle_tx_size = TX_INPUT_SIZE * tx_input_num + TX_OUTPUT_SIZE * tx_output_num;
@@ -389,6 +421,12 @@ int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx
 
     // for debugging
     state.d_total_settle_tx_fee += psti.pending_tx_fee;
+
+    // print result
+    if (doPrint) {
+        printf("settle tx intput num: %d / settle tx output num: %d\n", tx_input_num, tx_output_num);
+        printf("routing fee waiting: %llu / psti.pending balances: %llu / state.total balance: %llu\n", state.routing_fee_waiting, psti.pending_balances, state.total_balances);
+    }
 
     return NO_ERROR;
 }
@@ -455,7 +493,11 @@ int secure_do_multihop_payment(string sender_address, string receiver_address, u
     // increase state id
     state.stateID++;
 
-    printf("send %llu from %s to %s / fee %llu to %s\n", amount, sender_address.c_str(), receiver_address.c_str(), fee, state.fee_address.c_str());
+    // print result
+    if (doPrint) {
+        printf("user %s send %llu satoshi to user %s (routing fee: %llu)\n", sender_address.c_str(), amount, receiver_address.c_str(), fee);
+    }
+
     return NO_ERROR;
 }
 
@@ -490,6 +532,11 @@ int secure_update_latest_SPV_block(string user_address, unsigned long long block
     else {
         // cannot change to lower block
         return ERR_CANNOT_CHANGE_TO_LOWER_BLOCK;
+    }
+
+    // print result
+    if (doPrint) {
+        printf("user %s update SPV block number to %llu\n", user_address.c_str(), block_number);
     }
     
     return NO_ERROR;
@@ -553,8 +600,13 @@ void deal_with_deposit_tx(const char* sender_address, int sender_addr_len, unsig
     // for debugging
     state.d_total_deposit += amount;
     state.d_total_balances_for_settle_tx_fee += balance_for_tx_fee;
-    
-    printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", sender_addr.c_str(), balance_for_user, balance_for_tx_fee);
+
+    // print result
+    if (doPrint) {
+        printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", sender_addr.c_str(), balance_for_user, balance_for_tx_fee);
+    }
+
+    return;
 }
 
 // this is not ecall function, but this can be used as ecall to debugging
@@ -566,25 +618,31 @@ void deal_with_settlement_tx() {
     state.pending_settle_tx_infos.pop();
 
     // confirm routing fee for this settle tx
-    printf("deal with settle tx -> rouTEE owner got paid pending routing fee: %llu satoshi\n", psti.pending_routing_fees);
     state.routing_fee_confirmed += psti.pending_routing_fees;
 
-    // dequeue pending settle requests for this settle tx (print for debugging, can delete this later)
-    int queue_size = psti.pending_settle_requests.size();
-    for (int i = 0; i < queue_size; i++) {
-        SettleRequest sr = psti.pending_settle_requests.front();
-        printf("deal with settle tx -> user: %s / requested %llu satoshi (paid tax: %llu satoshi)\n", sr.address, sr.amount, sr.balance_for_settle_tx_fee);
-        psti.pending_settle_requests.pop();
+    // print result
+    if (doPrint) {
+        printf("deal with settle tx -> rouTEE owner got paid pending routing fee: %llu satoshi\n", psti.pending_routing_fees);
+
+        // dequeue pending settle requests for this settle tx (print for debugging, can delete this later)
+        int queue_size = psti.pending_settle_requests.size();
+        for (int i = 0; i < queue_size; i++) {
+            SettleRequest sr = psti.pending_settle_requests.front();
+            printf("deal with settle tx -> user: %s / requested %llu satoshi (paid tax: %llu satoshi)\n", sr.address, sr.amount, sr.balance_for_settle_tx_fee);
+            psti.pending_settle_requests.pop();
+        }
+
+        // dequeue used deposits for this settle tx (print for debugging, can delete this later)
+        queue_size = psti.used_deposits.size();
+        for (int i = 0; i < queue_size; i++) {
+            Deposit deposit = psti.used_deposits.front();
+            printf("deal with settle tx -> used deposit hash: %s\n", deposit.tx_hash);
+            psti.used_deposits.pop();
+        }
+
     }
 
-    // dequeue used deposits for this settle tx (print for debugging, can delete this later)
-    queue_size = psti.used_deposits.size();
-    for (int i = 0; i < queue_size; i++) {
-        Deposit deposit = psti.used_deposits.front();
-        printf("deal with settle tx -> used deposit hash: %s\n", deposit.tx_hash);
-        psti.used_deposits.pop();
-    }
-
+    return;
 }
 
 int ecall_insert_block(const char* block, int block_len) {
@@ -601,7 +659,6 @@ int ecall_insert_block(const char* block, int block_len) {
 int make_encrypted_response(const char* response_msg, sgx_aes_gcm_128bit_key_t *session_key, char* encrypted_response, int* encrypted_response_len) {
 
     // return encrypted response to client
-    printf("response_msg: %s\n", response_msg);
     uint8_t *response = (uint8_t *) response_msg;
     size_t len = strlen(response_msg);
 	uint8_t p_dst[BUFLEN] = {0};
@@ -682,7 +739,6 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     char *decMessage = (char *) malloc((decMessageLen+1)*sizeof(char));
 	memcpy(decMessage, p_dst, decMessageLen);
     decMessage[decMessageLen] = '\0';
-    printf("decrypted cmd: %s\n", decMessage);
 
     //
     // execute decrypted cmd
@@ -778,6 +834,13 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     if (encryption_result != NO_ERROR) {
         return ERR_ENCRYPT_FAILED;
     }
+
+    // print result
+    if (doPrint) {
+        printf("decrypted secure command: %s\n", decMessage);
+        printf("secure command result: %s\n", response_msg);
+    }
+
     return NO_ERROR;
 }
 
