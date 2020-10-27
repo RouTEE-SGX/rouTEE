@@ -9,3 +9,4 @@ client/scripts/runMakeScript
 client/resultLogs/*
 client/test.py
 client/crypTest.py
+todoList.txt
