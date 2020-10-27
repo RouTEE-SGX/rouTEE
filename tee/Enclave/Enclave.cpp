@@ -260,7 +260,7 @@ void ecall_print_state() {
 }
 
 // operation function for secure_command
-int secure_settle_balance(const char* user_address, int user_addr_len, unsigned long long amount) {
+int secure_settle_balance(string user_address, unsigned long long amount) {
     //
     // TODO: BITCOIN
     // check authority to get paid the balance (ex. user's signature with settlement params)
@@ -278,8 +278,7 @@ int secure_settle_balance(const char* user_address, int user_addr_len, unsigned 
     }
 
     // check the user has enough balance
-    string user_addr = string(user_address, user_addr_len);
-    map<string, Account*>::iterator iter = state.users.find(user_addr);
+    map<string, Account*>::iterator iter = state.users.find(user_address);
     if (iter == state.users.end() || iter->second->balance < amount) {
         // user is not in the state || has not enough balance
         return ERR_NOT_ENOUGH_BALANCE;
@@ -288,11 +287,11 @@ int secure_settle_balance(const char* user_address, int user_addr_len, unsigned 
 
     // push new waiting settle request
     state.settle_requests_waiting.push(SettleRequest());
-    state.settle_requests_waiting.back().address = user_addr;
+    state.settle_requests_waiting.back().address = user_address;
     state.settle_requests_waiting.back().amount = amount;
 
     // set user's account
-    printf("user %s requests settlement: %llu satoshi\n", user_addr.c_str(), amount);
+    printf("user %s requests settlement: %llu satoshi\n", user_address.c_str(), amount);
     user_acc->balance -= amount;
     user_acc->nonce++; // prevent payment replay attack    
 
@@ -397,7 +396,7 @@ int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx
 }
 
 // operation function for secure_command
-int secure_do_multihop_payment(const char* sender_address, int sender_addr_len, const char* receiver_address, int receiver_addr_len, unsigned long long amount, unsigned long long fee) {
+int secure_do_multihop_payment(string sender_address, string receiver_address, unsigned long long amount, unsigned long long fee) {
     //
     // TODO: BITCOIN
     // check authority to send (ex. sender's signature with these params)
@@ -407,8 +406,7 @@ int secure_do_multihop_payment(const char* sender_address, int sender_addr_len, 
     //
 
     // check the sender exists & has more than amount + fee to send
-    string sender_addr = string(sender_address, sender_addr_len);
-    map<string, Account*>::iterator iter = state.users.find(sender_addr);
+    map<string, Account*>::iterator iter = state.users.find(sender_address);
     if (iter == state.users.end() || iter->second->balance < amount + fee) {
         // sender is not in the state || has not enough balance
         return ERR_NOT_ENOUGH_BALANCE;
@@ -421,8 +419,7 @@ int secure_do_multihop_payment(const char* sender_address, int sender_addr_len, 
     }
 
     // check the receiver exists
-    string receiver_addr = string(receiver_address, receiver_addr_len);
-    iter = state.users.find(receiver_addr);
+    iter = state.users.find(receiver_address);
     if (iter == state.users.end()) {
         // receiver is not in the state
         return ERR_NO_RECEIVER;
@@ -460,12 +457,12 @@ int secure_do_multihop_payment(const char* sender_address, int sender_addr_len, 
     // increase state id
     state.stateID++;
 
-    printf("send %llu from %s to %s / fee %llu to %s\n", amount, sender_addr.c_str(), receiver_addr.c_str(), fee, state.fee_address.c_str());
+    printf("send %llu from %s to %s / fee %llu to %s\n", amount, sender_address.c_str(), receiver_address.c_str(), fee, state.fee_address.c_str());
     return NO_ERROR;
 }
 
 // update user's latest SPV block
-int secure_update_latest_SPV_block(const char* user_address, int user_addr_len, unsigned long long block_number) {
+int secure_update_latest_SPV_block(string user_address, unsigned long long block_number) {
 
     //
     // TODO: BITCOIN
@@ -474,11 +471,10 @@ int secure_update_latest_SPV_block(const char* user_address, int user_addr_len, 
     //
 
     // check the user exists
-    string user_addr = string(user_address, user_addr_len);
-    map<string, Account*>::iterator iter = state.users.find(user_addr);
+    map<string, Account*>::iterator iter = state.users.find(user_address);
     if (iter == state.users.end()) {
         // the user not exist
-        printf("address %s is not in the state\n", user_addr);
+        printf("address %s is not in the state\n", user_address);
         return ERR_ADDRESS_NOT_EXIST;
     }
     Account* user_acc = iter->second;
@@ -727,11 +723,11 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
         }
         else {
             // get parameters
-            string receiver_address = params[1];
+            string user_address = params[1];
             unsigned long long amount = strtoul(params[2].c_str(), NULL, 10);
 
             // execute operation
-            operation_result = secure_settle_balance(receiver_address.c_str(), receiver_address.length(), amount);
+            operation_result = secure_settle_balance(user_address, amount);
         }
     }
     else if (operation == OP_DO_MULTIHOP_PAYMENT) {
@@ -748,7 +744,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
             unsigned long long fee = strtoul(params[4].c_str(), NULL, 10);
 
             // execute operation
-            operation_result = secure_do_multihop_payment(sender_address.c_str(), sender_address.length(), receiver_address.c_str(), receiver_address.length(), amount, fee);
+            operation_result = secure_do_multihop_payment(sender_address, receiver_address, amount, fee);
         }
     }
     else if (operation == OP_UPDATE_LATEST_SPV_BLOCK) {
@@ -764,7 +760,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
             // string block_hash = params[3];
 
             // execute operation
-            operation_result = secure_update_latest_SPV_block(user_address.c_str(), user_address.length(), block_number);
+            operation_result = secure_update_latest_SPV_block(user_address, block_number);
         }
     }
     else {
