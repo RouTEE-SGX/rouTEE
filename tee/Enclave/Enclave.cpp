@@ -220,6 +220,7 @@ void ecall_print_state() {
     printf("settled routing fees = %llu\n", state.routing_fee_settled);
 
     printf("\n\n\n\n\n***** check correctness *****\n\n");
+    bool isCorrect = true;
     printf("d_total_deposit = %llu\n\n", state.d_total_deposit);
     printf("total_balances = %llu\n", state.total_balances);
     printf("d_total_settle_amount = %llu\n", state.d_total_settle_amount);
@@ -239,7 +240,7 @@ void ecall_print_state() {
     calculated_total_deposit += state.routing_fee_settled;
     if (state.d_total_deposit != calculated_total_deposit) {
         printf("\n=> ERROR: total deposit is not correct, some balances are missed\n\n");
-        // return;
+        isCorrect = false;
     }
     printf("\n");
 
@@ -251,10 +252,11 @@ void ecall_print_state() {
     calculated_total_balances_for_settle_tx_fee += state.d_total_settle_tx_fee;
     if (state.d_total_balances_for_settle_tx_fee != calculated_total_balances_for_settle_tx_fee) {
         printf("\n=> ERROR: total balance for settle tx fee is not correct, some balances are missed\n\n");
-        // return;
+        isCorrect = false;
     }
-
-    printf("\n=> CORRECT: all deposits are in correct way\n\n");
+    if (isCorrect) {
+        printf("\n=> CORRECT: all deposits are in correct way\n\n");
+    }
     printf("\n\n\n******************** END PRINT STATE ********************\n");
     return;
 }
