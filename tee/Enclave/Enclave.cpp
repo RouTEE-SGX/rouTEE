@@ -821,6 +821,9 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     //
     // execute decrypted cmd
     //
+    // @ Luke Park
+    // mutex lock
+    sgx_thread_mutex_lock(&state_mutex);
 
     // parse the command to get parameters
     vector<string> params;
@@ -903,6 +906,9 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     //
     // encrypt response
     //
+    // @ Luke Park
+    // mutex unlock
+    sgx_thread_mutex_unlock(&state_mutex);
 
     // encrypt the response for client & return NO_ERROR to hide the ecall result from rouTEE host
     if (operation_result != -1) {
