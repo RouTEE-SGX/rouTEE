@@ -1,3 +1,7 @@
+// @ Luke Park
+#include <future>
+#include <thread>
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <unistd.h>
@@ -613,7 +617,7 @@ int SGX_CDECL main(int argc, char* argv[]){
     // accept the incoming connection
     addrlen = sizeof(address);
     puts("Waiting for connections ...");
-    
+
     while(TRUE) {
         // clear the socket set
         FD_ZERO(&readfds);
@@ -667,7 +671,7 @@ int SGX_CDECL main(int argc, char* argv[]){
             }
 
         }
-        
+
         // else its some IO operation on some other socket
         for (int i = 0; i < MAX_CLIENTS; i++) {
             sd = client_socket[i];
@@ -696,9 +700,14 @@ int SGX_CDECL main(int argc, char* argv[]){
                         char encrypted_response[MAX_SEALED_DATA_LENGTH];
                         int encrypted_response_len;
 
+                        // @ Luke Park
                         // execute client's command
-                        int error_index = secure_command(request, read_len, encrypted_response, &encrypted_response_len);
-                        if (error_index != NO_ERROR) {
+                        // int error_index = secure_command(request, read_len, encrypted_response, &encrypted_response_len);
+                        std::shared_future<int> error_index = std::async(secure_command, request, read_len, encrypted_response, &encrypted_response_len);
+
+                        int error_index_res = error_index.get();
+
+                        if (error_index_res != NO_ERROR) {
                             response = "failed secure_command()";
                             send(sd, response, strlen(response), 0);
                         }
@@ -706,7 +715,6 @@ int SGX_CDECL main(int argc, char* argv[]){
                             // send encrypted response to the client
                             send(sd, encrypted_response, encrypted_response_len, 0);
                         }
-
                     }
                     else {
                         // execute client's command
