@@ -108,19 +108,21 @@ def runScript(fileName):
             continue
         cnt = cnt + 1
 
-        # send command to server
+        # send cmd & measure execution time
         startTime = datetime.now()
-        client_socket.sendall(command[0].encode())
-
-        # get response from server
-        data = client_socket.recv(1024)
+        if command[0][0] == 't':
+            # send encrypted cmd & get encrypted response and decrypt it
+            secure_command(command[0])
+        else:
+            # send plain cmd & get plain response
+            client_socket.sendall(command[0].encode())
+            data = client_socket.recv(1024)
+            # check the result
+            if data.decode() != "SUCCESS":
+                print("ERROR: command failed\n")
+                print("error msg:", data.decode())
+                return
         elapsed = datetime.now() - startTime
-
-        # check the result
-        if data.decode() != "SUCCESS":
-            print("ERROR: command failed\n")
-            print("error msg:", data.decode())
-            return
 
         # calculate elapsed time
         elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
