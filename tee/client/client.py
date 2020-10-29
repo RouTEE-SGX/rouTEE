@@ -113,6 +113,7 @@ def runScript(fileName):
         if command[0][0] == 't':
             # send encrypted cmd & get encrypted response and decrypt it
             secure_command(command[0])
+            continue
         else:
             # send plain cmd & get plain response
             client_socket.sendall(command[0].encode())

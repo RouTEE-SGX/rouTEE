@@ -498,7 +498,7 @@ void secure_command(char* request, int request_len, char* encrypted_response, in
     }
     else {
         // send encrypted response to the client
-        send(sd, encrypted_response, encrypted_response_len, 0);
+        send(sd, encrypted_response, *encrypted_response_len, 0);
     }
 
 }
@@ -711,21 +711,24 @@ int SGX_CDECL main(int argc, char* argv[]){
                         char encrypted_response[MAX_SEALED_DATA_LENGTH];
                         int encrypted_response_len;
 
-                        // @ Luke Park
-                        // execute client's command
                         // int error_index = secure_command(request, read_len, encrypted_response, &encrypted_response_len);
-                        std::shared_future<int> error_index = std::async(secure_command, request, read_len, encrypted_response, &encrypted_response_len);
+                        // if (error_index_res != NO_ERROR) {
+                        //     response = "failed secure_command()";
+                        //     send(sd, response, strlen(response), 0);
+                        // }
+                        // else {
+                        //     // send encrypted response to the client
+                        //     send(sd, encrypted_response, encrypted_response_len, 0);
+                        // }
 
-                        int error_index_res = error_index.get();
+                        // @ Luke Park
+                        // execute client's command                        
+                        // Async
+                        std::async(std::launch::async, secure_command, request, read_len, encrypted_response, &encrypted_response_len, sd);
 
-                        if (error_index_res != NO_ERROR) {
-                            response = "failed secure_command()";
-                            send(sd, response, strlen(response), 0);
-                        }
-                        else {
-                            // send encrypted response to the client
-                            send(sd, encrypted_response, encrypted_response_len, 0);
-                        }
+                        // Sync
+                        // secure_command(request, read_len, encrypted_response, &encrypted_response_len, sd);
+
                     }
                     else {
                         // execute client's command
