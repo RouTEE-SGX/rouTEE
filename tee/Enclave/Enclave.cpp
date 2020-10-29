@@ -809,6 +809,8 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
         // and return NO_ERROR to hide the ecall result from rouTEE host
         encryption_result = make_encrypted_response(error_to_msg(ERR_DECRYPT_FAILED), session_key, encrypted_response, encrypted_response_len);
         if (encryption_result != NO_ERROR) {
+            // TODO: if encryption failed, send rouTEE's signature for the failed cmd
+            // to make client believe that the encrpytion really failed
             return ERR_ENCRYPT_FAILED;
         }
         return NO_ERROR;
@@ -916,6 +918,8 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     }
     encryption_result = make_encrypted_response(response_msg, session_key, encrypted_response, encrypted_response_len);
     if (encryption_result != NO_ERROR) {
+        // TODO: if encryption failed, send rouTEE's signature for the failed cmd
+        // to make client believe that the encrpytion really failed
         return ERR_ENCRYPT_FAILED;
     }
 
