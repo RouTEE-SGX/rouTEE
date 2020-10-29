@@ -468,7 +468,7 @@ void seal_state() {
 }
 
 // give encrypted cmd to rouTEE
-int secure_command(char* request, int request_len, char* encrypted_response, int* encrypted_response_len) {
+void secure_command(char* request, int request_len, char* encrypted_response, int* encrypted_response_len, int sd) {
     // parse request as ecall function params
     vector<string> params = parse_request(request);
     string sessionID = params[1];
@@ -489,7 +489,18 @@ int secure_command(char* request, int request_len, char* encrypted_response, int
     }
     state_save_counter++;
 
-    return ecall_return;
+    // send response to client
+    int error_index = ecall_return;
+    if (error_index != NO_ERROR) {
+        // encryption faild in secure_command, just send plain response msg
+        const char* response = "failed encryption in secure_command()";
+        send(sd, response, strlen(response), 0);
+    }
+    else {
+        // send encrypted response to the client
+        send(sd, encrypted_response, encrypted_response_len, 0);
+    }
+
 }
 
 // execute client's command
