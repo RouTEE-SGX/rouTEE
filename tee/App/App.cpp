@@ -1,6 +1,89 @@
 // @ Luke Park
+// Ref. https://modoocode.com/285
 #include <future>
 #include <thread>
+#include <chrono>
+#include <condition_variable>
+#include <cstdio>
+#include <functional>
+#include <mutex>
+#include <queue>
+#include <vector>
+
+namespace ThreadPool {
+
+class ThreadPool {
+    public:
+        ThreadPool(size_t num_threads);
+        ~ThreadPool();
+
+    template <class F, class... Args>
+    std::future<typename std::result_of<F(Args...)>::type> EnqueueJob(
+        F&& f, Args&&... args);
+
+    private:
+        size_t num_threads_;
+        std::vector<std::thread> worker_threads_; // workers (CPUs)
+        std::queue<std::function<void()>> jobs_;  // jobs (Threads)
+        std::condition_variable cv_job_q_;
+        std::mutex m_job_q_;
+
+    bool stop_all;
+
+    void WorkerThread();
+};
+
+ThreadPool::ThreadPool(size_t num_threads)
+    : num_threads_(num_threads), stop_all(false) {
+
+    worker_threads_.reserve(num_threads_);
+    for (size_t i = 0; i < num_threads_; ++i) {
+        worker_threads_.emplace_back([this]() { this->WorkerThread(); });
+    }
+}
+
+void ThreadPool::WorkerThread() {
+    while (true) {
+        std::unique_lock<std::mutex> lock(m_job_q_);
+        cv_job_q_.wait(lock, [this]() { return !this->jobs_.empty() || stop_all; });
+        if (stop_all && this->jobs_.empty()) { return; }
+
+        std::function<void()> job = std::move(jobs_.front());
+        jobs_.pop();
+        lock.unlock();
+        job();  // Run
+    }
+}
+
+ThreadPool::~ThreadPool() {
+    stop_all = true;
+    cv_job_q_.notify_all();
+
+    for (auto& t : worker_threads_) {
+        t.join();
+    }
+}
+
+template <class F, class... Args>
+std::future<typename std::result_of<F(Args...)>::type> ThreadPool::EnqueueJob(
+    F&& f, Args&&... args) {
+    if (stop_all) { throw std::runtime_error("Stop all ThreadPool"); }
+
+    using return_type = typename std::result_of<F(Args...)>::type;
+    auto job = std::make_shared<std::packaged_task<return_type()>>(
+        std::bind(std::forward<F>(f), std::forward<Args>(args)...));
+    std::future<return_type> job_result_future = job->get_future();
+    {
+        std::lock_guard<std::mutex> lock(m_job_q_);
+        jobs_.push([job]() { (*job)(); });
+    }
+    cv_job_q_.notify_one();
+
+    return job_result_future;
+}
+
+}
+// namespace ThreadPool
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -8,7 +91,7 @@
 #include <pwd.h>
 #include <string>
 #include <sstream>
-#include <vector>
+// #include <vector>
 #include <sys/stat.h>
 #include <iostream>
 #include <fstream>
@@ -120,15 +203,15 @@ void print_error_message(sgx_status_t ret){
         if (ret == sgx_errlist[index].err){
             // find matching error in the sgx_errlist. print it
             if (sgx_errlist[index].sug != NULL){
-                printf("Info: %s\n", sgx_errlist[index].sug);
+                // printf("Info: %s\n", sgx_errlist[index].sug);
             }
-            printf("Error: %s\n", sgx_errlist[index].msg);
+            // printf("Error: %s\n", sgx_errlist[index].msg);
             return;
         }
     }
 
     // cannot find matching error in the sgx_errlist
-    printf("What is this error? Error code is 0x%X. Please refer to the \"Intel SGX SDK Developer Reference\" for more details.\n", ret);
+    // printf("What is this error? Error code is 0x%X. Please refer to the \"Intel SGX SDK Developer Reference\" for more details.\n", ret);
 }
 
 // initialize the enclave
@@ -160,12 +243,12 @@ int initialize_enclave(void){
     FILE *fp = fopen(token_path, "rb");
     if (fp == NULL){
         // failed to open the launch token file
-        printf("Warning: Failed to open the launch token file \"%s\".\n", token_path);
+        // printf("Warning: Failed to open the launch token file \"%s\".\n", token_path);
     }
     // try to create new launch token file
     if ((fp = fopen(token_path, "wb")) == NULL){
         // failed to create a launch token file
-        printf("Warning: Failed to create a launch token file \"%s\".\n", token_path);
+        // printf("Warning: Failed to create a launch token file \"%s\".\n", token_path);
     }
     if (fp != NULL) {
         // read the token from saved file
@@ -173,7 +256,7 @@ int initialize_enclave(void){
         if (read_num != 0 && read_num != sizeof(sgx_launch_token_t)){
             // if token is invalid, clear the buffer
             memset(&token, 0x0, sizeof(sgx_launch_token_t));
-            printf("Warning: Invalid launch token read from \"%s\".\n", token_path);
+            // printf("Warning: Invalid launch token read from \"%s\".\n", token_path);
         }
     }
 
@@ -205,7 +288,7 @@ int initialize_enclave(void){
     }
     size_t write_num = fwrite(token, 1, sizeof(sgx_launch_token_t), fp);
     if (write_num != sizeof(sgx_launch_token_t)){
-        printf("Warning: Failed to save launch token to \"%s\".\n", token_path);
+        // printf("Warning: Failed to save launch token to \"%s\".\n", token_path);
     }
     fclose(fp);
     return 0;   // fail to save but success creating enclave, it's ok
@@ -216,19 +299,19 @@ void ocall_print_string(const char* str){
     // Proxy/Bridge will check the length and null-terminate 
     // the input string to prevent buffer overflow. 
 
-    printf("%s", str);
+    // printf("%s", str);
 }
 
 // clean up the program and terminate it
 void cleanup() {
-    printf("terminate the app\n");
+    // printf("terminate the app\n");
     sgx_destroy_enclave(global_eid);
     exit(1);
 }
 
 // print error msg and end program
 void error(const char* errmsg) {
-    printf("error occurred: %s\n", errmsg);
+    // printf("error occurred: %s\n", errmsg);
     cleanup();
 }
 
@@ -239,21 +322,21 @@ void load_state() {
     struct stat buffer;
     char sealed_state[MAX_SEALED_DATA_LENGTH];
     if (stat (STATE_FILENAME, &buffer) != 0) {
-        printf("there is no saved state. just start rouTEE\n");
+        // printf("there is no saved state. just start rouTEE\n");
         return;
     } else {
         // load sealed state from the file
-        printf("read sealed state from the file\n");
+        // printf("read sealed state from the file\n");
         std::ifstream in(STATE_FILENAME);
         std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         memcpy(sealed_state, contents.c_str(), contents.length());
     }
 
     // load state
-    printf("load state\n");
+    // printf("load state\n");
     int ecall_return;
     int ecall_result = ecall_load_state(global_eid, &ecall_return, sealed_state, sizeof sealed_state);
-    printf("ecall_load_state() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    // printf("ecall_load_state() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_load_state");
     }
@@ -261,7 +344,7 @@ void load_state() {
         error(error_to_msg(ecall_return));
     }
 
-    printf("load state from a file\n");
+    // printf("load state from a file\n");
 }
 
 // set owner key inside the enclave
@@ -272,11 +355,11 @@ void set_owner() {
     char sealed_owner_private_key[MAX_SEALED_DATA_LENGTH];
     if (stat (OWNER_KEY_FILENAME, &buffer) != 0) {
         // make new private key
-        printf("generate new owner key\n");
+        // printf("generate new owner key\n");
         int ecall_return;
         int sealed_key_len;
         int ecall_result = ecall_make_owner_key(global_eid, &ecall_return, sealed_owner_private_key, &sealed_key_len);
-        printf("ecall_make_owner_key() -> result:%d / return:%d\n", ecall_result, ecall_return);
+        // printf("ecall_make_owner_key() -> result:%d / return:%d\n", ecall_result, ecall_return);
         if (ecall_result != SGX_SUCCESS) {
             error("ecall_make_owner_key");
         }
@@ -291,17 +374,17 @@ void set_owner() {
         out.close();
     } else {
         // load sealed private key from the file
-        printf("read sealed owner key from the file");
+        // printf("read sealed owner key from the file");
         std::ifstream in(OWNER_KEY_FILENAME);
         std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         memcpy(sealed_owner_private_key, contents.c_str(), contents.length());
     }
     
     // load owner key's address
-    printf("load owner key\n");
+    // printf("load owner key\n");
     int ecall_return;
     int ecall_result = ecall_load_owner_key(global_eid, &ecall_return, sealed_owner_private_key, sizeof sealed_owner_private_key);
-    printf("ecall_load_owner_key() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    // printf("ecall_load_owner_key() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_load_owner_key");
     }
@@ -309,7 +392,7 @@ void set_owner() {
         error(error_to_msg(ecall_return));
     }
 
-    printf("set_owner() finished\n");
+    // printf("set_owner() finished\n");
 }
 
 // parse request as ecall function params (delimiter: ' ')
@@ -334,7 +417,7 @@ int set_routing_fee(char* request) {
 
     int ecall_return;
     int ecall_result = ecall_set_routing_fee(global_eid, &ecall_return, fee);
-    printf("ecall_set_routing_fee() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    // printf("ecall_set_routing_fee() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_set_routing_fee");
     }
@@ -353,7 +436,7 @@ int set_routing_fee_address(char* request) {
 
     int ecall_return;
     int ecall_result = ecall_set_routing_fee_address(global_eid, &ecall_return, fee_address.c_str(), fee_address.length());
-    printf("ecall_set_routing_fee_address() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    // printf("ecall_set_routing_fee_address() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_set_routing_fee_address");
     }
@@ -372,7 +455,7 @@ int settle_routing_fee(char* request) {
 
     int ecall_return;
     int ecall_result = ecall_settle_routing_fee(global_eid, &ecall_return, amount);
-    printf("ecall_settle_routing_fee() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    // printf("ecall_settle_routing_fee() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_settle_routing_fee");
     }
@@ -396,7 +479,7 @@ int make_settle_transaction() {
     char settle_transaction[MAX_SEALED_DATA_LENGTH];
     int settle_tx_len;
     int ecall_result = ecall_make_settle_transaction(global_eid, &ecall_return, settle_transaction, &settle_tx_len);
-    printf("ecall_make_settle_transaction() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    // printf("ecall_make_settle_transaction() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_make_settle_transaction");
     }
@@ -421,7 +504,7 @@ int insert_deposit_tx(char* request) {
     unsigned long long block_number = strtoull(params[3].c_str(), NULL, 10);
 
     int ecall_result = deal_with_deposit_tx(global_eid, sender_address.c_str(), sender_address.length(), amount, block_number);
-    printf("deal_with_deposit_tx() -> result:%d\n", ecall_result);
+    // printf("deal_with_deposit_tx() -> result:%d\n", ecall_result);
     if (ecall_result != SGX_SUCCESS) {
         error("deal_with_deposit_tx");
     }
@@ -432,7 +515,7 @@ int insert_deposit_tx(char* request) {
 // insert settle tx (for debugging)
 int insert_settle_tx(char* request) {
     int ecall_result = deal_with_settlement_tx(global_eid);
-    printf("deal_with_settlement_tx() -> result:%d\n", ecall_result);
+    // printf("deal_with_settlement_tx() -> result:%d\n", ecall_result);
     if (ecall_result != SGX_SUCCESS) {
         error("deal_with_settlement_tx");
     }
@@ -451,7 +534,7 @@ void seal_state() {
     int ecall_return;
     int sealed_state_len;
     int ecall_result = ecall_seal_state(global_eid, &ecall_return, sealed_state, &sealed_state_len);
-    printf("ecall_seal_state() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    // printf("ecall_seal_state() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_seal_state");
     }
@@ -464,11 +547,15 @@ void seal_state() {
     out.write(sealed_state, sealed_state_len);
     out.close();
 
-    printf("seal_state() success!\n");
+    // printf("seal_state() success!\n");
 }
 
 // give encrypted cmd to rouTEE
-void secure_command(char* request, int request_len, char* encrypted_response, int* encrypted_response_len, int sd) {
+void secure_command(char* request, int request_len, int sd) {
+    // buffer for encrypted response from ecall
+    char encrypted_response[MAX_SEALED_DATA_LENGTH];
+    int encrypted_response_len;
+
     // parse request as ecall function params
     vector<string> params = parse_request(request);
     string sessionID = params[1];
@@ -477,8 +564,8 @@ void secure_command(char* request, int request_len, char* encrypted_response, in
     // request_len is required because when encrypted_cmd contains '0', then this '0' is accepted as '\0': the end of the string
     // so to know the correct request length, we need this request_len param
     int ecall_return;
-    int ecall_result = ecall_secure_command(global_eid, &ecall_return, sessionID.c_str(), sessionID.length(), encrypted_cmd, request_len-3-sessionID.length(), encrypted_response, encrypted_response_len);
-    printf("ecall_secure_command() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    int ecall_result = ecall_secure_command(global_eid, &ecall_return, sessionID.c_str(), sessionID.length(), encrypted_cmd, request_len-3-sessionID.length(), encrypted_response, &encrypted_response_len);
+    // printf("ecall_secure_command() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_secure_command");
     }
@@ -498,9 +585,11 @@ void secure_command(char* request, int request_len, char* encrypted_response, in
     }
     else {
         // send encrypted response to the client
-        send(sd, encrypted_response, *encrypted_response_len, 0);
+        send(sd, encrypted_response, encrypted_response_len, 0);
     }
 
+    // @ Luke Park
+    // sleep(1);
 }
 
 // execute client's command
@@ -510,40 +599,40 @@ const char* execute_command(char* request) {
 
     if (operation == OP_PUSH_A) {
         // sample template code
-        printf("operation push A executed\n");
+        // printf("operation push A executed\n");
         ecall_return = NO_ERROR;
     }
     else if (operation == OP_SET_ROUTING_FEE) {
-        printf("set routing fee executed\n");
+        // printf("set routing fee executed\n");
         ecall_return = set_routing_fee(request);
     }
     else if (operation == OP_SET_ROUTING_FEE_ADDRESS) {
-        printf("set routing fee address executed\n");
+        // printf("set routing fee address executed\n");
         ecall_return = set_routing_fee_address(request);
     }
     else if (operation == OP_PRINT_STATE) {
-        printf("print state executed\n");
+        // printf("print state executed\n");
         ecall_return = print_state();
     }
     else if (operation == OP_MAKE_SETTLE_TRANSACTION) {
-        printf("make settle transaction executed\n");
+        // printf("make settle transaction executed\n");
         ecall_return = make_settle_transaction();
     }
     else if (operation == OP_INSERT_DEPOSIT_TX) {
-        printf("insert deposit tx executed\n");
+        // printf("insert deposit tx executed\n");
         ecall_return = insert_deposit_tx(request);
     }
     else if (operation == OP_SETTLE_ROUTING_FEE) {
-        printf("settle routing fee executed\n");
+        // printf("settle routing fee executed\n");
         ecall_return = settle_routing_fee(request);
     }
     else if (operation == OP_INSERT_SETTLE_TX) {
-        printf("insert settle tx executed\n");
+        // printf("insert settle tx executed\n");
         ecall_return = insert_settle_tx(request);
     }
     else{
         // wrong op_code
-        printf("this op code doesn't exist\n");
+        // printf("this op code doesn't exist\n");
         ecall_return = ERR_INVALID_OP_CODE; // actually this is not ecall return value, ecall doesn't happen
     }
 
@@ -566,7 +655,7 @@ int SGX_CDECL main(int argc, char* argv[]){
     // initialize the enclave
     if (initialize_enclave() < 0){
         // failed to initialize enclave
-        printf("Enter a character before exit ...\n");
+        // printf("Enter a character before exit ...\n");
         getchar();
         return -1;
     }
@@ -617,7 +706,7 @@ int SGX_CDECL main(int argc, char* argv[]){
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
-    printf("Listener on port %d \n", SERVER_PORT);
+    // printf("Listener on port %d \n", SERVER_PORT);
 
     // try to specify maximum of 3 pending connections for the master socket
     if (listen(master_socket, 3) < 0) {
@@ -628,6 +717,10 @@ int SGX_CDECL main(int argc, char* argv[]){
     // accept the incoming connection
     addrlen = sizeof(address);
     puts("Waiting for connections ...");
+
+    // @ Luke Park
+    // num of threads
+    ThreadPool::ThreadPool pool(1);
 
     while(TRUE) {
         // clear the socket set
@@ -658,7 +751,7 @@ int SGX_CDECL main(int argc, char* argv[]){
         activity = select(max_sd + 1, &readfds, NULL, NULL, NULL);   
 
         if ((activity < 0) && (errno != EINTR)) {
-            printf("select error");
+            // printf("select error");
         }
         
         // If something happened on the master socket, then its an incoming connection
@@ -669,14 +762,14 @@ int SGX_CDECL main(int argc, char* argv[]){
             }
             
             // inform user of socket number - used in send and receive commands
-            printf("New connection , socket fd is %d , ip is : %s , port : %d\n" , new_socket , inet_ntoa(address.sin_addr) , ntohs (address.sin_port));
+            // printf("New connection , socket fd is %d , ip is : %s , port : %d\n" , new_socket , inet_ntoa(address.sin_addr) , ntohs (address.sin_port));
 
             // add new socket to array of sockets
             for (int i = 0; i < MAX_CLIENTS; i++) {
                 // if position is empty
                 if(client_socket[i] == 0) {
                     client_socket[i] = new_socket;
-                    printf("Adding to list of sockets as %d\n" , i);
+                    // printf("Adding to list of sockets as %d\n" , i);
                     break;
                 }
             }
@@ -692,7 +785,7 @@ int SGX_CDECL main(int argc, char* argv[]){
                 if ((read_len = read(sd, request, MAX_MSG_SIZE)) == 0) {
                     // Somebody disconnected, get his details and print
                     getpeername(sd , (struct sockaddr*)&address, (socklen_t*)&addrlen);
-                    printf("Host disconnected, ip %s, port %d \n", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+                    // printf("Host disconnected, ip %s, port %d \n", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
 
                     // Close the socket and mark as 0 in list for reuse
                     close(sd);
@@ -702,32 +795,22 @@ int SGX_CDECL main(int argc, char* argv[]){
                 else {
                     // set the string terminating NULL byte on the end of the data read
                     request[read_len] = '\0';
-                    // printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
+                    // // printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
 
                     // execute client's command
                     char operation = request[0];
                     if (operation == OP_SECURE_COMMAND) {
-                        // buffer for encrypted response from ecall
-                        char encrypted_response[MAX_SEALED_DATA_LENGTH];
-                        int encrypted_response_len;
-
-                        // int error_index = secure_command(request, read_len, encrypted_response, &encrypted_response_len);
-                        // if (error_index_res != NO_ERROR) {
-                        //     response = "failed secure_command()";
-                        //     send(sd, response, strlen(response), 0);
-                        // }
-                        // else {
-                        //     // send encrypted response to the client
-                        //     send(sd, encrypted_response, encrypted_response_len, 0);
-                        // }
-
                         // @ Luke Park
-                        // execute client's command                        
-                        // Async
-                        std::async(std::launch::async, secure_command, request, read_len, encrypted_response, &encrypted_response_len, sd);
+                        // execute client's command      
+                  
+                        // /* Async */
+                        // // std::async(std::launch::async, secure_command, request, read_len, sd);
 
-                        // Sync
-                        // secure_command(request, read_len, encrypted_response, &encrypted_response_len, sd);
+                        /* ThreadPool */
+                        pool.EnqueueJob(secure_command, request, read_len, sd);
+
+                        /* Sync */
+                        // secure_command(request, read_len, sd);
 
                     }
                     else {
@@ -737,7 +820,7 @@ int SGX_CDECL main(int argc, char* argv[]){
                         // send result to the client
                         send(sd, response, strlen(response), 0);
                     }
-                    // printf("execution result: %s\n\n", response);
+                    // // printf("execution result: %s\n\n", response);
 
                 }
             }
@@ -748,6 +831,6 @@ int SGX_CDECL main(int argc, char* argv[]){
     // destroy the enclave
     sgx_destroy_enclave(global_eid);
 
-    printf("terminate the App\n");
+    // printf("terminate the App\n");
     return 0;
 }

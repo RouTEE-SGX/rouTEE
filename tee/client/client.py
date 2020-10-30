@@ -28,10 +28,11 @@ NONCE_SIZE = 12 # bytes
 
 # print byte array
 def print_hex_bytes(name, byte_array):
-    print('{} len[{}]: '.format(name, len(byte_array)), end='')
+    # print('{} len[{}]: '.format(name, len(byte_array)), end='')
     for idx, c in enumerate(byte_array):
-        print("{:02x}".format(int(c)), end='')
-    print("")
+        # print("{:02x}".format(int(c)), end='')
+        pass
+    # print("")
 
 # generate random key
 def gen_random_key():
@@ -81,7 +82,7 @@ def file_len(fileName):
 
 # execute the script for rouTEE
 def runScript(fileName):
-    print("run script", fileName, "\n")
+    # print("run script", fileName, "\n")
 
     f = open(SCRIPTSPATH+fileName, 'r')
     rdr = csv.reader(f)
@@ -120,8 +121,8 @@ def runScript(fileName):
             data = client_socket.recv(1024)
             # check the result
             if data.decode() != "SUCCESS":
-                print("ERROR: command failed\n")
-                print("error msg:", data.decode())
+                # print("ERROR: command failed\n")
+                # print("error msg:", data.decode())
                 return
         elapsed = datetime.now() - startTime
 
@@ -133,10 +134,11 @@ def runScript(fileName):
 
         # print results
         if cnt%printEpoch == 0:
-            print("script cmd (", cnt, "/", cmdNumber, ") :", command[0])
-            print("elapsed time:", elapsed)
-            print('Received:', data.decode())
-            print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
+            # print("script cmd (", cnt, "/", cmdNumber, ") :", command[0])
+            # print("elapsed time:", elapsed)
+            # print('Received:', data.decode())
+            # print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
+            pass
 
         # logging execution time info
         if command[0][0] == 'j':
@@ -150,23 +152,24 @@ def runScript(fileName):
             paymentTimeSum = paymentTimeSum + elapsedMicrosec
 
     totalElapsed = datetime.now() - totalStartTime
-    print("run script elapsed time:", totalElapsed, "\n")
-    print("elapsed time sum:", elapsedTimeSum, "ms")
+    # print("run script elapsed time:", totalElapsed, "\n")
+    print("run script elapsed time:", totalElapsed)
+    # print("elapsed time sum:", elapsedTimeSum, "ms")
 
-    try:
-        print("payment count:", paymentCount, "/ payment execution time:", paymentTimeSum, "( avg time:", paymentTimeSum/paymentCount, "ms )")
-    except:
-        print("payment count:", 0, "/ payment execution time:", 0, "( avg time:", 0, "ms )")
-    try:
-        print("settle count:", settleCount, "/ settle execution time:", settleTimeSum, "( avg time:", settleCount/settleTimeSum, "ms )")
-    except:
-        print("settle count:", 0, "/ settle execution time:", 0, "( avg time:", 0, "ms )")
-    try:
-        print("create channel count:", createChannelCount, "/ create channel execution time:", createChannelTimeSum, "( avg time:", createChannelTimeSum/createChannelCount, "ms )")
-    except:
-        print("create channel count:", 0, "/ create channel execution time:", 0, "( avg time:", 0, "ms )")
+    # try:
+    #     # print("payment count:", paymentCount, "/ payment execution time:", paymentTimeSum, "( avg time:", paymentTimeSum/paymentCount, "ms )")
+    # except:
+    #     # print("payment count:", 0, "/ payment execution time:", 0, "( avg time:", 0, "ms )")
+    # try:
+    #     # print("settle count:", settleCount, "/ settle execution time:", settleTimeSum, "( avg time:", settleCount/settleTimeSum, "ms )")
+    # except:
+    #     # print("settle count:", 0, "/ settle execution time:", 0, "( avg time:", 0, "ms )")
+    # try:
+    #     # print("create channel count:", createChannelCount, "/ create channel execution time:", createChannelTimeSum, "( avg time:", createChannelTimeSum/createChannelCount, "ms )")
+    # except:
+    #     # print("create channel count:", 0, "/ create channel execution time:", 0, "( avg time:", 0, "ms )")
 
-    print("")
+    # print("")
     return
 
 
@@ -176,7 +179,7 @@ def secure_command(command):
     key = bytes([0x0,0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xa,0xb,0xc,0xd,0xe,0xf])
     aad = bytes([0])
     nonce = gen_random_nonce()
-    print("plain text command:", command[2:])
+    # print("plain text command:", command[2:])
     enc_cmd, mac = enc(key, aad, nonce, command[2:].encode('utf-8'))
     secure_cmd = mac + nonce + enc_cmd
     secure_cmd = str("p mySessionID ").encode('utf-8') + secure_cmd
@@ -194,8 +197,8 @@ def secure_command(command):
     elapsedMillisec = elapsedMicrosec / 1000.0
     elapsedSec = elapsedMillisec / 1000.0
 
-    print("elapsed:", elapsed)
-    print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
+    # print("elapsed:", elapsed)
+    # print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
 
     # decrypt response from rouTEE
     mac = bytes(data[:MAC_SIZE])
@@ -204,15 +207,15 @@ def secure_command(command):
     result = dec(key, aad, nonce, cipher_data, mac)
 
     # check the result
-    if result is not None:
-        print("response decryption success")
-        print("result:", result.decode())
-    else:
-        print("ERROR: decryption failed, (maybe) plain response msg:", data.decode())
-    
-    print()
+    # if result is not None:
+    #     # print("response decryption success")
+    #     # print("result:", result.decode())
+    # else:
+    #     # print("ERROR: decryption failed, (maybe) plain response msg:", data.decode())
+    # # print()
 
 if __name__ == "__main__":
+    print("start")
 
     # if there is sys.argv input from command line, run a single script
     if len(sys.argv) == 2:
@@ -224,7 +227,7 @@ if __name__ == "__main__":
         command = input("input command: ")
         if len(command) == 0:
             # ignore '\n'
-            print("")
+            # print("")
             continue
         
         if command[0] == 's':
@@ -244,14 +247,14 @@ if __name__ == "__main__":
         # get response from server
         data = client_socket.recv(1024)
         elapsed = datetime.now() - startTime
-        print(elapsed)
-        print('Received:', data.decode())
+        # print(elapsed)
+        # print('Received:', data.decode())
 
         # print elapsed time
         elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
         elapsedMillisec = elapsedMicrosec / 1000.0
         elapsedSec = elapsedMillisec / 1000.0
-        print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
+        # print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
     
     # close socket
     client_socket.close()
