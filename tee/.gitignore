@@ -17,8 +17,8 @@ Enclave/routee_t.h
 App/routee_u.c
 App/routee_u.h
 
-Enclave/*.o
-App/*.o
+Enclave/**/*.o
+App/**/*.o
 
 routee.signed.so
 routee.so
