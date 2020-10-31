@@ -1,3 +1,4 @@
+*~
 .config_*
 client/client
 remake.sh
@@ -10,3 +11,15 @@ client/resultLogs/*
 client/test.py
 client/crypTest.py
 todoList.txt
+
+Enclave/routee_t.c
+Enclave/routee_t.h
+App/routee_u.c
+App/routee_u.h
+
+Enclave/*.o
+App/*.o
+
+routee.signed.so
+routee.so
+routee
