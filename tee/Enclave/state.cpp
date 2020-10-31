@@ -37,13 +37,13 @@ string get_token(string& state_str) {
     // split string with delimitor
     string delimiter = ",";
     size_t pos = 0;
-    string token;
+    string token = "";
     if ((pos = state_str.find(delimiter)) != std::string::npos) {
         token = state_str.substr(0, pos);
         state_str.erase(0, pos + delimiter.length());
         return token;
     }
-
+    return token;
 }
 
 // restore state from string

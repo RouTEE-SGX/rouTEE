@@ -33,6 +33,11 @@ sgx_thread_mutex_t state_mutex = SGX_THREAD_MUTEX_INITIALIZER;
 // global state
 State state;
 
+// Globals for teechain enclave
+bool testnet = true;
+bool debug = false;
+bool benchmark = false;
+
 // invoke OCall to display the enclave buffer to the terminal screen
 void printf(const char* fmt, ...) {
 
@@ -732,6 +737,8 @@ int ecall_insert_block(const char* block, int block_len) {
     // update average tx fee (state.avg_tx_fee_per_byte)
     // insert the block to state.blocks
     // 
+
+    return 0;
 }
 
 int make_encrypted_response(const char* response_msg, sgx_aes_gcm_128bit_key_t *session_key, char* encrypted_response, int* encrypted_response_len) {

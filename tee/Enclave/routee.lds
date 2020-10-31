@@ -1,0 +1,9 @@
+participant_sec.so
+{
+    global:
+        g_global_data_sim;
+        g_global_data;
+	routee_entry;
+    local:
+        *;
+};

@@ -23,7 +23,7 @@ class Channel {
         unsigned int tx_index;
 
         // rouTEE params
-        unsigned long long route_fee;
+        unsigned long long routee_fee;
 
         // get channel info as a string
         string to_string();

@@ -294,6 +294,7 @@ int initialize_enclave(void){
     return 0;   // fail to save but success creating enclave, it's ok
 }
 
+/*
 // OCall function
 void ocall_print_string(const char* str){
     // Proxy/Bridge will check the length and null-terminate 
@@ -301,6 +302,7 @@ void ocall_print_string(const char* str){
 
     // printf("%s", str);
 }
+*/
 
 // clean up the program and terminate it
 void cleanup() {
