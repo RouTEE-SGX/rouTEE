@@ -74,8 +74,8 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-# App_Cpp_Files := App/App.cpp $(wildcard App/Edger8rSyntax/*.cpp) $(wildcard App/TrustedLibrary/*.cpp)
-App_Cpp_Files := App/App.cpp Enclave/errors.cpp# App/sgx_utils/sgx_utils.cpp
+# App_Cpp_Files := App/routee.cpp $(wildcard App/Edger8rSyntax/*.cpp) $(wildcard App/TrustedLibrary/*.cpp)
+App_Cpp_Files := App/routee.cpp Enclave/errors.cpp# App/sgx_utils/sgx_utils.cpp
 App_Include_Paths := -IInclude -IApp -I$(SGX_SDK)/include
 #App_Include_Paths := -IApp -I$(SGX_SDK)/include
 
@@ -117,8 +117,8 @@ else
 endif
 Crypto_Library_Name := sgx_tcrypto
 
-# Enclave_Cpp_Files := Enclave/Enclave.cpp $(wildcard Enclave/Edger8rSyntax/*.cpp) $(wildcard Enclave/TrustedLibrary/*.cpp)
-Enclave_Cpp_Files := Enclave/Enclave.cpp Enclave/channel.cpp Enclave/utils.cpp Enclave/state.cpp Enclave/errors.cpp# Enclave/Sealing/Sealing.cpp
+# Enclave_Cpp_Files := Enclave/routee.cpp $(wildcard Enclave/Edger8rSyntax/*.cpp) $(wildcard Enclave/TrustedLibrary/*.cpp)
+Enclave_Cpp_Files := Enclave/routee.cpp Enclave/channel.cpp Enclave/utils.cpp Enclave/state.cpp Enclave/errors.cpp# Enclave/Sealing/Sealing.cpp
 # Enclave_Include_Paths := -IInclude -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
 Enclave_Include_Paths := -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport# -I$(SGX_SDK)/include/libcxx
 
@@ -130,13 +130,13 @@ Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefau
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
 	-Wl,--defsym,__ImageBase=0
-	# -Wl,--version-script=Enclave/Enclave.lds
+	# -Wl,--version-script=Enclave/routee.lds
 
 Enclave_Cpp_Objects := $(Enclave_Cpp_Files:.cpp=.o)
 
 Enclave_Name := enclave.so
 Signed_Enclave_Name := enclave.signed.so
-Enclave_Config_File := Enclave/Enclave.config.xml
+Enclave_Config_File := Enclave/routee.config.xml
 
 ifeq ($(SGX_MODE), HW)
 ifeq ($(SGX_DEBUG), 1)
@@ -191,11 +191,11 @@ endif
 
 ######## App Objects ########
 
-App/Enclave_u.c: $(SGX_EDGER8R) Enclave/Enclave.edl
-	@cd App && $(SGX_EDGER8R) --untrusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
+App/routee_u.c: $(SGX_EDGER8R) Enclave/routee.edl
+	@cd App && $(SGX_EDGER8R) --untrusted ../Enclave/routee.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
 	@echo "GEN  =>  $@"
 
-App/Enclave_u.o: App/Enclave_u.c
+App/routee_u.o: App/routee_u.c
 	@$(CC) $(App_C_Flags) -c $< -o $@
 	@echo "CC   <=  $<"
 
@@ -203,18 +203,18 @@ App/%.o: App/%.cpp
 	@$(CXX) $(App_Cpp_Flags) -c $< -o $@
 	@echo "CXX  <=  $<"
 
-$(App_Name): App/Enclave_u.o $(App_Cpp_Objects)
+$(App_Name): App/routee_u.o $(App_Cpp_Objects)
 	@$(CXX) $^ -o $@ $(App_Link_Flags)
 	@echo "LINK =>  $@"
 
 
 ######## Enclave Objects ########
 
-Enclave/Enclave_t.c: $(SGX_EDGER8R) Enclave/Enclave.edl
-	@cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
+Enclave/routee_t.c: $(SGX_EDGER8R) Enclave/routee.edl
+	@cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/routee.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
 	@echo "GEN  =>  $@"
 
-Enclave/Enclave_t.o: Enclave/Enclave_t.c
+Enclave/routee_t.o: Enclave/routee_t.c
 	@$(CC) $(Enclave_C_Flags) -c $< -o $@
 	@echo "CC   <=  $<"
 
@@ -222,15 +222,15 @@ Enclave/%.o: Enclave/%.cpp
 	@$(CXX) $(Enclave_Cpp_Flags) -c $< -o $@
 	@echo "CXX  <=  $<"
 
-$(Enclave_Name): Enclave/Enclave_t.o $(Enclave_Cpp_Objects)
+$(Enclave_Name): Enclave/routee_t.o $(Enclave_Cpp_Objects)
 	@$(CXX) $^ -o $@ $(Enclave_Link_Flags)
 	@echo "LINK =>  $@"
 
 $(Signed_Enclave_Name): $(Enclave_Name)
-	@$(SGX_ENCLAVE_SIGNER) sign -key Enclave/Enclave_private.pem -enclave $(Enclave_Name) -out $@ -config $(Enclave_Config_File)
+	@$(SGX_ENCLAVE_SIGNER) sign -key Enclave/routee_private.pem -enclave $(Enclave_Name) -out $@ -config $(Enclave_Config_File)
 	@echo "SIGN =>  $@"
 
 .PHONY: clean
 
 clean:
-	@rm -f $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.*
+	@rm -f $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/routee_u.* $(Enclave_Cpp_Objects) Enclave/routee_t.*

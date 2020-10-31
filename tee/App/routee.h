@@ -18,7 +18,7 @@
 #endif
 
 #define TOKEN_FILENAME  "enclave.token"
-#define ENCLAVE_FILENAME    "enclave.signed.so"
+#define ENCLAVE_FILENAME    "routee.signed.so"
 #define OWNER_KEY_FILENAME "owner.key.encrypted"
 #define STATE_FILENAME  "state.encrypted"
 #define MAX_SEALED_DATA_LENGTH   1000000
