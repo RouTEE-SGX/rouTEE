@@ -207,12 +207,12 @@ def secure_command(command):
     result = dec(key, aad, nonce, cipher_data, mac)
 
     # check the result
-    # if result is not None:
-    #     # print("response decryption success")
-    #     # print("result:", result.decode())
-    # else:
-    #     # print("ERROR: decryption failed, (maybe) plain response msg:", data.decode())
-    # # print()
+    if result is not None:
+        print("response decryption success")
+        print("result:", result.decode())
+    else:
+        print("ERROR: decryption failed, (maybe) plain response msg:", data.decode())
+    print()
 
 if __name__ == "__main__":
     print("start")
@@ -248,7 +248,7 @@ if __name__ == "__main__":
         data = client_socket.recv(1024)
         elapsed = datetime.now() - startTime
         # print(elapsed)
-        # print('Received:', data.decode())
+        print('Received:', data.decode())
 
         # print elapsed time
         elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds

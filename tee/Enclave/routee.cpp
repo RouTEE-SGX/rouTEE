@@ -12,6 +12,13 @@
 #include "utils.h"
 #include "network.h"
 
+#include <univalue.h>
+#include <secp256k1.h>
+#include <secp256k1_recovery.h>
+#include <random.h>
+#include "rpc.h"
+#include "core_io.h"
+
 // print ecall results on screen or not
 const bool doPrint = true;
 
@@ -136,6 +143,59 @@ string secure_get_ready_for_deposit(string sender_address, string settle_address
 
     // TODO: change these temp codes below correctly
 
+    // initialize ECC State for Bitcoin Library
+    initializeECCState();
+    // generate and print bitcoin addresses to be paid into by the user
+    // generate new bitcoin pub/private key and address
+    CKey key;
+    key.MakeNewKey(true /* compressed */);
+    CPubKey pubkey = key.GetPubKey();
+
+    CKeyID keyid = pubkey.GetID();
+    CTxDestination* dest = new CTxDestination;
+    dest->class_type = 2;
+    dest->keyID = &keyid;
+    CScript script = GetScriptForDestination(*dest);
+
+    // get redeem script
+    std::string script_asm = ScriptToAsmStr(script);
+
+    // TODO: clean up using the bitcoin core code! For now this works as we hardcode the redeem scripts...
+    std::string redeem_script;
+    if (debug) {
+        redeem_script = "76a914c0cbe7ba8f82ef38aed886fba742942a9893497788ac"; // hard coded for tests!
+    } else {
+        std::string hash_string = script_asm.substr(18, 40); // 18 is offset of hash in asm, 40 is length of RIPEMD160 in hex
+        redeem_script = "76a914" + hash_string + "88ac";  // the P2PKH script format
+    }
+
+    CBitcoinAddress address;
+    address.Set(pubkey.GetID());
+
+    std::string generated_address = address.ToString();
+    std::string generated_public_key = HexStr(key.GetPubKey());
+    std::string generated_private_key = CBitcoinSecret(key).ToString();
+
+/*
+    // save generated public/private keys to deposit
+    state.owner_address = generated_address;
+    state.owner_public_key = generated_public_key;
+    state.owner_private_key = generated_private_key;
+    state.owner_script = redeem_script;
+*/
+
+    // get latest block in rouTEE
+    // temp code
+    unsigned long long latest_block_number = 10;
+
+    DepositRequest *deposit_request = new DepositRequest;
+    deposit_request->manager_private_key = generated_private_key;
+    deposit_request->sender_address = sender_address;
+    deposit_request->settle_address = settle_address;
+    deposit_request->block_number = latest_block_number;
+    state.deposit_requests[generated_address] = deposit_request;
+    
+/*
     // generate random private key to receive deposit from the sender
     // temp code
     uint32_t rand;
@@ -144,10 +204,6 @@ string secure_get_ready_for_deposit(string sender_address, string settle_address
     string random_private_key = "0xrandPrivateKey_" + long_long_to_string(rand);
     string random_address = "0xrandAddr_" + long_long_to_string(rand);
 
-    // get latest block in rouTEE
-    // temp code
-    unsigned long long latest_block_number = 10;
-
     // add deposit request
     DepositRequest deposit_request;
     deposit_request.manager_private_key = random_private_key;
@@ -155,14 +211,14 @@ string secure_get_ready_for_deposit(string sender_address, string settle_address
     deposit_request.settle_address = settle_address;
     deposit_request.block_number = latest_block_number;
     state.deposit_requests[random_address] = deposit_request;
-
+*/
     // print result
     if (doPrint) {
         // printf("random manager address: %s / block number: %llu\n", random_address.c_str(), latest_block_number);
     }
 
     // send random address & block info to the sender
-    return random_address + " " + long_long_to_string(latest_block_number);
+    return generated_address + " " + long_long_to_string(latest_block_number);
 }
 
 void ecall_print_state() {
@@ -180,9 +236,9 @@ void ecall_print_state() {
     // printf("\n=> total %d accounts / total %llu satoshi\n", state.users.size(), state.total_balances);
 
     // printf("\n\n\n\n\n***** deposit requests *****\n\n");
-    for (map<string, DepositRequest>::iterator iter = state.deposit_requests.begin(); iter != state.deposit_requests.end(); iter++){
+    for (map<string, DepositRequest*>::iterator iter = state.deposit_requests.begin(); iter != state.deposit_requests.end(); iter++){
         // printf("manager address: %s -> sender address: %s / settle_address: %s / block number:%llu\n", 
-        //     (iter->first).c_str(), iter->second.sender_address.c_str(), iter->second.settle_address.c_str(), iter->second.block_number);
+        //     (iter->first).c_str(), iter->second->sender_address.c_str(), iter->second->settle_address.c_str(), iter->second->block_number);
     }
 
     // printf("\n\n\n\n\n***** deposits *****\n\n");
@@ -634,10 +690,10 @@ void deal_with_deposit_tx(const char* sender_address, int sender_addr_len, unsig
     }
 
     // get the deposit request for this deposit tx
-    DepositRequest dr = state.deposit_requests[manager_address];
+    DepositRequest *dr = state.deposit_requests[manager_address];
 
     // check the user exists
-    string sender_addr = dr.sender_address;
+    string sender_addr = dr->sender_address;
     map<string, Account*>::iterator iter = state.users.find(sender_addr);
     if (iter == state.users.end()) {
         // sender is not in the state, create new account
@@ -649,7 +705,7 @@ void deal_with_deposit_tx(const char* sender_address, int sender_addr_len, unsig
     }
 
     // update settle address
-    state.users[sender_addr]->settle_address = dr.settle_address;
+    state.users[sender_addr]->settle_address = dr->settle_address;
 
     // now take some of the deposit
     state.balances_for_settle_tx_fee += balance_for_tx_fee;
@@ -671,7 +727,7 @@ void deal_with_deposit_tx(const char* sender_address, int sender_addr_len, unsig
     Deposit deposit;
     deposit.tx_hash = tx_hash;
     deposit.tx_index = tx_index;
-    deposit.manager_private_key = dr.manager_private_key;
+    deposit.manager_private_key = dr->manager_private_key;
     state.deposits.push(deposit);
 
     // increase state id
@@ -683,7 +739,7 @@ void deal_with_deposit_tx(const char* sender_address, int sender_addr_len, unsig
 
     // print result
     if (doPrint) {
-        // printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", dr.sender_address.c_str(), balance_for_user, balance_for_tx_fee);
+        // printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", dr->sender_address.c_str(), balance_for_user, balance_for_tx_fee);
     }
 
     return;

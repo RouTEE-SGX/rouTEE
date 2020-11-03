@@ -149,7 +149,7 @@ class State {
         unsigned long long avg_tx_fee_per_byte = 1;
 
         // deposit_requests[manager_address] = deposit_request
-        map<string, DepositRequest> deposit_requests;
+        map<string, DepositRequest*> deposit_requests;
 
         // confirmed unused deposits, which rouTEE currently owns
         queue<Deposit> deposits;        
