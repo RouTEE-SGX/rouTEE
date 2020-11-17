@@ -5,9 +5,17 @@ import socket
 from datetime import datetime
 import csv
 import sys
+import base64
 # python crypto library example: https://blog.naver.com/chandong83/221886840586
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
+from Cryptodome.Hash import SHA256
+from Cryptodome.PublicKey import ECC
+from Cryptodome.Signature import DSS
+
+import bitcoin_crypto
+import ecdsa
+import hashlib
 
 # rouTEE IP address
 SERVER_IP = "127.0.0.1"
@@ -173,16 +181,17 @@ def runScript(fileName):
     return
 
 
-def secure_command(command):
-
+def secure_command(message, sessionID):
     # encrypt command with (hardcoded) symmetric key
     key = bytes([0x0,0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xa,0xb,0xc,0xd,0xe,0xf])
     aad = bytes([0])
     nonce = gen_random_nonce()
     # print("plain text command:", command[2:])
-    enc_cmd, mac = enc(key, aad, nonce, command[2:].encode('utf-8'))
+    enc_cmd, mac = enc(key, aad, nonce, message)
     secure_cmd = mac + nonce + enc_cmd
-    secure_cmd = str("p mySessionID ").encode('utf-8') + secure_cmd
+    secure_cmd = ("p {} ".format(sessionID)).encode('utf-8') + secure_cmd
+
+    print(secure_cmd)
 
     # send command to server
     startTime = datetime.now()
@@ -234,15 +243,91 @@ if __name__ == "__main__":
             # execute script
             runScript(command)
             continue
-        
+
+        isForDeposit = False
+
+        # secure command option
         if command[0] == 't':
+            isSecure = True
+            # OP_GET_READY_FOR_DEPOSIT
+            if command[2] == 'j':
+                isForDeposit = True
+        else:
+            isSecure = False
+
+
+        # # message: byte encoding of command
+        # message = command.encode('utf-8')
+
+        # # generate ECDSA signature
+        # private_key = ECC.import_key(open('./key/private_key_host.pem').read())
+        # h = SHA256.new(message)
+        # signer = DSS.new(private_key, 'fips-186-3')
+        # signature = signer.sign(h)
+
+        # # verify the signature
+        # public_key = ECC.import_key(open('./key/public_key_host.pem').read())
+        # h = SHA256.new(message)
+        # verifier = DSS.new(public_key, 'fips-186-3')
+        # try:
+        #     verifier.verify(h, signature)
+        #     print("The message is authentic.")
+        # except ValueError:
+        #     print("The message is not authentic.")
+
+        # r = signature[:signer._order_bytes]
+        # s = signature[signer._order_bytes:]
+
+        # # print signature
+        # print(r, s)
+
+        split_command = command.split(" ")
+        #print(split_command)
+
+        # commnad's last string means message sender 
+        user = split_command[-1]
+
+        if isSecure:
+            # remove 't ' from command
+            command = " ".join(split_command[1:-1])
+        else:
+            command = " ".join(split_command[:-1])
+
+        # encode command
+        command = command.encode('utf-8')
+
+        # encryption using ECDSA
+        with open("./key/private_key_{}.pem".format(user)) as f:
+            sk = ecdsa.SigningKey.from_pem(f.read())
+        with open("./key/public_key_{}.pem".format(user)) as f:
+            vk = ecdsa.VerifyingKey.from_pem(f.read())    
+
+        if isForDeposit:
+            pubkey = b"\x04" + vk.pubkey.point.x().to_bytes(32, 'big') + vk.pubkey.point.y().to_bytes(32, 'big')
+            print(pubkey)
+            message = command + b" " + pubkey
+
+        else:
+            sig = sk.sign(command, hashfunc=hashlib.sha256)
+
+            try:
+                vk.verify(sig, command, hashfunc=hashlib.sha256)
+                print("good signature")
+            except:
+                print("bad signature")
+
+            message = command + b" " + sig
+
+        if isSecure:
             # execute secure_command
-            secure_command(command)
+            print("secure command")
+            secure_command(message, user)
             continue
 
-        # send command to server
+        # send message to server
         startTime = datetime.now()
-        client_socket.sendall(command.encode())
+        # send command + signature to routee
+        client_socket.sendall(message)
 
         # get response from server
         data = client_socket.recv(1024)

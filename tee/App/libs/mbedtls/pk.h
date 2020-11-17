@@ -605,9 +605,9 @@ int mbedtls_pk_write_pubkey( unsigned char **p, unsigned char *start,
  * Internal module functions. You probably do not want to use these unless you
  * know you do.
  */
-#if defined(MBEDTLS_FS_IO)
+//#if defined(MBEDTLS_FS_IO)
 int mbedtls_pk_load_file( const char *path, unsigned char **buf, size_t *n );
-#endif
+//#endif
 
 #ifdef __cplusplus
 }

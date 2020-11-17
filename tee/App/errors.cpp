@@ -46,6 +46,8 @@ const char* error_to_msg(int err) {
             return "ERROR: too low amount to settle";
         case ERR_TOO_LOW_DEPOSIT:
             return "ERROR: too low amount of deposit";
+        case ERR_NO_AUTHORITY:
+            return "ERROR: this user doesn't have authority";
         default:
             return "ERROR: this error index does not exist";
     }

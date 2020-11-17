@@ -10,6 +10,15 @@
 #include <queue>
 #include <vector>
 
+#include "openssl/evp.h"
+#include "openssl/pem.h"
+
+#include "mbedtls/pk.h"
+#include "mbedtls/pem.h"
+
+#include <curl/curl.h>
+#include "json.h"
+
 namespace ThreadPool {
 
 class ThreadPool {
@@ -306,14 +315,14 @@ void ocall_print_string(const char* str){
 
 // clean up the program and terminate it
 void cleanup() {
-    // printf("terminate the app\n");
+    printf("terminate the app\n");
     sgx_destroy_enclave(global_eid);
     exit(1);
 }
 
 // print error msg and end program
 void error(const char* errmsg) {
-    // printf("error occurred: %s\n", errmsg);
+    printf("error occurred: %s\n", errmsg);
     cleanup();
 }
 
@@ -347,6 +356,7 @@ void load_state() {
     }
 
     // printf("load state from a file\n");
+    return;
 }
 
 // set owner key inside the enclave
@@ -381,11 +391,25 @@ void set_owner() {
         std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         memcpy(sealed_owner_private_key, contents.c_str(), contents.length());
     }
+
+    // load host's public key for authentication
+    EVP_PKEY* pPubKey  = NULL;
+    FILE* pFile = NULL;
+
+    if((pFile = fopen("./client/key/public_key_host.pem","rt")) && 
+        (pPubKey = PEM_read_PUBKEY(pFile,NULL,NULL,NULL)))
+    {
+        printf("Public key read.\n");
+    }
+    else
+    {
+        printf("Cannot read \"pubkey.pem\".\n");
+    }
     
     // load owner key's address
     // printf("load owner key\n");
     int ecall_return;
-    int ecall_result = ecall_load_owner_key(global_eid, &ecall_return, sealed_owner_private_key, sizeof sealed_owner_private_key);
+    int ecall_result = ecall_load_owner_key(global_eid, &ecall_return, sealed_owner_private_key, sizeof(sealed_owner_private_key));
     // printf("ecall_load_owner_key() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_load_owner_key");
@@ -409,16 +433,32 @@ vector<string> parse_request(const char* request) {
 }
 
 // set routing fee
-int set_routing_fee(char* request) {
+int set_routing_fee(char* request, int request_len) {
+    int signature_len = 64;
+    int command_len = request_len - signature_len - 1;
+    char command[command_len + 1];
+    strncpy(command, request, (size_t) command_len);
+    command[command_len] = '\0';
     // parse request as ecall function params
-    vector<string> params = parse_request(request);
+    /*
+    vector<string> params = parse_request(command);
     if (params.size() != 2) {
+        printf("param size: %d\n", (int)params.size());
         return ERR_INVALID_PARAMS;
     }
     unsigned long long fee = strtoull(params[1].c_str(), NULL, 10);
+    */
+    const char *signatureMessage = request + command_len + 1;
+    // string signature = params[2];
+
+    // size_t n;
+    // unsigned char* buf;
+    // int ret = mbedtls_pk_load_file( "../client/key/public_key_alice", &buf, &n );
+    // printf("App/set_routing_fee ret: %d\n\n", ret);
+    printf("App/strlen(command): %s, %d\n\n", command, command_len);
 
     int ecall_return;
-    int ecall_result = ecall_set_routing_fee(global_eid, &ecall_return, fee);
+    int ecall_result = ecall_set_routing_fee(global_eid, &ecall_return, command, command_len, signatureMessage, signature_len);
     // printf("ecall_set_routing_fee() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_set_routing_fee");
@@ -428,16 +468,25 @@ int set_routing_fee(char* request) {
 }
 
 // set routing fee address
-int set_routing_fee_address(char* request) {
-    // parse request as ecall function params
-    vector<string> params = parse_request(request);
-    if (params.size() != 2) {
-        return ERR_INVALID_PARAMS;
-    }
-    string fee_address = params[1];
+int set_routing_fee_address(char* request, int request_len) {
+    // // parse request as ecall function params
+    // vector<string> params = parse_request(request);
+    // if (params.size() != 3) {
+    //     return ERR_INVALID_PARAMS;
+    // }
+    // string fee_address = params[1];
+    // string signature = params[2];
+
+    int signature_len = 64;
+    int command_len = request_len - signature_len - 1;
+    char command[command_len + 1];
+    strncpy(command, request, (size_t) command_len);
+    command[command_len] = '\0';
+
+    const char *signatureMessage = request + command_len + 1;
 
     int ecall_return;
-    int ecall_result = ecall_set_routing_fee_address(global_eid, &ecall_return, fee_address.c_str(), fee_address.length());
+    int ecall_result = ecall_set_routing_fee_address(global_eid, &ecall_return, command, command_len, signatureMessage, signature_len);
     // printf("ecall_set_routing_fee_address() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_set_routing_fee_address");
@@ -446,17 +495,141 @@ int set_routing_fee_address(char* request) {
     return ecall_return;
 }
 
-// settle request for routing fee
-int settle_routing_fee(char* request) {
-    // parse request as ecall function params
-    vector<string> params = parse_request(request);
-    if (params.size() != 2) {
-        return ERR_INVALID_PARAMS;
+size_t callBackFunk(char* ptr, size_t size, size_t nmemb, string* stream)
+{
+    int realsize = size * nmemb;
+    stream->append(ptr, realsize);
+    return realsize;
+}
+
+void getData(const char* data, string* chunk) {
+    CURL *curl = curl_easy_init();
+    CURLcode res;
+    struct curl_slist *headers = NULL;
+
+    if (!curl) {
+        printf("Unexpected respose for curl\n");
+        curl_easy_cleanup(curl);
+        return;
     }
-    unsigned long long amount = strtoull(params[1].c_str(), NULL, 10);
+
+    headers = curl_slist_append(headers, "content-type: text/plain;");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+    curl_easy_setopt(curl, CURLOPT_URL, "http://127.0.0.1:1234/");
+
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long) strlen(data));
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
+
+    curl_easy_setopt(curl, CURLOPT_USERPWD, "node1:1234");
+
+    curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_TRY);
+
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, callBackFunk);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, chunk);
+    
+    res = curl_easy_perform(curl);
+
+    if(res != CURLE_OK) {
+        fprintf(stderr, "curl_easy_perform() failed: %s\n",
+                curl_easy_strerror(res));
+    }
+    curl_easy_cleanup(curl);
+    curl_slist_free_all(headers);
+
+    return;
+}
+
+// insert blovk
+int insert_block(char* request, int request_len) {
+    int signature_len = 64;
+    int command_len = request_len - signature_len - 1;
+    char command[command_len + 1];
+    strncpy(command, request, (size_t) command_len);
+    command[command_len] = '\0';
+
+    const char *signatureMessage = request + command_len + 1;
+
+    // std::string url_target = "https://api.blockcypher.com/v1/btc/main/blocks/" + std::to_string(block_number);
+    // std::string str_out = url_get_proc(url_target.c_str());
+
+    // Json::Reader reader;
+    // Json::Value root;
+
+    // reader.parse(str_out, root);
+    // const Json::Value &txids_ = root["txids"];
+
+    // std::cout << txids_json << std::endl;
+
+    char block_number[] = "10";
+
+    string getblockhash_chunk;
+
+    // char getblockhash_data[] =
+    //     "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblockhash\", \"params\": [";
+
+    // strcat(getblockhash_data, block_number);
+    // strcat(getblockhash_data, "]}");
+
+    string getblockhash_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblockhash\", \"params\": [" + string(block_number) + "]}";
+
+    
+    getData(getblockhash_data.c_str(), &getblockhash_chunk);
+
+    Json::Reader reader;
+    Json::Value root;
+
+    reader.parse(getblockhash_chunk, root);
+    const Json::Value &_block_hash = root["result"];
+    string block_hash = _block_hash.asString();
+
+    string getblock_chunk;
+
+    string getblock_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblock\", \"params\": [\"" + block_hash + "\"]}";
+
+    std::cout << getblock_data << std::endl;
+    
+    getData(getblock_data.c_str(), &getblock_chunk);
+
+    reader.parse(getblock_chunk, root);
+
+    std::cout << getblock_chunk << std::endl;
+    const Json::Value &_block_txs = root["result"]["tx"];
+
+    std::cout << _block_txs << std::endl;
+
+    // std::vector<string> txs = std::vector<string>(_block_txs);
 
     int ecall_return;
-    int ecall_result = ecall_settle_routing_fee(global_eid, &ecall_return, amount);
+    int ecall_result = ecall_insert_block(global_eid, &ecall_return, getblock_chunk.c_str(), getblock_chunk.length());
+    // printf("ecall_insert_block() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_insert_block");
+    }
+
+    return ecall_return;
+}
+
+// settle request for routing fee
+int settle_routing_fee(char* request, int request_len) {
+    // // parse request as ecall function params
+    // vector<string> params = parse_request(request);
+    // if (params.size() != 3) {
+    //     return ERR_INVALID_PARAMS;
+    // }
+    // unsigned long long amount = strtoull(params[1].c_str(), NULL, 10);
+    // string signature = params[2];
+
+    int signature_len = 64;
+    int command_len = request_len - signature_len - 1;
+    char command[command_len + 1];
+    strncpy(command, request, (size_t) command_len);
+    command[command_len] = '\0';
+
+    const char *signatureMessage = request + command_len + 1;
+
+    int ecall_return;
+    int ecall_result = ecall_settle_routing_fee(global_eid, &ecall_return, command, command_len, signatureMessage, signature_len);
     // printf("ecall_settle_routing_fee() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_settle_routing_fee");
@@ -494,8 +667,10 @@ int make_settle_transaction() {
     return ecall_return;
 }
 
+
+
 // insert deposit tx (for debugging)
-int insert_deposit_tx(char* request) {
+int insert_deposit_tx(char* request, int request_len) {
     // parse request as ecall function params
     vector<string> params = parse_request(request);
     if (params.size() != 4) {
@@ -515,7 +690,7 @@ int insert_deposit_tx(char* request) {
 }
 
 // insert settle tx (for debugging)
-int insert_settle_tx(char* request) {
+int insert_settle_tx(char* request, int request_len) {
     int ecall_result = deal_with_settlement_tx(global_eid);
     // printf("deal_with_settlement_tx() -> result:%d\n", ecall_result);
     if (ecall_result != SGX_SUCCESS) {
@@ -595,7 +770,7 @@ void secure_command(char* request, int request_len, int sd) {
 }
 
 // execute client's command
-const char* execute_command(char* request) {
+const char* execute_command(char* request, int request_len) {
     char operation = request[0];
     int ecall_return;
 
@@ -606,11 +781,11 @@ const char* execute_command(char* request) {
     }
     else if (operation == OP_SET_ROUTING_FEE) {
         // printf("set routing fee executed\n");
-        ecall_return = set_routing_fee(request);
+        ecall_return = set_routing_fee(request, request_len);
     }
     else if (operation == OP_SET_ROUTING_FEE_ADDRESS) {
         // printf("set routing fee address executed\n");
-        ecall_return = set_routing_fee_address(request);
+        ecall_return = set_routing_fee_address(request, request_len);
     }
     else if (operation == OP_PRINT_STATE) {
         // printf("print state executed\n");
@@ -620,17 +795,21 @@ const char* execute_command(char* request) {
         // printf("make settle transaction executed\n");
         ecall_return = make_settle_transaction();
     }
-    else if (operation == OP_INSERT_DEPOSIT_TX) {
-        // printf("insert deposit tx executed\n");
-        ecall_return = insert_deposit_tx(request);
+    else if (operation == OP_INSERT_BLOCK) {
+        // printf("insert block executed\n");
+        ecall_return = insert_block(request, request_len);
     }
     else if (operation == OP_SETTLE_ROUTING_FEE) {
         // printf("settle routing fee executed\n");
-        ecall_return = settle_routing_fee(request);
+        ecall_return = settle_routing_fee(request, request_len);
+    }
+    else if (operation == OP_INSERT_DEPOSIT_TX) {
+        // printf("insert deposit tx executed\n");
+        ecall_return = insert_deposit_tx(request, request_len);
     }
     else if (operation == OP_INSERT_SETTLE_TX) {
         // printf("insert settle tx executed\n");
-        ecall_return = insert_settle_tx(request);
+        ecall_return = insert_settle_tx(request, request_len);
     }
     else{
         // wrong op_code
@@ -797,7 +976,7 @@ int SGX_CDECL main(int argc, char* argv[]){
                 else {
                     // set the string terminating NULL byte on the end of the data read
                     request[read_len] = '\0';
-                    // // printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
+                    printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
 
                     // execute client's command
                     char operation = request[0];
@@ -817,12 +996,12 @@ int SGX_CDECL main(int argc, char* argv[]){
                     }
                     else {
                         // execute client's command
-                        response = execute_command(request);
+                        response = execute_command(request, read_len);
                         
                         // send result to the client
                         send(sd, response, strlen(response), 0);
                     }
-                    // // printf("execution result: %s\n\n", response);
+                    printf("execution result: %s\n\n", response);
 
                 }
             }

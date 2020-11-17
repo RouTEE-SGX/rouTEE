@@ -3,6 +3,8 @@
 
 #include "sgx_tcrypto.h"
 
+#include "base58.h"
+
 #include <map>
 #include <string>
 #include <vector>
@@ -113,6 +115,9 @@ class State {
         string owner_public_key;
         string owner_private_key;
 
+        // public key for checking rouTEE host's authority
+        string host_public_key;
+
         // total amount of user balances in rouTEE
         unsigned long long total_balances;
 
@@ -121,6 +126,8 @@ class State {
 
         // address to get routing fees
         string fee_address;
+
+        unsigned long long block_number;
 
         // about routing fee
         // (payment_count + deposit_count) * routing_fee = routing_fee_waiting + routing_fee_pending + routing_fee_confirmed + routing_fee_settled

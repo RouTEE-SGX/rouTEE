@@ -4,6 +4,13 @@
 #include <stdlib.h>
 #include <assert.h>
 
+// bitcoin constants
+#define BITCOIN_ADDRESS_LEN 34
+#define BITCOIN_PUBLIC_KEY_LEN 66
+#define BITCOIN_PRIVATE_KEY_LEN 52
+#define BITCOIN_TX_HASH_LEN 64
+#define BITCOIN_TX_SCRIPT_LEN 50
+
 #if defined(__cplusplus)
 extern "C"{
 #endif
@@ -15,13 +22,13 @@ void printf(const char* fmt, ...);
 //
 
 // set routing fee
-int ecall_set_routing_fee(unsigned long long fee);
+int ecall_set_routing_fee(const char* command, int cmd_len, const char* signature, int sig_len);
 
 // set routing fee address
-int ecall_set_routing_fee_address(const char* fee_address, int fee_addr_len);
+int ecall_set_routing_fee_address(const char* command, int cmd_len, const char* signature, int sig_len);
 
 // settle request for routing fee
-int ecall_settle_routing_fee(unsigned long long amount);
+int ecall_settle_routing_fee(const char* command, int cmd_len, const char* signature, int sig_len);
 
 // print all users' address & balance (just for debugging)
 void ecall_print_state();

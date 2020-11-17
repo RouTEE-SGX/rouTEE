@@ -8,9 +8,10 @@ enclave {
     trusted {
         // define ECALLs here
         
-        public int ecall_set_routing_fee(unsigned long long fee);
-        public int ecall_set_routing_fee_address([in, size=fee_addr_len] const char* fee_address, int fee_addr_len);
-        public int ecall_settle_routing_fee(unsigned long long amount);
+        public int ecall_set_routing_fee([in, size=cmd_len] const char* command, int cmd_len, [in, size=sig_len] const char* signature, int sig_len);
+        public int ecall_set_routing_fee_address([in, size=cmd_len] const char* command, int cmd_len, [in, size=sig_len] const char* signature, int sig_len);
+        public int ecall_settle_routing_fee([in, size=cmd_len] const char* command, int cmd_len, [in, size=sig_len] const char* signature, int sig_len);
+        public int ecall_insert_block([in, size=chunk_len] const char* chunk, int chunk_len);
         public void ecall_print_state();
         public int ecall_make_settle_transaction([user_check] const char* settle_transaction, [in, out] int* settle_tx_len);
         public int ecall_secure_command([in, size=sessionID_len] const char* sessionID, int sessionID_len, [in, size=encrypted_cmd_len] const char* encrypted_cmd, int encrypted_cmd_len, [user_check] char* encrypted_response, [in, out] int* encrypted_response_len);
