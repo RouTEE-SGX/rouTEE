@@ -87,13 +87,13 @@ class PendingSettleTxInfo {
         unsigned long long pending_tx_fee;
         
         // settle requests for this pending settle tx
-        queue<SettleRequest> pending_settle_requests;
+        queue<SettleRequest*> pending_settle_requests;
 
         // used deposits to make this pending settle tx
-        queue<Deposit> used_deposits;
+        queue<Deposit*> used_deposits;
 
         // left over deposit
-        Deposit leftover_deposit;
+        Deposit* leftover_deposit;
 };
 
 // global state
@@ -136,7 +136,7 @@ class State {
         unsigned long long routing_fee_settled;         // amount of fee which is requested to be settled by rouTEE host (includes settle tx fee, not actually paid value)
 
         // several infos for pending settle txs
-        queue<PendingSettleTxInfo> pending_settle_tx_infos;
+        queue<PendingSettleTxInfo*> pending_settle_tx_infos;
 
         // users[user_address] = the user's Account
         map<string, Account*> users;
@@ -146,7 +146,7 @@ class State {
         map<string, sgx_aes_gcm_128bit_key_t*> session_keys;
 
         // waiting settle requests
-        queue<SettleRequest> settle_requests_waiting;
+        queue<SettleRequest*> settle_requests_waiting;
 
         // total amount of balances from users to pay on-chain settle tx fee, which rouTEE currently have (same as Reserve Requirement System)
         unsigned long long balances_for_settle_tx_fee;
@@ -159,7 +159,7 @@ class State {
         map<string, DepositRequest*> deposit_requests;
 
         // confirmed unused deposits, which rouTEE currently owns
-        queue<Deposit> deposits;        
+        queue<Deposit*> deposits;        
 
         // bitcoin block headers
         // vector<Block> blocks;

@@ -13,7 +13,6 @@ from Cryptodome.Hash import SHA256
 from Cryptodome.PublicKey import ECC
 from Cryptodome.Signature import DSS
 
-import bitcoin_crypto
 import ecdsa
 import hashlib
 
