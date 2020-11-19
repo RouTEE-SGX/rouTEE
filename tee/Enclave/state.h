@@ -14,6 +14,13 @@ using std::vector;
 using std::string;
 using std::map;
 
+class TxOut {
+    public:
+        unsigned long long amount;
+        std::string txid;
+        int tx_index;
+};
+
 // user account infos
 class Account {
 
@@ -28,7 +35,7 @@ class Account {
         // when user requests settlement, rouTEE sends balance to this address
         string settle_address;
         
-        // string public_key; // need this?
+        string public_key; // need this?
 };
 
 // deposit sent by users to rouTEE
@@ -52,6 +59,8 @@ class DepositRequest {
 
         // kind of timestamp: when the user requested deposit
         unsigned long long block_number;
+
+        string public_key;
 };
 
 // settle request

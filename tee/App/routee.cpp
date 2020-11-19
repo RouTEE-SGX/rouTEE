@@ -13,7 +13,6 @@
 #include "openssl/evp.h"
 #include "openssl/pem.h"
 
-#include "mbedtls/pk.h"
 #include "mbedtls/pem.h"
 
 #include <curl/curl.h>
@@ -346,7 +345,7 @@ void load_state() {
     // load state
     // printf("load state\n");
     int ecall_return;
-    int ecall_result = ecall_load_state(global_eid, &ecall_return, sealed_state, sizeof sealed_state);
+    int ecall_result = ecall_load_state(global_eid, &ecall_return, sealed_state, sizeof(sealed_state));
     // printf("ecall_load_state() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_load_state");
@@ -585,7 +584,7 @@ int insert_block(char* request, int request_len) {
 
     string getblock_chunk;
 
-    string getblock_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblock\", \"params\": [\"" + block_hash + "\"]}";
+    string getblock_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblock\", \"params\": [\"" + block_hash + "\", 2]}";
 
     std::cout << getblock_data << std::endl;
     
@@ -598,10 +597,25 @@ int insert_block(char* request, int request_len) {
 
     std::cout << _block_txs << std::endl;
 
-    // std::vector<string> txs = std::vector<string>(_block_txs);
+    std::map<string, TxOut*> txout_list;
+    string txout_addr;
+
+    for (int i = 0; i < _block_txs.size(); i++) {
+        TxOut* txout = new TxOut;
+        txout_addr = _block_txs[i]["vout"][0]["scriptPubKey"]["addresses"][0].asString();
+        txout->amount = _block_txs[i]["vout"][0]["value"].asUInt64();
+        txout->txid = _block_txs[i]["txid"].asString();
+        txout->tx_index = i;
+        txout_list[txout_addr] = txout;
+    }
+
+    void* void_txout_list = &txout_list;
+
+    // vector<string>& myName = *reinterpret_cast<vector<string>*>(void_tx);
+    // std::cout << myName[0] << std::endl;
 
     int ecall_return;
-    int ecall_result = ecall_insert_block(global_eid, &ecall_return, getblock_chunk.c_str(), getblock_chunk.length());
+    int ecall_result = ecall_insert_block(global_eid, &ecall_return, atoi(block_number), void_txout_list);
     // printf("ecall_insert_block() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_insert_block");

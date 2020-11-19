@@ -24,6 +24,7 @@
 #include "utils.h"
 
 extern bool testnet;
+extern bool regtest;
 
 CRPCTable tableRPC;
 
@@ -800,6 +801,8 @@ void initializeECCState() {
 
     if (testnet) {
         SelectParams(CBaseChainParams::TESTNET);
+    } else if (regtest) {
+        SelectParams(CBaseChainParams::REGTEST);
     } else {
         SelectParams(CBaseChainParams::MAIN);
     }
@@ -820,7 +823,7 @@ UniValue executeCommand(string args)
     vector<string> vArgs;
     split(args, " ", vArgs);
 
-    if (testnet) {
+    if (testnet || regtest) {
         vArgs.erase(vArgs.begin());
     }
 

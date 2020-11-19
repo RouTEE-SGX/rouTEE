@@ -33,6 +33,13 @@ int state_save_counter = 0;
 
 extern sgx_enclave_id_t global_eid; // global enclave id (from routee.cpp)
 
+class TxOut {
+    public:
+        unsigned long long amount;
+        std::string txid;
+        int tx_index;
+};
+
 // tell C++ compiler that use C style linkage method for below functions
 #if defined(__cplusplus)
 extern "C" {
