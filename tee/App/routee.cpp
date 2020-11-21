@@ -501,7 +501,7 @@ size_t callBackFunk(char* ptr, size_t size, size_t nmemb, string* stream)
     return realsize;
 }
 
-void getData(const char* data, string* chunk) {
+void getData(string& data, string& chunk) {
     CURL *curl = curl_easy_init();
     CURLcode res;
     struct curl_slist *headers = NULL;
@@ -517,8 +517,8 @@ void getData(const char* data, string* chunk) {
 
     curl_easy_setopt(curl, CURLOPT_URL, "http://127.0.0.1:1234/");
 
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long) strlen(data));
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, data.length());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
 
     curl_easy_setopt(curl, CURLOPT_USERPWD, "node1:1234");
 
@@ -541,13 +541,13 @@ void getData(const char* data, string* chunk) {
 
 // insert blovk
 int insert_block(char* request, int request_len) {
-    int signature_len = 64;
-    int command_len = request_len - signature_len - 1;
-    char command[command_len + 1];
-    strncpy(command, request, (size_t) command_len);
-    command[command_len] = '\0';
+    // int signature_len = 64;
+    // int command_len = request_len - signature_len - 1;
+    // char command[command_len + 1];
+    // strncpy(command, request, (size_t) command_len);
+    // command[command_len] = '\0';
 
-    const char *signatureMessage = request + command_len + 1;
+    // const char *signatureMessage = request + command_len + 1;
 
     // std::string url_target = "https://api.blockcypher.com/v1/btc/main/blocks/" + std::to_string(block_number);
     // std::string str_out = url_get_proc(url_target.c_str());
@@ -560,7 +560,13 @@ int insert_block(char* request, int request_len) {
 
     // std::cout << txids_json << std::endl;
 
-    char block_number[] = "10";
+    // parse request as ecall function params
+    vector<string> params = parse_request(request);
+
+    string block_number = params[1];
+    string signature = params[2];
+
+    // char block_number[] = "10";
 
     string getblockhash_chunk;
 
@@ -570,10 +576,10 @@ int insert_block(char* request, int request_len) {
     // strcat(getblockhash_data, block_number);
     // strcat(getblockhash_data, "]}");
 
-    string getblockhash_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblockhash\", \"params\": [" + string(block_number) + "]}";
+    string getblockhash_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblockhash\", \"params\": [" + block_number + "]}";
 
     
-    getData(getblockhash_data.c_str(), &getblockhash_chunk);
+    getData(getblockhash_data, getblockhash_chunk);
 
     Json::Reader reader;
     Json::Value root;
@@ -584,38 +590,40 @@ int insert_block(char* request, int request_len) {
 
     string getblock_chunk;
 
-    string getblock_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblock\", \"params\": [\"" + block_hash + "\", 2]}";
+    string getblock_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblock\", \"params\": [\"" + block_hash + "\", 0]}";
 
     std::cout << getblock_data << std::endl;
     
-    getData(getblock_data.c_str(), &getblock_chunk);
+    getData(getblock_data, getblock_chunk);
 
     reader.parse(getblock_chunk, root);
 
     std::cout << getblock_chunk << std::endl;
-    const Json::Value &_block_txs = root["result"]["tx"];
+    string block_hex = root["result"].asString();
 
-    std::cout << _block_txs << std::endl;
+    // std::cout << _block_txs << std::endl;
 
-    std::map<string, TxOut*> txout_list;
-    string txout_addr;
+    // std::map<string, TxOut*> txout_list;
+    // string txout_addr;
 
-    for (int i = 0; i < _block_txs.size(); i++) {
-        TxOut* txout = new TxOut;
-        txout_addr = _block_txs[i]["vout"][0]["scriptPubKey"]["addresses"][0].asString();
-        txout->amount = _block_txs[i]["vout"][0]["value"].asUInt64();
-        txout->txid = _block_txs[i]["txid"].asString();
-        txout->tx_index = i;
-        txout_list[txout_addr] = txout;
-    }
+    // for (int i = 0; i < _block_txs.size(); i++) {
+    //     TxOut* txout = new TxOut;
+    //     txout_addr = _block_txs[i]["vout"][0]["scriptPubKey"]["addresses"][0].asString();
+    //     txout->amount = _block_txs[i]["vout"][0]["value"].asUInt64();
+    //     txout->txid = _block_txs[i]["txid"].asString();
+    //     txout->tx_index = i;
+    //     txout_list[txout_addr] = txout;
+    // }
 
-    void* void_txout_list = &txout_list;
+    // void* void_txout_list = &txout_list;
+
+
 
     // vector<string>& myName = *reinterpret_cast<vector<string>*>(void_tx);
     // std::cout << myName[0] << std::endl;
 
     int ecall_return;
-    int ecall_result = ecall_insert_block(global_eid, &ecall_return, atoi(block_number), void_txout_list);
+    int ecall_result = ecall_insert_block(global_eid, &ecall_return, std::stoi(block_number), block_hex.c_str(), block_hex.length());
     // printf("ecall_insert_block() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_insert_block");
@@ -687,14 +695,18 @@ int make_settle_transaction() {
 int insert_deposit_tx(char* request, int request_len) {
     // parse request as ecall function params
     vector<string> params = parse_request(request);
-    if (params.size() != 4) {
+    if (params.size() != 6) {
         return ERR_INVALID_PARAMS;
     }
-    string sender_address = params[1];
-    unsigned long long amount = strtoull(params[2].c_str(), NULL, 10);
-    unsigned long long block_number = strtoull(params[3].c_str(), NULL, 10);
+    string manager_address = params[1];
+    string txid = params[2];
+    int tx_index = stoi(params[3]);
+    unsigned long long amount = strtoull(params[4].c_str(), NULL, 10);
+    unsigned long long block_number = strtoull(params[5].c_str(), NULL, 10);
 
-    int ecall_result = deal_with_deposit_tx(global_eid, sender_address.c_str(), sender_address.length(), amount, block_number);
+
+
+    int ecall_result = deal_with_deposit_tx(global_eid, manager_address.c_str(), manager_address.length(), txid.c_str(), txid.length(), tx_index, amount, block_number);
     // printf("deal_with_deposit_tx() -> result:%d\n", ecall_result);
     if (ecall_result != SGX_SUCCESS) {
         error("deal_with_deposit_tx");

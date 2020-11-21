@@ -505,6 +505,7 @@ int secure_get_ready_for_deposit(const char* command, int command_len, const cha
     deposit_request->settle_address = settle_address;
     deposit_request->block_number = latest_block_number;
     deposit_request->public_key = string(_user_pubkey, pubkey_len);
+    
     state.deposit_requests[generated_address] = deposit_request;
     
     // print result
@@ -1099,7 +1100,28 @@ void deal_with_settlement_tx() {
     return;
 }
 
-int ecall_insert_block(int block_number, void* void_txout_list) {
+// bool verify_block(CBlock block){
+//     CBlockHeader bh = block.GetBlockHeader();
+//     if (!CheckProofOfWork(block.GetHash(), block.nBits)){
+//         return false;
+//     }
+//     if ((bh.nVersion == genesis.nVersion) && (bh.hashMerkleRoot == genesis.hashMerkleRoot) && (bh.nTime == genesis.nTime)
+//         && (bh.nNonce == genesis.nNonce) && (bh.nBits == genesis.nBits) && (bh.hashPrevBlock == genesis.hashPrevBlock)){
+//         return true;
+//     }
+//     if(bh.nBits == GetNextWorkRequired(lastIndex, &bh)){
+//         CBlockIndex* pindexNew = new CBlockIndex(bh);
+//         pindexNew->pprev = lastIndex;
+//         pindexNew->nHeight = pindexNew->pprev->nHeight+1;
+//         pindexNew->BuildSkip();
+//         lastIndex = pindexNew;
+//         return true;
+//     }
+//     return false;
+// } 
+
+
+int ecall_insert_block(int block_number, const char* hex_block, int hex_block_len) {
     // 
     // TODO: BITCOIN
     // SPV verify the new bitcoin block
@@ -1109,27 +1131,54 @@ int ecall_insert_block(int block_number, void* void_txout_list) {
     // update average tx fee (state.avg_tx_fee_per_byte)
     // insert the block to state.blocks
     // 
+    CBlock block;
+    DecodeHexBlk(block, string(hex_block, hex_block_len));
 
-    map<string, TxOut*>* txout_list = static_cast<map<string, TxOut*>*>(void_txout_list);
-    TxOut* txout;
-    string manager_address;
-    unsigned long long amount;
+    printf("block info: %s, %d\n\n", block.ToString().c_str(), block.vtx.size());
+    printf("tx_vout: %s\n", block.vtx[0]->ToString().c_str());
     string txid;
-    int tx_index;
+    CTxDestination tx_dest;
+    CKeyID* keyID;
 
+    for (int i = 0; i < block.vtx.size(); i++){
 
-    for (auto iter_txout = txout_list->begin(); iter_txout != txout_list->end(); iter_txout++) {
-        manager_address = iter_txout->first;
-        DepositRequest* dr = state.deposit_requests[manager_address];
-
-        if (dr != NULL) {
-            txout = iter_txout->second;
-            amount = txout->amount;
-            txid = txout->txid;
-            tx_index = txout->tx_index;
-            deal_with_deposit_tx(manager_address.c_str(), manager_address.length(), txid.c_str(), txid.length(), tx_index, amount, block_number);
+        if (!ExtractDestination(block.vtx[i]->vout[0].scriptPubKey, tx_dest)) {
+            printf("Extract Destination Error\n\n");
         }
+        keyID = tx_dest.keyID;
+        
+
+        txid = block.vtx[i]->GetHash().GetHex();
+        
+        printf("TX: %s\n", block.vtx[i]->GetHash().GetHex().c_str());
+        printf("tx_vout: %lld\n", block.vtx[i]->vout[0].nValue);
+        printf("tx_vout: %d\n", block.vtx[i]->vout[1].nValue);
     }
+
+    // map<string, TxOut*>* txout_list = static_cast<map<string, TxOut*>*>(void_txout_list);
+    // TxOut* txout;
+    // //string manager_address;
+    // unsigned long long amount;
+    // string txid;
+    // int tx_index;
+    // printf("rr, %d\n\n", txout_list->size());
+    //for (map<string, TxOut*>::iterator iter_txout = (*txout_list).begin(); iter_txout != (*txout_list).end(); iter_txout++) {
+    // for (auto iter_txout = (*txout_list).begin(); iter_txout != (*txout_list).end(); iter_txout++) {
+    //     printf("ff, %d, %d, %d\n\n", iter_txout, (*txout_list).begin(), (*txout_list).end());
+    //     string manager_address = (*txout_list).begin()->first;
+    //     txout = (*txout_list).begin()->second;
+    //     printf("manager_address: %s", manager_address.c_str());
+
+    //     if (state.deposit_requests.find(manager_address) != state.deposit_requests.end()) {
+    //         amount = txout->amount;
+    //         txid = txout->txid;
+    //         tx_index = txout->tx_index;
+    //         printf("insert_block: %ull", amount);
+    //         //deal_with_deposit_tx(manager_address.c_str(), manager_address.length(), txid.c_str(), txid.length(), tx_index, amount, block_number);
+    //     }
+
+    //     delete txout;
+    // }
     // char* _cmd = strtok((char*) command, " ");
     // char* _block_number = strtok(NULL, " ");
     // if (_block_number == NULL) {

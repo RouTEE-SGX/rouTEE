@@ -37,7 +37,7 @@ void ecall_print_state();
 int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx_len);
 
 // insert blockchain's block (for SPV inside TEE)
-int ecall_insert_block(int block_num, void* tx_list);
+int ecall_insert_block(int block_num, const char* hex_block, int hex_block_len);
 
 // give encrypted command to rouTEE
 int ecall_secure_command(const char* sessionID, int sessionID_len, const char* encrypted_cmd, int encrypted_cmd_len, char* encrypted_response, int* encrypted_response_len);
