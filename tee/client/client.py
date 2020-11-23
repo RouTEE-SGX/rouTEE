@@ -296,10 +296,14 @@ if __name__ == "__main__":
         command = command.encode('utf-8')
 
         # encryption using ECDSA
-        with open("./key/private_key_{}.pem".format(user)) as f:
-            sk = ecdsa.SigningKey.from_pem(f.read())
-        with open("./key/public_key_{}.pem".format(user)) as f:
-            vk = ecdsa.VerifyingKey.from_pem(f.read())    
+        try:
+            with open("./key/private_key_{}.pem".format(user)) as f:
+                sk = ecdsa.SigningKey.from_pem(f.read())
+            with open("./key/public_key_{}.pem".format(user)) as f:
+                vk = ecdsa.VerifyingKey.from_pem(f.read())
+        except:
+            print("no user key")
+            continue
 
         if isForDeposit:
             pubkey = b"\x04" + vk.pubkey.point.x().to_bytes(32, 'big') + vk.pubkey.point.y().to_bytes(32, 'big')

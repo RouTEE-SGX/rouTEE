@@ -1,4 +1,16 @@
 #include "utils.h"
+#include "routee.h"
+
+std::string satoshi_to_bitcoin(unsigned long long amount) {
+    unsigned long long satoshi_in_bitcoin = SATOSHI_PER_BITCOIN;
+
+    unsigned long long bitcoin = amount / SATOSHI_PER_BITCOIN;
+    unsigned long long satoshi = amount % SATOSHI_PER_BITCOIN;
+
+    char btc_str[MAX_NUM_STR_LENGTH];
+    snprintf(btc_str, MAX_NUM_STR_LENGTH, "%llu.%08llu", bitcoin, satoshi);
+    return std::string(btc_str);
+}
 
 string long_long_to_string(unsigned long long num) {
     char buffer[MAX_NUM_LENGTH];
@@ -32,4 +44,8 @@ void split(const string &cmd, vector<string> &params, char delimiter) {
 
     // Add the last one
     params.push_back(cmd.substr(initialPos, std::min(pos, cmd.size()) - initialPos + 1));
+}
+
+std::string remove_surrounding_quotes(std::string str) {
+    return str.substr(1, str.size() - 2);
 }

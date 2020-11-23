@@ -11,6 +11,10 @@
 #define BITCOIN_TX_HASH_LEN 64
 #define BITCOIN_TX_SCRIPT_LEN 50
 
+#define SATOSHI_PER_BITCOIN 100000000
+
+#define MAX_NUM_STR_LENGTH 100
+
 #if defined(__cplusplus)
 extern "C"{
 #endif

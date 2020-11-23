@@ -578,6 +578,20 @@ std::string get_block_hash(std::string block_number){
     return pout;
 }
 
+std::string get_best_block_hash(){
+    std::string rpc("getbestblockhash");
+    rpc = base_cmd + mode + rpc;
+    const char* cmd = rpc.c_str();
+    std::string pout = exec(cmd);
+    if (pout.find("error") != std::string::npos)
+        throw std::runtime_error(pout);
+    while (pout.find ("\n") != std::string::npos )
+    {
+        pout.erase (pout.find ("\n"), 1 );
+    }
+    return pout;
+}
+
 std::string get_hexed_block(std::string hashval){
     std::string rpc("getblock ");
     std::string verbose(" false");
@@ -596,10 +610,20 @@ std::string get_hexed_block(std::string hashval){
 int insert_block(char* request, int request_len) {
     vector<string> params = parse_request(request);
 
+    if (params.size() < 3) {
+        printf("no sufficient params!\n");
+        return ERR_INVALID_PARAMS;
+    }
     string block_number = params[1];
     string signature = params[2];
 
     string block_hash = get_block_hash(block_number);
+    if (block_hash.compare("false") == 0) {
+        printf("invalid block number insertion\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    // string block_hash = get_best_block_hash();
     string hexed_block = get_hexed_block(block_hash);
 
     // std::cout << get_block_hash(block_number) << std::endl;

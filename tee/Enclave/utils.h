@@ -10,9 +10,11 @@ using std::string;
 
 #define MAX_NUM_LENGTH 30
 
+std::string satoshi_to_bitcoin(unsigned long long satoshi);
 string long_long_to_string(unsigned long long num);
 unsigned long long string_to_long_long(string str);
 void pseudo_sleep(long long int sec);
 void split(const string &cmd, vector<string> &params, char delimiter);
+std::string remove_surrounding_quotes(std::string str);
 
 #endif  // _UTILS_H_
