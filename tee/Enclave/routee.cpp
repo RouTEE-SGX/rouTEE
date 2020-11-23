@@ -81,7 +81,7 @@ void printf(const char* fmt, ...) {
     ocall_print_string(buf); // OCall
 }
 
-int verify_user(const char* command, int cmd_len, const char* signature, int sig_len, string user_address) {
+int verify_user(const char* command, int cmd_len, const char* signature, int sig_len, string sessionID) {
     // hard-coded for alice's public key
     // char *_input = "MHQCAQEEIBw8tZ8KWVRPaBNFfaFp4sTeLLJGxdo5QIV4wQgdTZLWoAcGBSuBBAAKoUQDQgAER8COHjvsBtdXSL33gWCLqK0nXSpeAT5s3UIaG+QaknZvE3Bw0R+JluoY1RTROr4yzq2T2hHxkNOPYFTsVxCneA==";
     // unsigned char *input = reinterpret_cast<unsigned char *>(_input);
@@ -95,9 +95,12 @@ int verify_user(const char* command, int cmd_len, const char* signature, int sig
     //     printf("MBEDTLS_ERR_BASE64_INVALID_CHARACTER\n\n");
 
     // printf("pubkeylen: %d\n\n", pubkeylen);
+    if (sessionID.compare("host") == 0) {
+        return 0;
+    }
 
-    unsigned char* pubkey = (unsigned char*) state.users[user_address]->public_key.c_str();
-    size_t pubkey_len = state.users[user_address]->public_key.length();
+    unsigned char* pubkey = (unsigned char*) state.verify_keys[sessionID].c_str();
+    size_t pubkey_len = state.verify_keys[sessionID].length();
     
     unsigned char hash[32];
     int ret = 1;
@@ -160,7 +163,7 @@ int ecall_set_routing_fee(const char* command, int cmd_len, const char* signatur
     //
     // TODO: BITCOIN
     // check authority to set new routing fee (ex. rouTEE host's signature)
-    if (verify_user(command, cmd_len, signature, sig_len, 0) != 0) {
+    if (verify_user(command, cmd_len, signature, sig_len, "host") != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -187,7 +190,9 @@ int ecall_set_routing_fee_address(const char* command, int cmd_len, const char* 
     //
     // TODO: BITCOIN
     // check authority to set new routing fee (ex. rouTEE host's signature)
-    if (verify_user(command, cmd_len, signature, sig_len, 0) != 0) {
+
+    printf("command: %s, %d\n", command, strlen(command));
+    if (verify_user(command, cmd_len, signature, sig_len, "host") != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -199,13 +204,15 @@ int ecall_set_routing_fee_address(const char* command, int cmd_len, const char* 
         return ERR_INVALID_PARAMS;
     }
 
-    if (!CBitcoinAddress(_fee_address).IsValid()) {
-        printf("Invalid routing fee address\n");
+    string fee_address = string(_fee_address, BITCOIN_ADDRESS_LEN);
+    // SelectParams(CBaseChainParams::REGTEST);
+    if (!CBitcoinAddress(fee_address).IsValid()) {
+
         return ERR_INVALID_PARAMS;
     }
 
     // set routing fee address
-    state.fee_address = string(_fee_address);
+    state.fee_address = fee_address;
 
     // print result
     if (doPrint) {
@@ -219,7 +226,7 @@ int ecall_settle_routing_fee(const char* command, int cmd_len, const char* signa
     //
     // TODO: BITCOIN
     // check authority to set new routing fee (ex. rouTEE host's signature)
-    if (verify_user(command, cmd_len, signature, sig_len, 0) != 0) {
+    if (verify_user(command, cmd_len, signature, sig_len, "host") != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -423,7 +430,7 @@ exit:
 }
 
 // operation function for secure_command
-int secure_get_ready_for_deposit(const char* command, int command_len, const char* _user_pubkey, int pubkey_len, const char* response_msg) {
+int secure_get_ready_for_deposit(const char* command, int command_len, const char* sessionID, int sessionID_len, const char* _user_pubkey, int pubkey_len, const char* response_msg) {
 
     CPubKey user_pubkey = CPubKey(_user_pubkey, _user_pubkey + pubkey_len);
 
@@ -445,20 +452,20 @@ int secure_get_ready_for_deposit(const char* command, int command_len, const cha
         return ERR_INVALID_PARAMS;
     }
 
-    CBitcoinAddress sender_addr = CBitcoinAddress(_sender_address);
-    if (!sender_addr.IsValid()) {
+    string sender_address(_sender_address, BITCOIN_ADDRESS_LEN);
+    string settle_address(_settle_address, BITCOIN_ADDRESS_LEN);
+
+    if (!CBitcoinAddress(sender_address).IsValid()) {
         printf("Invalid sender address\n");
         return ERR_INVALID_PARAMS;
     }
 
-    CBitcoinAddress settle_addr = CBitcoinAddress(_sender_address);
-    if (!settle_addr.IsValid()) {
+    if (!CBitcoinAddress(settle_address).IsValid()) {
         printf("Invalid settle address\n");
         return ERR_INVALID_PARAMS;
     }
 
-    string sender_address(_sender_address);
-    string settle_address(_settle_address);
+
 
     printf("secure_get_ready_for_deposit: %s, %s\n\n", sender_address.c_str(), settle_address.c_str());
 
@@ -497,20 +504,21 @@ int secure_get_ready_for_deposit(const char* command, int command_len, const cha
 
     // get latest block in rouTEE
     // temp code
-    unsigned long long latest_block_number = 0;
+    unsigned long long latest_block_number = state.block_number;
 
     DepositRequest *deposit_request = new DepositRequest;
     deposit_request->manager_private_key = generated_private_key;
     deposit_request->sender_address = sender_address;
     deposit_request->settle_address = settle_address;
     deposit_request->block_number = latest_block_number;
-    deposit_request->public_key = string(_user_pubkey, pubkey_len);
+
+    state.verify_keys[string(sessionID, sessionID_len)] = string(_user_pubkey, pubkey_len);
     
-    state.deposit_requests[generated_address] = deposit_request;
+    state.deposit_requests[keyid.ToString()] = deposit_request;
     
     // print result
     if (doPrint) {
-        //printf("random manager address: %s / block number: %llu\n", random_address.c_str(), latest_block_number);
+        printf("random manager address: %s / block number: %llu\n", generated_address.c_str(), latest_block_number);
     }
 
     // send random address & block info to the sender
@@ -520,12 +528,13 @@ int secure_get_ready_for_deposit(const char* command, int command_len, const cha
 }
 
 // operation function for secure_command
-int secure_settle_balance(const char* command, int cmd_len, const char* signature, int sig_len, const char* response_msg) {
+int secure_settle_balance(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
     //
     // TODO: BITCOIN
     // check authority to get paid the balance (ex. user's signature with settlement params)
     char* _cmd = strtok((char*) command, " ");
     char* _user_address = strtok(NULL, " ");
+
     if (_user_address == NULL) {
         printf("No user address for settle balance\n");
         return ERR_INVALID_PARAMS;
@@ -537,16 +546,16 @@ int secure_settle_balance(const char* command, int cmd_len, const char* signatur
         return ERR_INVALID_PARAMS;
     }
 
-    if (!CBitcoinAddress(_user_address).IsValid()) {
+    string user_address(_user_address, BITCOIN_ADDRESS_LEN);
+
+    if (!CBitcoinAddress(user_address).IsValid()) {
         printf("Invalid user address for settle balance\n");
         return ERR_INVALID_PARAMS;
     }
 
-    string user_address(_user_address);
-
     unsigned long long amount = strtoull(_amount, NULL, 10);
 
-    if (verify_user(command, cmd_len, signature, sig_len, user_address) != 0) {
+    if (verify_user(command, cmd_len, signature, sig_len, string(sessionID, sessionID_len)) != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -593,7 +602,7 @@ int secure_settle_balance(const char* command, int cmd_len, const char* signatur
 
     // print result
     if (doPrint) {
-        // printf("user %s requested settlement: %llu satoshi\n", user_address.c_str(), amount);
+        printf("user %s requested settlement: %llu satoshi\n", user_address.c_str(), amount);
     }
 
     return NO_ERROR;
@@ -705,8 +714,8 @@ int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx
 
     // print result
     if (doPrint) {
-        // printf("settle tx intput num: %d / settle tx output num: %d\n", tx_input_num, tx_output_num);
-        // printf("routing fee waiting: %llu / psti->pending balances: %llu / state.total balance: %llu\n", state.routing_fee_waiting, psti->pending_balances, state.total_balances);
+        printf("settle tx intput num: %d / settle tx output num: %d\n", tx_input_num, tx_output_num);
+        printf("routing fee waiting: %llu / psti->pending balances: %llu / state.total balance: %llu\n", state.routing_fee_waiting, psti->pending_balances, state.total_balances);
     }
 
 
@@ -745,7 +754,7 @@ int ecall_make_settle_transaction(const char* settle_transaction, int* settle_tx
 }
 
 // operation function for secure_command
-int secure_do_multihop_payment(const char* command, int cmd_len, const char* signature, int sig_len, const char* response_msg) {
+int secure_do_multihop_payment(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
     //
     // TODO: BITCOIN
     // check authority to send (ex. sender's signature with these params)
@@ -774,22 +783,22 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
         return ERR_INVALID_PARAMS;
     }
 
-    if (!CBitcoinAddress(_sender_address).IsValid()) {
+    string sender_address(_sender_address, BITCOIN_ADDRESS_LEN);
+    string receiver_address(_receiver_address, BITCOIN_ADDRESS_LEN);
+    unsigned long long amount = strtoull(_amount, NULL, 10);
+    unsigned long long fee = strtoull(_fee, NULL, 10);
+
+    if (!CBitcoinAddress(sender_address).IsValid()) {
         printf("Invalid sender address for multihop payment\n");
         return ERR_INVALID_PARAMS;
     }
 
-    if (!CBitcoinAddress(_receiver_address).IsValid()) {
+    if (!CBitcoinAddress(receiver_address).IsValid()) {
         printf("Invalid receiver address for multihop payment\n");
         return ERR_INVALID_PARAMS;
     }
 
-    string sender_address(_sender_address);
-    string receiver_address(_receiver_address);
-    unsigned long long amount = strtoull(_amount, NULL, 10);
-    unsigned long long fee = strtoull(_fee, NULL, 10);
-
-    if (verify_user(command, cmd_len, signature, sig_len, sender_address) != 0) {
+    if (verify_user(command, cmd_len, signature, sig_len, string(sessionID, sessionID_len)) != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -854,7 +863,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
 }
 
 // update user's latest SPV block
-int secure_update_latest_SPV_block(const char* command, int cmd_len, const char* signature, int sig_len, const char* response_msg) {
+int secure_update_latest_SPV_block(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
     //
     // TODO: BITCOIN
     // check authority to change SPV block
@@ -873,15 +882,15 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
         return ERR_INVALID_PARAMS;
     }
 
-    if (!CBitcoinAddress(_user_address).IsValid()) {
+    string user_address(_user_address, BITCOIN_ADDRESS_LEN);
+    unsigned long long block_number = strtoull(_block_number, NULL, 10);
+
+    if (!CBitcoinAddress(user_address).IsValid()) {
         printf("Invalid user address for update last SPV block\n");
         return ERR_INVALID_PARAMS;
     }
 
-    string user_address(_user_address);
-    unsigned long long block_number = strtoull(_block_number, NULL, 10);
-
-    if (verify_user(command, cmd_len, signature, sig_len, user_address) != 0) {
+    if (verify_user(command, cmd_len, signature, sig_len, string(sessionID, sessionID_len)) != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -1055,7 +1064,7 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
 
     // print result
     if (doPrint) {
-        // printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", dr->sender_address.c_str(), balance_for_user, balance_for_tx_fee);
+        printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", dr->sender_address.c_str(), balance_for_user, balance_for_tx_fee);
     }
 
     return;
@@ -1084,6 +1093,7 @@ void deal_with_settlement_tx() {
             SettleRequest* sr = psti->pending_settle_requests.front();
             // printf("deal with settle tx -> user: %s / requested %llu satoshi (paid tax: %llu satoshi)\n", sr.address, sr.amount, sr.balance_for_settle_tx_fee);
             psti->pending_settle_requests.pop();
+            delete sr;
         }
 
         // dequeue used deposits for this settle tx (print for debugging, can delete this later)
@@ -1135,25 +1145,40 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
     DecodeHexBlk(block, string(hex_block, hex_block_len));
 
     printf("block info: %s, %d\n\n", block.ToString().c_str(), block.vtx.size());
-    printf("tx_vout: %s\n", block.vtx[0]->ToString().c_str());
+    printf("tx_vout: %s\n", block.vtx[0]->vout[0].ToString().c_str());
     string txid;
     CTxDestination tx_dest;
-    CKeyID* keyID;
-
-    for (int i = 0; i < block.vtx.size(); i++){
-
-        if (!ExtractDestination(block.vtx[i]->vout[0].scriptPubKey, tx_dest)) {
+    string keyID;
+    int tx_index;
+    unsigned long long amount;
+    string pending_settle_tx_hash;
+    
+    for (int tx_index = 0; tx_index < block.vtx.size(); tx_index++){
+        printf("vtx=: %s\n\n", block.vtx[tx_index]->vout[0].ToString().c_str());
+        if (!ExtractDestination(block.vtx[tx_index]->vout[0].scriptPubKey, tx_dest)) {
             printf("Extract Destination Error\n\n");
+            printf("rr: %d\n\n", tx_dest.class_type);
         }
-        keyID = tx_dest.keyID;
-        
 
-        txid = block.vtx[i]->GetHash().GetHex();
+        keyID = tx_dest.keyID->ToString();
+        txid = block.vtx[tx_index]->GetHash().GetHex();
+        amount = block.vtx[tx_index]->vout[0].nValue;
+        pending_settle_tx_hash = state.pending_settle_tx_infos.front()->tx_hash;
+
+        if (state.deposit_requests.find(keyID) != state.deposit_requests.end()) {
+            printf("deal_with_deposit_tx called\n");
+            deal_with_deposit_tx(keyID.c_str(), keyID.length(), txid.c_str(), txid.length(), tx_index, amount, block_number);
+        }
+        else if (txid.compare(pending_settle_tx_hash) == 0) {
+            printf("deal_with_settlement_tx called\n");
+            deal_with_settlement_tx();
+        }
         
-        printf("TX: %s\n", block.vtx[i]->GetHash().GetHex().c_str());
-        printf("tx_vout: %lld\n", block.vtx[i]->vout[0].nValue);
-        printf("tx_vout: %d\n", block.vtx[i]->vout[1].nValue);
+        printf("TX: %s\n", block.vtx[tx_index]->GetHash().GetHex().c_str());
+        printf("tx_vout 0: %lld\n", block.vtx[tx_index]->vout[0].nValue);
     }
+
+
 
     // map<string, TxOut*>* txout_list = static_cast<map<string, TxOut*>*>(void_txout_list);
     // TxOut* txout;
@@ -1323,16 +1348,16 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     int operation_result;
     const char* response_msg;
     if (operation == OP_GET_READY_FOR_DEPOSIT) {
-        operation_result = secure_get_ready_for_deposit(decCommand, decCommandLen - 1, decSignature - 1, decSignatureLen + 1, response_msg);
+        operation_result = secure_get_ready_for_deposit(decCommand, decCommandLen - 1, sessionID, sessionID_len, decSignature - 1, decSignatureLen + 1, response_msg);
     }
     else if (operation == OP_SETTLE_BALANCE) {
-        operation_result = secure_settle_balance(decCommand, decCommandLen, decSignature, decSignatureLen, response_msg);
+        operation_result = secure_settle_balance(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
     }
     else if (operation == OP_DO_MULTIHOP_PAYMENT) {
-        operation_result = secure_do_multihop_payment(decCommand, decCommandLen, decSignature, decSignatureLen, response_msg);
+        operation_result = secure_do_multihop_payment(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
     }
     else if (operation == OP_UPDATE_LATEST_SPV_BLOCK) {
-        operation_result = secure_update_latest_SPV_block(decCommand, decCommandLen, decSignature, decSignatureLen, response_msg);
+        operation_result = secure_update_latest_SPV_block(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
     }
     else {
         // invalid opcode
@@ -1453,9 +1478,24 @@ int ecall_load_owner_key(const char* sealed_owner_private_key, int sealed_key_le
     state.owner_public_key = generated_public_key;
     state.owner_address = generated_address;
 
+    state.block_number = 0;
+
     printf("ecall_load_owner_key.generated_private_key: %s\n", CBitcoinSecret(key).ToString().c_str());
     printf("ecall_load_owner_key.generated_public_key: %s\n", generated_public_key.c_str());
     printf("ecall_load_owner_key.generated_address: %s\n", generated_address.c_str());
+
+    // rouTEE host's public key for verification
+    // state.verify_keys["host"] = ;
+    // char byteArray[] = {}
+    // std::string s(byteArray, sizeof(byteArray));
+
+    // char *_input = "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEpDe2hkjA3LeG8sjcGrBSfAIWxCXlIHQya9Apb7xR8Xjpe0bDWrPkrjZ38Dcqx0T3INM9UB+adVWE3hzduzR9qA==";
+    // unsigned char *input = reinterpret_cast<unsigned char *>(_input);
+    // unsigned char pubkey[88];
+    // size_t pubkeylen;
+
+    // ret = mbedtls_base64_decode( pubkey, 88, &pubkeylen, input, strlen(_input) );
+
 
     return NO_ERROR;
 }

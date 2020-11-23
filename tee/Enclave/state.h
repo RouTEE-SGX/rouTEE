@@ -154,6 +154,8 @@ class State {
         // session_keys[session_ID] = session_key
         map<string, sgx_aes_gcm_128bit_key_t*> session_keys;
 
+        map<string, string> verify_keys;
+
         // waiting settle requests
         queue<SettleRequest*> settle_requests_waiting;
 

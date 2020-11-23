@@ -481,6 +481,7 @@ int set_routing_fee_address(char* request, int request_len) {
     char command[command_len + 1];
     strncpy(command, request, (size_t) command_len);
     command[command_len] = '\0';
+    std::cout << command << std::endl;
 
     const char *signatureMessage = request + command_len + 1;
 
@@ -539,97 +540,117 @@ void getData(string& data, string& chunk) {
     return;
 }
 
+// set bitcoin-cli path
+const string base_cmd = "~/bitcoin-0.20.1/bin/bitcoin-cli ";
+// option for bitcoin network
+const string mode = "-regtest -rpcuser=node1 -rpcpassword=1234 -rpcport=1234 ";
+
+std::string exec(const char* cmd) {
+    char buffer[256];
+    std::string result = "";
+    FILE* pipe = popen(cmd, "r");
+    if (!pipe) throw std::runtime_error("popen() failed!");
+    try {
+        while (!feof(pipe)) {
+            if (fgets(buffer, 128, pipe) != NULL){
+                result += buffer;
+            }
+        }
+    } catch (...) {
+        pclose(pipe);
+        throw;
+    }
+    pclose(pipe);
+    return result;
+}
+
+std::string get_block_hash(std::string block_number){
+    std::string rpc("getblockhash ");
+    rpc = base_cmd + mode + rpc + block_number;
+    const char* cmd = rpc.c_str();
+    std::string pout = exec(cmd);
+    if (pout.find("error") != std::string::npos)
+        throw std::runtime_error(pout);
+    while (pout.find ("\n") != std::string::npos )
+    {
+        pout.erase (pout.find ("\n"), 1 );
+    }
+    return pout;
+}
+
+std::string get_hexed_block(std::string hashval){
+    std::string rpc("getblock ");
+    std::string verbose(" false");
+    rpc = base_cmd + mode + rpc + hashval + verbose;
+    const char* cmd = rpc.c_str();
+    std::string pout = exec(cmd);
+    if (pout.find("error") != std::string::npos)
+        throw std::runtime_error(pout);
+    std::stringstream ss(pout);
+    std::string line;
+    ss >> line;
+    return line;
+}
+
 // insert blovk
 int insert_block(char* request, int request_len) {
-    // int signature_len = 64;
-    // int command_len = request_len - signature_len - 1;
-    // char command[command_len + 1];
-    // strncpy(command, request, (size_t) command_len);
-    // command[command_len] = '\0';
-
-    // const char *signatureMessage = request + command_len + 1;
-
-    // std::string url_target = "https://api.blockcypher.com/v1/btc/main/blocks/" + std::to_string(block_number);
-    // std::string str_out = url_get_proc(url_target.c_str());
-
-    // Json::Reader reader;
-    // Json::Value root;
-
-    // reader.parse(str_out, root);
-    // const Json::Value &txids_ = root["txids"];
-
-    // std::cout << txids_json << std::endl;
-
-    // parse request as ecall function params
     vector<string> params = parse_request(request);
 
     string block_number = params[1];
     string signature = params[2];
 
-    // char block_number[] = "10";
+    string block_hash = get_block_hash(block_number);
+    string hexed_block = get_hexed_block(block_hash);
 
-    string getblockhash_chunk;
-
-    // char getblockhash_data[] =
-    //     "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblockhash\", \"params\": [";
-
-    // strcat(getblockhash_data, block_number);
-    // strcat(getblockhash_data, "]}");
-
-    string getblockhash_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblockhash\", \"params\": [" + block_number + "]}";
-
-    
-    getData(getblockhash_data, getblockhash_chunk);
-
-    Json::Reader reader;
-    Json::Value root;
-
-    reader.parse(getblockhash_chunk, root);
-    const Json::Value &_block_hash = root["result"];
-    string block_hash = _block_hash.asString();
-
-    string getblock_chunk;
-
-    string getblock_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblock\", \"params\": [\"" + block_hash + "\", 0]}";
-
-    std::cout << getblock_data << std::endl;
-    
-    getData(getblock_data, getblock_chunk);
-
-    reader.parse(getblock_chunk, root);
-
-    std::cout << getblock_chunk << std::endl;
-    string block_hex = root["result"].asString();
-
-    // std::cout << _block_txs << std::endl;
-
-    // std::map<string, TxOut*> txout_list;
-    // string txout_addr;
-
-    // for (int i = 0; i < _block_txs.size(); i++) {
-    //     TxOut* txout = new TxOut;
-    //     txout_addr = _block_txs[i]["vout"][0]["scriptPubKey"]["addresses"][0].asString();
-    //     txout->amount = _block_txs[i]["vout"][0]["value"].asUInt64();
-    //     txout->txid = _block_txs[i]["txid"].asString();
-    //     txout->tx_index = i;
-    //     txout_list[txout_addr] = txout;
-    // }
-
-    // void* void_txout_list = &txout_list;
-
-
-
-    // vector<string>& myName = *reinterpret_cast<vector<string>*>(void_tx);
-    // std::cout << myName[0] << std::endl;
+    // std::cout << get_block_hash(block_number) << std::endl;
+    // std::cout << get_hexed_block(block_hash) << std::endl;
 
     int ecall_return;
-    int ecall_result = ecall_insert_block(global_eid, &ecall_return, std::stoi(block_number), block_hex.c_str(), block_hex.length());
+    int ecall_result = ecall_insert_block(global_eid, &ecall_return, std::stoi(block_number), hexed_block.c_str(), hexed_block.length());
     // printf("ecall_insert_block() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_insert_block");
     }
 
     return ecall_return;
+
+    // string getblockhash_chunk;
+
+    // string getblockhash_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblockhash\", \"params\": [" + block_number + "]}";
+
+    
+    // getData(getblockhash_data, getblockhash_chunk);
+
+    // Json::Reader reader;
+    // Json::Value root;
+
+    // reader.parse(getblockhash_chunk, root);
+
+    // string block_hash = root["result"].asString();
+
+    // string getblock_chunk;
+
+    // string getblock_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblock\", \"params\": [\"" + block_hash + "\", 0]}";
+
+    // std::cout << getblock_data << std::endl;
+    
+    // getData(getblock_data, getblock_chunk);
+
+    // reader.parse(getblock_chunk, root);
+
+    // std::cout << getblock_chunk << std::endl;
+    // string block_hex = root["result"].asString();
+
+    // std::cout << block_hex << std::endl;
+
+    // int ecall_return;
+    // int ecall_result = ecall_insert_block(global_eid, &ecall_return, std::stoi(block_number), block_hex.c_str(), block_hex.length());
+    // // printf("ecall_insert_block() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    // if (ecall_result != SGX_SUCCESS) {
+    //     error("ecall_insert_block");
+    // }
+
+    // return ecall_return;
 }
 
 // settle request for routing fee
