@@ -201,7 +201,7 @@ if __name__ == '__main__':
         doMultihopPayments(paymentNumber)
         settleRequestNumber = eval(input("how many rouTEE settle balance requests to generate: "))
         settleBalanceRequest(settleRequestNumber)
-        updateSPVNumber = eval(input("how many rouTEE SPV block update: "))
+        updateSPVNumber = eval(input("how many times to update rouTEE SPV block: "))
         updateLatestSPV(updateSPVNumber)
         scriptName = "scriptForAll"
 

@@ -104,11 +104,13 @@ def runScript(fileName):
     paymentCount = 0
     settleCount = 0
     createChannelCount = 0
+    updateSPVCount = 0
 
     # command execution time sum (microsec)
     paymentTimeSum = 0
     settleTimeSum = 0
     createChannelTimeSum = 0
+    updateSPVTimeSum = 0
 
     totalStartTime = datetime.now()
     elapsedTimeSum = 0
@@ -174,6 +176,11 @@ def runScript(fileName):
                 paymentCount = paymentCount + 1
                 paymentTimeSum = paymentTimeSum + elapsedMicrosec
                 with open("experiment/paymentResult", "at") as f1:
+                    f1.write(repr(elapsedMicrosec) + "\n")
+            elif command[0][0] == 't' and command[0][2] == 'q':
+                updateSPVCount = updateSPVCount + 1
+                updateSPVTimeSum = updateSPVTimeSum + elapsedMicrosec
+                with open("experiment/updateSPVResult", "at") as f1:
                     f1.write(repr(elapsedMicrosec) + "\n")
 
     totalElapsed = datetime.now() - totalStartTime
