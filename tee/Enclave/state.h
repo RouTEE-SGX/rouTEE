@@ -136,6 +136,7 @@ class State {
         // address to get routing fees
         string fee_address;
 
+        map<unsigned long long, uint256> block_hash;
         unsigned long long block_number;
 
         // about routing fee

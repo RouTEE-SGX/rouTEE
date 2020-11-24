@@ -17,6 +17,7 @@
 
 // opcodes for rouTEE users
 #define OP_SECURE_COMMAND 112 // p (cmd: p sessionID encrypted_command_data)
+#define OP_ADD_USER 118 // v (cmd: v settle_addr public_key)
 #define OP_GET_READY_FOR_DEPOSIT  106 // j (cmd: j sender_address settle_address)
 #define OP_SETTLE_BALANCE   108 // l (cmd: l receiver_addr amount)
 #define OP_DO_MULTIHOP_PAYMENT  109 // m (cmd: m sender_addr receiver_addr amount fee)

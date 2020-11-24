@@ -103,22 +103,12 @@ int verify_user(const char* command, int cmd_len, const char* signature, int sig
     }
 
     if (state.verify_keys.find(sessionID) == state.verify_keys.end()) {
-        printf("no public key for this sessionID, %s\n", sessionID.c_str());
+        printf("no matching public key for this sessionID %s, please send request for deposit first\n", sessionID.c_str());
         return -1;
     }
 
-    printf("goooooooooooooooo\n");
-
     unsigned char* pubkey = (unsigned char*) state.verify_keys[sessionID].c_str();
     size_t pubkey_len = state.verify_keys[sessionID].length();
-
-    string cmd = string(command, cmd_len);
-        
-    printf("cmd: %s\n", cmd.c_str());
-    
-    printf("foooooooooooooooo\n");
-     
-    //printf("pubkey length: %d\n", pubkey_len);
 
     unsigned char hash[32];
     int ret = 1;
@@ -318,7 +308,7 @@ void ecall_print_state() {
     int queue_size = state.deposits.size();
     for (int i = 0; i< queue_size; i++) {
         Deposit* deposit = state.deposits.front();
-        printf("deposit %d: txhash: %s / txindex: %d\n", i, deposit->tx_hash, deposit->tx_index);
+        printf("deposit %d: txhash: %s / txindex: %d\n", i, deposit->tx_hash.c_str(), deposit->tx_index);
         state.deposits.pop();
         state.deposits.push(deposit);
     }
@@ -327,7 +317,7 @@ void ecall_print_state() {
     queue_size = state.settle_requests_waiting.size();
     for (int i = 0; i < queue_size; i++) {
         SettleRequest* sr = state.settle_requests_waiting.front();
-        printf("user address: %s / amount: %llu satoshi\n", sr->address, sr->amount);
+        printf("user address: %s / amount: %llu satoshi\n", sr->address.c_str(), sr->amount);
 
         // to iterate queue elements
         state.settle_requests_waiting.pop();
@@ -344,14 +334,14 @@ void ecall_print_state() {
         int deposits_size = psti->used_deposits.size();
         for (int j = 0; j < deposits_size; j++) {
             Deposit* deposit = psti->used_deposits.front();
-            printf("    used deposit %d: txhash: %s / txindex: %d\n", j, deposit->tx_hash, deposit->tx_index);
+            printf("    used deposit %d: txhash: %s / txindex: %d\n", j, deposit->tx_hash.c_str(), deposit->tx_index);
             psti->used_deposits.pop();
             psti->used_deposits.push(deposit);
         }
         int settle_requests_size = psti->pending_settle_requests.size();
         for (int j = 0; j < settle_requests_size; j++) {
             SettleRequest* sr = psti->pending_settle_requests.front();
-            printf("    user address: %s / settle amount: %llu satoshi\n", sr->address, sr->amount);
+            printf("    user address: %s / settle amount: %llu satoshi\n", sr->address.c_str(), sr->amount);
 
             // to iterate queue elements
             psti->pending_settle_requests.pop();
@@ -916,6 +906,11 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
     return NO_ERROR;
 }
 
+int secure_add_user(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
+    
+    return 0;
+}
+
 // update user's latest SPV block
 int secure_update_latest_SPV_block(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
     //
@@ -940,14 +935,33 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
         return ERR_INVALID_PARAMS;
     }
 
+    char* _block_hash = strtok(NULL, " ");
+    if (_block_hash == NULL) {
+        printf("No block hash for update last SPV block\n");
+        return ERR_INVALID_PARAMS;
+    }  
+
     string user_address(_user_address, BITCOIN_ADDRESS_LEN);
     unsigned long long block_number = strtoull(_block_number, NULL, 10);
+    uint256 block_hash;
+    block_hash.SetHex(string(_block_hash, BITCOIN_HEADER_HASH_LEN));
+    
 
     if (!CBitcoinAddress(user_address).IsValid()) {
         printf("Invalid user address for update last SPV block\n");
         return ERR_INVALID_PARAMS;
     }
 
+    if (block_number > state.block_number) {
+        printf("Given block number is higher than rouTEE has\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    // check user has same block with rouTEE
+    if (state.block_hash[block_number] != block_hash) {
+        printf("Given block hash is different from rouTEE has\n");
+        return ERR_INVALID_PARAMS;
+    }
 
     // check the user exists
     map<string, Account*>::iterator iter = state.users.find(user_address);
@@ -957,11 +971,6 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
         return ERR_ADDRESS_NOT_EXIST;
     }
     Account* user_acc = iter->second;
-
-    // check user has same block with rouTEE
-    // if () {
-    //     ;
-    // }
 
     // check the block number is larger than user's previous latest block number
     if (user_acc->latest_SPV_block_number <= block_number) {
@@ -1074,7 +1083,6 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
     if (tx_hash_len == 65) {
         sender_addr = string(manager_address, manager_addr_len);
         string sessionID = "user" + long_long_to_string((unsigned long long) tx_index);
-        printf("sessionID: %s\n", sessionID.c_str());
         state.verify_keys[sessionID] = string(tx_hash, tx_hash_len);
     }
     else {
@@ -1232,7 +1240,10 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
     // insert the block to state.blocks
     // 
     CBlock block;
-    DecodeHexBlk(block, string(hex_block, hex_block_len));
+    if (!DecodeHexBlk(block, string(hex_block, hex_block_len))) {
+        printf("invalid block hex string was given\n");
+        return ERR_INVALID_PARAMS;
+    };
 
     // if (!verify_block(block)) {
     //     printf("invalid block\n");
@@ -1274,6 +1285,7 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
     }
 
     state.block_number = block_number;
+    state.block_hash[block_number] = block.GetBlockHeader().GetHash();
 
     // map<string, TxOut*>* txout_list = static_cast<map<string, TxOut*>*>(void_txout_list);
     // TxOut* txout;
@@ -1450,6 +1462,9 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     }
     else if (operation == OP_DO_MULTIHOP_PAYMENT) {
         operation_result = secure_do_multihop_payment(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
+    }
+    else if (operation == OP_ADD_USER) {
+        operation_result = secure_add_user(decCommand, decCommandLen - 1, sessionID, sessionID_len, decSignature - 1, decSignatureLen + 1, response_msg);
     }
     else if (operation == OP_UPDATE_LATEST_SPV_BLOCK) {
         operation_result = secure_update_latest_SPV_block(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
