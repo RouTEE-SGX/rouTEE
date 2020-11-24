@@ -738,20 +738,38 @@ int make_settle_transaction() {
 
 // insert deposit tx (for debugging)
 int insert_deposit_tx(char* request, int request_len) {
+    int signature_len = 65;
+    int command_len = request_len - signature_len - 1;
+    char command[command_len + 1];
+    strncpy(command, request, (size_t) command_len);
+    command[command_len] = '\0';
     // parse request as ecall function params
-    vector<string> params = parse_request(request);
-    if (params.size() != 6) {
+    /*
+    vector<string> params = parse_request(command);
+    if (params.size() != 2) {
+        printf("param size: %d\n", (int)params.size());
         return ERR_INVALID_PARAMS;
     }
-    string manager_address = params[1];
-    string txid = params[2];
-    int tx_index = stoi(params[3]);
-    unsigned long long amount = strtoull(params[4].c_str(), NULL, 10);
-    unsigned long long block_number = strtoull(params[5].c_str(), NULL, 10);
+    unsigned long long fee = strtoull(params[1].c_str(), NULL, 10);
+    */
+    const char *signatureMessage = request + command_len + 1;
 
+    // parse request as ecall function params
+    vector<string> params = parse_request(command);
+    // if (params.size() != 6) {
+    //     return ERR_INVALID_PARAMS;
+    // }
+    // string sender_address = params[1];
+    // string txid = params[2];
+    // int tx_index = stoi(params[3]);
+    // unsigned long long amount = strtoull(params[4].c_str(), NULL, 10);
+    // unsigned long long block_number = strtoull(params[5].c_str(), NULL, 10);
+    string sender_address = params[1];
+    int tx_index = stoi(params[2]);
+    unsigned long long amount = strtoull(params[3].c_str(), NULL, 10);
+    unsigned long long block_number = strtoull(params[4].c_str(), NULL, 10);
 
-
-    int ecall_result = deal_with_deposit_tx(global_eid, manager_address.c_str(), manager_address.length(), txid.c_str(), txid.length(), tx_index, amount, block_number);
+    int ecall_result = deal_with_deposit_tx(global_eid, sender_address.c_str(), sender_address.length(), signatureMessage, signature_len, tx_index, amount, block_number);
     // printf("deal_with_deposit_tx() -> result:%d\n", ecall_result);
     if (ecall_result != SGX_SUCCESS) {
         error("deal_with_deposit_tx");

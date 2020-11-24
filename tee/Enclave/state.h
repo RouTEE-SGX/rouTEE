@@ -164,7 +164,7 @@ class State {
 
         // average on-chain tx fee per byte
         // for simple test: set this 0, to make tx fee 0
-        unsigned long long avg_tx_fee_per_byte = 1;
+        unsigned long long avg_tx_fee_per_byte = 100;
 
         // deposit_requests[manager_address] = deposit_request
         map<string, DepositRequest*> deposit_requests;

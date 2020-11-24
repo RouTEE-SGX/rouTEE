@@ -91,8 +91,14 @@ def file_len(fileName):
 def runScript(fileName):
     # print("run script", fileName, "\n")
 
-    f = open(SCRIPTSPATH+fileName, 'r')
-    rdr = csv.reader(f)
+    try:
+        f = open(SCRIPTSPATH+fileName, 'r')
+        rdr = csv.reader(f)
+    except:
+        print("there are no proper script; try again")
+        cmd = input("input command: ")
+        runScript(cmd)
+        return
 
     # command count
     paymentCount = 0
@@ -110,53 +116,65 @@ def runScript(fileName):
     cmdNumber = file_len(SCRIPTSPATH+fileName)
     printEpoch = cmdNumber/100
     for command in rdr:
-        
         # ignore '\n'
         if len(command) == 0:
             continue
         cnt = cnt + 1
 
-        # send cmd & measure execution time
-        startTime = datetime.now()
-        if command[0][0] == 't':
-            # send encrypted cmd & get encrypted response and decrypt it
-            secure_command(command[0])
-            continue
+        result, elapsed = executeCommand(command[0])
+
+        # # send cmd & measure execution time
+        # startTime = datetime.now()
+        # if command[0][0] == 't':
+        #     # send encrypted cmd & get encrypted response and decrypt it
+        #     secure_command(command[0])
+        #     continue
+        # else:
+        #     # send plain cmd & get plain response
+        #     client_socket.sendall(command[0].encode())
+        #     data = client_socket.recv(1024)
+        #     # check the result
+        #     if data.decode() != "SUCCESS":
+        #         # print("ERROR: command failed\n")
+        #         # print("error msg:", data.decode())
+        #         return
+        # elapsed = datetime.now() - startTime
+
+        if result is None:
+            print("something went wrong!\n")
         else:
-            # send plain cmd & get plain response
-            client_socket.sendall(command[0].encode())
-            data = client_socket.recv(1024)
-            # check the result
-            if data.decode() != "SUCCESS":
-                # print("ERROR: command failed\n")
-                # print("error msg:", data.decode())
-                return
-        elapsed = datetime.now() - startTime
+            print(result)
 
-        # calculate elapsed time
-        elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
-        elapsedMillisec = elapsedMicrosec / 1000.0
-        elapsedSec = elapsedMillisec / 1000.0
-        elapsedTimeSum = elapsedTimeSum + elapsedMicrosec
+            # calculate elapsed time
+            elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
+            elapsedMillisec = elapsedMicrosec / 1000.0
+            elapsedSec = elapsedMillisec / 1000.0
+            elapsedTimeSum = elapsedTimeSum + elapsedMicrosec
 
-        # print results
-        if cnt%printEpoch == 0:
-            # print("script cmd (", cnt, "/", cmdNumber, ") :", command[0])
-            # print("elapsed time:", elapsed)
-            # print('Received:', data.decode())
-            # print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
-            pass
+            # print results
+            if cnt%printEpoch == 0:
+                # print("script cmd (", cnt, "/", cmdNumber, ") :", command[0])
+                # print("elapsed time:", elapsed)
+                # print('Received:', data.decode())
+                # print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
+                pass
 
-        # logging execution time info
-        if command[0][0] == 'j':
-            createChannelCount = createChannelCount + 1
-            createChannelTimeSum = createChannelTimeSum + elapsedMicrosec
-        elif command[0][0] == 'l':
-            settleCount = settleCount + 1
-            settleTimeSum = settleTimeSum + elapsedMicrosec
-        elif command[0][0] == 'm':
-            paymentCount = paymentCount + 1
-            paymentTimeSum = paymentTimeSum + elapsedMicrosec
+            # logging execution time info
+            if command[0][0] == 'r':
+                createChannelCount = createChannelCount + 1
+                createChannelTimeSum = createChannelTimeSum + elapsedMicrosec
+                with open("experiment/newAccountResult", "at") as f1:
+                    f1.write(repr(elapsedMicrosec) + "\n")
+            elif command[0][0] == 't' and command[0][2] == 'l':
+                settleCount = settleCount + 1
+                settleTimeSum = settleTimeSum + elapsedMicrosec
+                with open("experiment/settleRequestResult", "at") as f1:
+                    f1.write(repr(elapsedMicrosec) + "\n")
+            elif command[0][0] == 't' and command[0][2] == 'm':
+                paymentCount = paymentCount + 1
+                paymentTimeSum = paymentTimeSum + elapsedMicrosec
+                with open("experiment/paymentResult", "at") as f1:
+                    f1.write(repr(elapsedMicrosec) + "\n")
 
     totalElapsed = datetime.now() - totalStartTime
     # print("run script elapsed time:", totalElapsed, "\n")
@@ -190,7 +208,7 @@ def secure_command(message, sessionID):
     secure_cmd = mac + nonce + enc_cmd
     secure_cmd = ("p {} ".format(sessionID)).encode('utf-8') + secure_cmd
 
-    print(secure_cmd)
+    #print(secure_cmd)
 
     # send command to server
     startTime = datetime.now()
@@ -214,13 +232,126 @@ def secure_command(message, sessionID):
     cipher_data = bytes(data[MAC_SIZE+NONCE_SIZE:])
     result = dec(key, aad, nonce, cipher_data, mac)
 
+
     # check the result
     if result is not None:
-        print("response decryption success")
-        print("result:", result.decode())
+        #print("response decryption success")
+        #print("result:", result.decode())
+        return result.decode(), elapsed
     else:
-        print("ERROR: decryption failed, (maybe) plain response msg:", data.decode())
-    print()
+        #print("ERROR: decryption failed, (maybe) plain response msg:", data.decode())
+        return None, elapsed 
+    
+
+def executeCommand(command):
+    print(command)
+
+    isForDeposit = False
+
+    # secure command option
+    if command[0] == 't':
+        isSecure = True
+        # OP_GET_READY_FOR_DEPOSIT
+        if command[2] == 'j':
+            isForDeposit = True
+    else:
+        isSecure = False
+        if command[0] == 'r':
+            isForDeposit = True
+    
+
+
+    # # message: byte encoding of command
+    # message = command.encode('utf-8')
+
+    # # generate ECDSA signature
+    # private_key = ECC.import_key(open('./key/private_key_host.pem').read())
+    # h = SHA256.new(message)
+    # signer = DSS.new(private_key, 'fips-186-3')
+    # signature = signer.sign(h)
+
+    # # verify the signature
+    # public_key = ECC.import_key(open('./key/public_key_host.pem').read())
+    # h = SHA256.new(message)
+    # verifier = DSS.new(public_key, 'fips-186-3')
+    # try:
+    #     verifier.verify(h, signature)
+    #     print("The message is authentic.")
+    # except ValueError:
+    #     print("The message is not authentic.")
+
+    # r = signature[:signer._order_bytes]
+    # s = signature[signer._order_bytes:]
+
+    # # print signature
+    # print(r, s)
+
+    split_command = command.split(" ")
+    #print(split_command)
+
+    # commnad's last string means message sender 
+    user = split_command[-1]
+
+    if isSecure:
+        # remove 't ' from command
+        command = " ".join(split_command[1:-1])
+    else:
+        command = " ".join(split_command[:-1])
+
+    # encode command
+    command = command.encode('utf-8')
+
+    # encryption using ECDSA
+    try:
+        with open("./key/private_key_{}.pem".format(user)) as f:
+            sk = ecdsa.SigningKey.from_pem(f.read())
+        with open("./key/public_key_{}.pem".format(user)) as f:
+            vk = ecdsa.VerifyingKey.from_pem(f.read())
+    except:
+        print("no user key")
+        return None, None
+
+    if isForDeposit:
+        pubkey = b"\x04" + vk.pubkey.point.x().to_bytes(32, 'big') + vk.pubkey.point.y().to_bytes(32, 'big')
+        message = command + b" " + pubkey
+
+    else:
+        sig = sk.sign(command, hashfunc=hashlib.sha256)
+        print(command)
+
+        try:
+            vk.verify(sig, command, hashfunc=hashlib.sha256)
+            print("good signature")
+        except:
+            print("bad signature")
+
+        message = command + b" " + sig
+
+    if isSecure:
+        # execute secure_command
+        # print("secure command")
+        return secure_command(message, user)
+        # continue
+
+    # send message to server
+    startTime = datetime.now()
+    # send command + signature to routee
+    client_socket.sendall(message)
+
+    # get response from server
+    data = client_socket.recv(1024)
+    elapsed = datetime.now() - startTime
+    # print(elapsed)
+
+    return data.decode(), elapsed
+
+    # print('Received:', data.decode())
+
+    # print elapsed time
+    # elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
+    # elapsedMillisec = elapsedMicrosec / 1000.0
+    # elapsedSec = elapsedMillisec / 1000.0
+    # print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
 
 if __name__ == "__main__":
     print("start")
@@ -243,106 +374,17 @@ if __name__ == "__main__":
             runScript(command)
             continue
 
-        isForDeposit = False
+        data, elapsed = executeCommand(command)
 
-        # secure command option
-        if command[0] == 't':
-            isSecure = True
-            # OP_GET_READY_FOR_DEPOSIT
-            if command[2] == 'j':
-                isForDeposit = True
+        if data is None:
+            print("something went wrong! try again\n")
+            
         else:
-            isSecure = False
+            print(data)
+            elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
+            elapsedMillisec = elapsedMicrosec / 1000.0
+            elapsedSec = elapsedMillisec / 1000.0
+            print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
 
-
-        # # message: byte encoding of command
-        # message = command.encode('utf-8')
-
-        # # generate ECDSA signature
-        # private_key = ECC.import_key(open('./key/private_key_host.pem').read())
-        # h = SHA256.new(message)
-        # signer = DSS.new(private_key, 'fips-186-3')
-        # signature = signer.sign(h)
-
-        # # verify the signature
-        # public_key = ECC.import_key(open('./key/public_key_host.pem').read())
-        # h = SHA256.new(message)
-        # verifier = DSS.new(public_key, 'fips-186-3')
-        # try:
-        #     verifier.verify(h, signature)
-        #     print("The message is authentic.")
-        # except ValueError:
-        #     print("The message is not authentic.")
-
-        # r = signature[:signer._order_bytes]
-        # s = signature[signer._order_bytes:]
-
-        # # print signature
-        # print(r, s)
-
-        split_command = command.split(" ")
-        #print(split_command)
-
-        # commnad's last string means message sender 
-        user = split_command[-1]
-
-        if isSecure:
-            # remove 't ' from command
-            command = " ".join(split_command[1:-1])
-        else:
-            command = " ".join(split_command[:-1])
-
-        # encode command
-        command = command.encode('utf-8')
-
-        # encryption using ECDSA
-        try:
-            with open("./key/private_key_{}.pem".format(user)) as f:
-                sk = ecdsa.SigningKey.from_pem(f.read())
-            with open("./key/public_key_{}.pem".format(user)) as f:
-                vk = ecdsa.VerifyingKey.from_pem(f.read())
-        except:
-            print("no user key")
-            continue
-
-        if isForDeposit:
-            pubkey = b"\x04" + vk.pubkey.point.x().to_bytes(32, 'big') + vk.pubkey.point.y().to_bytes(32, 'big')
-            print(pubkey)
-            message = command + b" " + pubkey
-
-        else:
-            sig = sk.sign(command, hashfunc=hashlib.sha256)
-
-            try:
-                vk.verify(sig, command, hashfunc=hashlib.sha256)
-                print("good signature")
-            except:
-                print("bad signature")
-
-            message = command + b" " + sig
-
-        if isSecure:
-            # execute secure_command
-            print("secure command")
-            secure_command(message, user)
-            continue
-
-        # send message to server
-        startTime = datetime.now()
-        # send command + signature to routee
-        client_socket.sendall(message)
-
-        # get response from server
-        data = client_socket.recv(1024)
-        elapsed = datetime.now() - startTime
-        # print(elapsed)
-        print('Received:', data.decode())
-
-        # print elapsed time
-        elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
-        elapsedMillisec = elapsedMicrosec / 1000.0
-        elapsedSec = elapsedMillisec / 1000.0
-        # print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
-    
     # close socket
     client_socket.close()

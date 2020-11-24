@@ -3,35 +3,34 @@ from datetime import datetime
 import csv
 import sys
 # python crypto library example: https://blog.naver.com/chandong83/221886840586
-from Cryptodome.Cipher import AES
-from Cryptodome.Random import get_random_bytes
-from Cryptodome.Hash import SHA256
-from Cryptodome.PublicKey import ECC
-from Cryptodome.Signature import DSS
-from Cryptodome.IO import PEM
-import bitcoin_crypto as bc
+# from Cryptodome.Cipher import AES
+# from Cryptodome.Random import get_random_bytes
+# from Cryptodome.Hash import SHA256
+# from Cryptodome.PublicKey import ECC
+# from Cryptodome.Signature import DSS
+# from Cryptodome.IO import PEM
 import ecdsa
 import codecs
 
 user_list = ['alice', 'bob', 'host']
 
-# for user in user_list:
-#     sk = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)
-#     vk = sk.get_verifying_key()
-#     with open("./key/private_key_{}.pem".format(user), "wb") as f:
-#         f.write(sk.to_pem())
-#     with open("./key/public_key_{}.pem".format(user), "wb") as f:
-#         f.write(vk.to_pem())
+for user in user_list:
+    sk = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)
+    vk = sk.get_verifying_key()
+    with open("./key/private_key_{}.pem".format(user), "wb") as f:
+        f.write(sk.to_pem())
+    with open("./key/public_key_{}.pem".format(user), "wb") as f:
+        f.write(vk.to_pem())
 
 
-# ECDSA verify test
-with open("./key/private_key_alice.pem") as f:
-    sk = ecdsa.SigningKey.from_pem(f.read())
+# # ECDSA verify test
+# with open("./key/private_key_alice.pem") as f:
+#     sk = ecdsa.SigningKey.from_pem(f.read())
 
-with open("./key/public_key_alice.pem") as f:
-    vk = ecdsa.VerifyingKey.from_pem(f.read())
+# with open("./key/public_key_alice.pem") as f:
+#     vk = ecdsa.VerifyingKey.from_pem(f.read())
 
-print((vk.pubkey.point.x().to_bytes(32, 'little')))
+# print((vk.pubkey.point.x().to_bytes(32, 'little')))
 
 # message = b"message"
 # sig = sk.sign(message)

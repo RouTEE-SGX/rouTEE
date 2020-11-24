@@ -1,5 +1,104 @@
 import random
 import sys
+from bitcoinaddress import Address, Key
+import os.path
+import csv
+import ecdsa
+import codecs
+
+def makeNewAddresses(addressNumber):
+    with open("scriptAddress", "wt") as f:
+        for i in range(addressNumber):
+            key = Key()
+            key.generate()
+            address = Address(key)
+            address._generate_publicaddress1_testnet()
+            
+            f.write("{}\n".format(address.pubaddr1_testnet))
+
+            sk = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)
+            vk = sk.get_verifying_key()
+            with open("../key/private_key_user{}.pem".format(i), "wb") as f1:
+                f1.write(sk.to_pem())
+            with open("../key/public_key_user{}.pem".format(i), "wb") as f2:
+                f2.write(vk.to_pem())
+
+def makeNewAccounts(accountNumber):
+    if not os.path.exists("scriptAddress"):
+        makeNewAddresses(accountNumber)
+    addressFile = open("scriptAddress", 'r')
+    rdr = csv.reader(addressFile)
+    with open("scriptAccount", "wt") as f:
+        for address in rdr:
+            user_address = address[0]
+        
+            f.write("r {} {} 100000000 100 user{}\n".format(user_address, rdr.line_num - 1, rdr.line_num - 1))
+
+def doMultihopPayments(paymentNumber):
+    if not os.path.exists("scriptAccount"):
+        print("first execute makeNewAccounts\n")
+        return
+
+    addressFile = open("scriptAddress", 'r')
+    rdr = csv.reader(addressFile)
+    #accountNum = sum(1 for row in rdr)
+
+    address_list = []
+    for address in rdr:
+        address_list.append(address[0])
+
+    with open("scriptPayment", "wt") as f:
+        for i in range(paymentNumber):
+            sender_index = random.randint(0, len(address_list) - 1)
+            while True:
+                receiver_index = random.randint(0, len(address_list) - 1)
+                if sender_index != receiver_index:
+                    break
+
+            sender_address = address_list[sender_index]
+            receiver_address = address_list[receiver_index]
+        
+            f.write("t m {} {} 10 1 user{}\n".format(sender_address, receiver_address, sender_index))
+
+def settleBalanceRequest(settleTxNumber):
+    if not os.path.exists("scriptAccount"):
+        print("first execute makeNewAccounts\n")
+        return
+
+    addressFile = open("scriptAddress", 'r')
+    rdr = csv.reader(addressFile)
+
+    address_list = []
+    for address in rdr:
+        address_list.append(address[0])
+
+    with open("scriptSettle", "wt") as f:
+        for i in range(settleTxNumber):
+            user_index = random.randint(0, len(address_list) - 1)
+
+            user_address = address_list[user_index]
+        
+            f.write("t l {} 100000 user{}\n".format(user_address, user_index))
+
+def updateLatestSPV(updateSPVNumber):
+    if not os.path.exists("scriptAccount"):
+        print("first execute makeNewAccounts\n")
+        return
+
+    addressFile = open("scriptAddress", 'r')
+    rdr = csv.reader(addressFile)
+
+    address_list = []
+    for address in rdr:
+        address_list.append(address[0])
+
+    with open("scriptUpdateSPV", "wt") as f:
+        for i in range(updateSPVNumber):
+            user_index = random.randint(0, len(address_list) - 1)
+
+            user_address = address_list[user_index]
+        
+            f.write("t q {} 3000 user{}\n".format(user_address, user_index))
 
 def createChannels(channelNumber, scriptName):
 
@@ -28,7 +127,7 @@ if __name__ == '__main__':
     if len(sys.argv) >= 2:
         command = int(sys.argv[1])
     else:
-        command = eval(input("which script do you want to make (1: createChannels / 2: doRandomPayments): "))
+        command = eval(input("which script do you want to make (0: default / 1: createChannels / 2: doRandomPayments / 3: makeNewAddresses / 4: makeNewAccounts / 5: doMultihopPayments / 6: settleBalanceRequest / 7: updateLatestSPV)): "))
     
     if command == 1:
         if len(sys.argv) >= 2:
@@ -49,5 +148,61 @@ if __name__ == '__main__':
             maxUserNumber = eval(input("what is max user index number: "))
             scriptName = input("script name: ")
         doRandomPayments(paymentNumber, maxUserNumber, scriptName)
+
+    elif command == 3:
+        if len(sys.argv) >= 2:
+            addressNumber = int(sys.argv[2])
+            scriptName = sys.argv[3]
+        else:
+            addressNumber = eval(input("how many bitcoin addresses to generate: "))
+            scriptName = "scriptAddress"
+        makeNewAddresses(addressNumber)
+
+    elif command == 4:
+        if len(sys.argv) >= 2:
+            accountNumber = int(sys.argv[2])
+            scriptName = sys.argv[3]
+        else:
+            accountNumber = eval(input("how many routee accounts to generate: "))
+            scriptName = "scriptAccount"
+        makeNewAccounts(accountNumber)
+
+    elif command == 5:
+        if len(sys.argv) >= 2:
+            paymentNumber = int(sys.argv[2])
+            scriptName = sys.argv[3]
+        else:
+            paymentNumber = eval(input("how many rouTEE payments to generate: "))
+            scriptName = "scriptPayment"
+        doMultihopPayments(paymentNumber)
+
+    elif command == 6:
+        if len(sys.argv) >= 2:
+            settleRequestNumber = int(sys.argv[2])
+            scriptName = sys.argv[3]
+        else:
+            settleRequestNumber = eval(input("how many rouTEE settle balance requests to generate: "))
+            scriptName = "scriptSettle"
+        settleBalanceRequest(settleRequestNumber)
+
+    elif command == 7:
+        if len(sys.argv) >= 2:
+            updateSPVNumber = int(sys.argv[2])
+            scriptName = sys.argv[3]
+        else:
+            updateSPVNumber = eval(input("how many rouTEE SPV block update: "))
+            scriptName = "scriptUpdateSPV"
+        updateLatestSPV(updateSPVNumber)
+
+    elif command == 0:
+        accountNumber = eval(input("how many routee accounts to generate: "))
+        makeNewAccounts(accountNumber)
+        paymentNumber = eval(input("how many rouTEE payments to generate: "))
+        doMultihopPayments(paymentNumber)
+        settleRequestNumber = eval(input("how many rouTEE settle balance requests to generate: "))
+        settleBalanceRequest(settleRequestNumber)
+        updateSPVNumber = eval(input("how many rouTEE SPV block update: "))
+        updateLatestSPV(updateSPVNumber)
+        scriptName = "scriptForAll"
 
     print("make script [", scriptName, "] Done")
