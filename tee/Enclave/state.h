@@ -55,12 +55,10 @@ class DepositRequest {
         string sender_address;
 
         // when the user requests settlement, balances goes to this address
-        string settle_address;
+        // tring settle_address;
 
         // kind of timestamp: when the user requested deposit
         unsigned long long block_number;
-
-        string public_key;
 };
 
 // settle request

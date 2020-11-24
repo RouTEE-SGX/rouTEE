@@ -300,8 +300,8 @@ void ecall_print_state() {
 
     printf("\n\n\n\n\n***** deposit requests *****\n\n");
     for (map<string, DepositRequest*>::iterator iter = state.deposit_requests.begin(); iter != state.deposit_requests.end(); iter++){
-        printf("manager key id: %s -> sender address: %s / settle_address: %s / block number:%llu\n", 
-            (iter->first).c_str(), iter->second->sender_address.c_str(), iter->second->settle_address.c_str(), iter->second->block_number);
+        printf("manager key id: %s -> sender address: %s / block number:%llu\n", 
+            (iter->first).c_str(), iter->second->sender_address.c_str(), iter->second->block_number);
     }
 
     printf("\n\n\n\n\n***** deposits *****\n\n");
@@ -438,13 +438,10 @@ exit:
 }
 
 // operation function for secure_command
-int secure_get_ready_for_deposit(const char* command, int command_len, const char* sessionID, int sessionID_len, const char* _user_pubkey, int pubkey_len, const char* response_msg) {
-
-    CPubKey user_pubkey = CPubKey(_user_pubkey, _user_pubkey + pubkey_len);
-
-    if (!user_pubkey.IsValid()) {
-        printf("Invalid public key\n");
-        return ERR_INVALID_PARAMS;
+int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
+    // check authority to get paid the balance (ex. user's signature with settlement params)
+    if (verify_user(command, cmd_len, signature, sig_len, string(sessionID, sessionID_len)) != 0) {
+        return ERR_NO_AUTHORITY;
     }
 
     char* _cmd = strtok((char*) command, " ");
@@ -453,29 +450,22 @@ int secure_get_ready_for_deposit(const char* command, int command_len, const cha
         printf("No sender address\n");
         return ERR_INVALID_PARAMS;
     }
-    
-    char* _settle_address = strtok(NULL, " ");
-    if (_settle_address == NULL) {
-        printf("No settle address\n");
-        return ERR_INVALID_PARAMS;
-    }
 
     string sender_address(_sender_address, BITCOIN_ADDRESS_LEN);
-    string settle_address(_settle_address, BITCOIN_ADDRESS_LEN);
 
     if (!CBitcoinAddress(sender_address).IsValid()) {
         printf("Invalid sender address\n");
         return ERR_INVALID_PARAMS;
     }
 
-    if (!CBitcoinAddress(settle_address).IsValid()) {
-        printf("Invalid settle address\n");
+    // No account for this user address in rouTEE
+    if (state.users.find(sender_address) == state.users.end()) {
+        printf("No account exists for this user address in rouTEE\n");
         return ERR_INVALID_PARAMS;
     }
 
-
-
-    printf("secure_get_ready_for_deposit: %s, %s\n\n", sender_address.c_str(), settle_address.c_str());
+    Account* account = state.users[sender_address];
+    // printf("secure_get_ready_for_deposit: %s, %s\n\n", sender_address.c_str(), settle_address.c_str());
 
     // initialize ECC State for Bitcoin Library
     initializeECCState();
@@ -517,10 +507,7 @@ int secure_get_ready_for_deposit(const char* command, int command_len, const cha
     DepositRequest *deposit_request = new DepositRequest;
     deposit_request->manager_private_key = generated_private_key;
     deposit_request->sender_address = sender_address;
-    deposit_request->settle_address = settle_address;
     deposit_request->block_number = latest_block_number;
-
-    state.verify_keys[string(sessionID, sessionID_len)] = string(_user_pubkey, pubkey_len);
     
     state.deposit_requests[keyid.ToString()] = deposit_request;
     
@@ -906,8 +893,61 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
     return NO_ERROR;
 }
 
-int secure_add_user(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
+int secure_add_user(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* _user_pubkey, int pubkey_len, const char* response_msg) {
+    // initialize ECC State for Bitcoin Library
+    initializeECCState();
+    CPubKey user_pubkey = CPubKey(_user_pubkey, _user_pubkey + pubkey_len);
+
+    if (!user_pubkey.IsValid()) {
+        printf("Invalid public key\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    char* _cmd = strtok((char*) command, " ");
+    char* _settle_address = strtok(NULL, " ");
+    if (_settle_address == NULL) {
+        printf("No settle address\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    string settle_address(_settle_address, BITCOIN_ADDRESS_LEN);
+
+    if (!CBitcoinAddress(settle_address).IsValid()) {
+        printf("Invalid settle address\n");
+        return ERR_INVALID_PARAMS;
+    }    
+
+    CBitcoinAddress sender_addr;
+    sender_addr.Set(user_pubkey.GetID());
+
+    std::string sender_address = sender_addr.ToString();
+
+    // get latest block in rouTEE
+    // temp code
+
+    state.verify_keys[string(sessionID, sessionID_len)] = string(_user_pubkey, pubkey_len);
     
+
+    if (state.users.find(sender_address) != state.users.end()) {
+        printf("rouTEE account already exists for this public key\n");
+        return ERR_NO_AUTHORITY;
+    }
+    // sender is not in the state, create new account
+    Account* acc = new Account;
+    acc->balance = 0;
+    acc->nonce = 0;
+    acc->latest_SPV_block_number = 0;
+    acc->settle_address = settle_address;
+    state.users[sender_address] = acc;
+    
+    // print result
+    if (doPrint) {
+        printf("sender address: %s / settle address: %s\n", sender_address.c_str(), settle_address.c_str());
+    }
+
+    // send random address & block info to the sender
+    // response_msg = (generated_address + " " + long_long_to_string(latest_block_number)).c_str();
+
     return 0;
 }
 
@@ -1096,6 +1136,7 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
     map<string, Account*>::iterator iter = state.users.find(sender_addr);
     if (iter == state.users.end()) {
         // sender is not in the state, create new account
+        // Only available when debug
         Account* acc = new Account;
         acc->balance = 0;
         acc->nonce = 0;
@@ -1103,13 +1144,13 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
         state.users[sender_addr] = acc;
     }
 
-    if (tx_hash_len == 65) {
-        state.users[sender_addr]->settle_address = sender_addr;
-    }
-    else {
-        // update settle address
-        state.users[sender_addr]->settle_address = dr->settle_address;
-    }
+    // if (tx_hash_len == 65) {
+    //     state.users[sender_addr]->settle_address = sender_addr;
+    // }
+    // else {
+    //     // update settle address
+    //     state.users[sender_addr]->settle_address = dr->settle_address;
+    // }
 
 
     // now take some of the deposit
