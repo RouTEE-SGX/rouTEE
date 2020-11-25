@@ -19,6 +19,7 @@
 #include "rpc.h"
 #include "core_io.h"
 #include "pow.h"
+#include "chain.h"
 
 #include "mbedtls/sha256.h"
 #include "bitcoin/key.h"
@@ -72,6 +73,10 @@ bool regtest = true;
 bool debug = false;
 bool benchmark = false;
 
+
+const CChainParams& chainparams = testnet? Params(CBaseChainParams::TESTNET) : (regtest? Params(CBaseChainParams::REGTEST) : Params(CBaseChainParams::MAIN));
+const CBlock& genesis = chainparams.GenesisBlock();
+CBlockIndex* lastIndex = new CBlockIndex(genesis.GetBlockHeader());
 
 // invoke OCall to display the enclave buffer to the terminal screen
 void printf(const char* fmt, ...) {
@@ -1247,27 +1252,26 @@ void deal_with_settlement_tx() {
     return;
 }
 
-// bool verify_block(CBlock block){
-//     CBlockHeader bh = block.GetBlockHeader();
+bool verify_block(CBlock& block){
+    CBlockHeader bh = block.GetBlockHeader();
 
-
-//     if (!CheckProofOfWork(block.GetHash(), block.nBits, chainparam)){
-//         return false;
-//     }
-//     // if ((bh.nVersion == genesis.nVersion) && (bh.hashMerkleRoot == genesis.hashMerkleRoot) && (bh.nTime == genesis.nTime)
-//     //     && (bh.nNonce == genesis.nNonce) && (bh.nBits == genesis.nBits) && (bh.hashPrevBlock == genesis.hashPrevBlock)){
-//     //     return true;
-//     // }
-//     // if(bh.nBits == GetNextWorkRequired(lastIndex, &bh)){
-//     //     CBlockIndex* pindexNew = new CBlockIndex(bh);
-//     //     pindexNew->pprev = lastIndex;
-//     //     pindexNew->nHeight = pindexNew->pprev->nHeight+1;
-//     //     pindexNew->BuildSkip();
-//     //     lastIndex = pindexNew;
-//     //     return true;
-//     // }
-//     return true;
-// } 
+    if (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus())){
+        return false;
+    }
+    if ((bh.nVersion == genesis.nVersion) && (bh.hashMerkleRoot == genesis.hashMerkleRoot) && (bh.nTime == genesis.nTime)
+        && (bh.nNonce == genesis.nNonce) && (bh.nBits == genesis.nBits) && (bh.hashPrevBlock == genesis.hashPrevBlock)){
+        return true;
+    }
+    if(bh.nBits == GetNextWorkRequired(lastIndex, &bh, chainparams.GetConsensus())){
+        CBlockIndex* pindexNew = new CBlockIndex(bh);
+        pindexNew->pprev = lastIndex;
+        pindexNew->nHeight = pindexNew->pprev->nHeight+1;
+        pindexNew->BuildSkip();
+        lastIndex = pindexNew;
+        return true;
+    }
+    return false;
+} 
 
 
 int ecall_insert_block(int block_number, const char* hex_block, int hex_block_len) {
@@ -1286,10 +1290,10 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
         return ERR_INVALID_PARAMS;
     };
 
-    // if (!verify_block(block)) {
-    //     printf("invalid block\n");
-    //     return ERR_INVALID_PARAMS;
-    // }
+    if (!verify_block(block)) {
+        printf("invalid block\n");
+        return ERR_INVALID_PARAMS;
+    }
 
     printf("block info: %s, %d\n\n", block.ToString().c_str(), block.vtx.size());
     printf("tx_vout: %s\n", block.vtx[0]->vout[0].ToString().c_str());
