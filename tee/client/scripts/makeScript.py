@@ -1,20 +1,50 @@
 import random
 import sys
-from bitcoinaddress import Address, Key
+# from bitcoinaddress import Wallet, Address, Key
 import os.path
 import csv
 import ecdsa
 import codecs
+import hashlib
+
+def base58(address_hex):
+    alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+    b58_string = ''
+    # Get the number of leading zeros
+    # leading_zeros = len(address_hex) - len(address_hex.lstrip('0'))
+    leading_zeros = 0
+    # Convert hex to decimal
+    address_int = int(address_hex, 16)
+    # Append digits to the start of string
+    while address_int > 0:
+        digit = address_int % 58
+        digit_char = alphabet[digit]
+        b58_string = digit_char + b58_string
+        address_int //= 58
+    # Add ‘1’ for each 2 leading zeros
+    ones = leading_zeros // 2
+    for one in range(ones):
+        b58_string = '1' + b58_string
+    return b58_string
 
 def makeNewAddresses(addressNumber):
     with open("scriptAddress", "wt") as f:
         for i in range(addressNumber):
-            key = Key()
-            key.generate()
-            address = Address(key)
-            address._generate_publicaddress1_testnet()
+
+            # wallet = Wallet()
+            # print(wallet.address.privkey.hex)
+            # print(wallet.address.pubkey)
+            # print(wallet.address.pubaddr1_testnet)
+            # with open("../key/private_key_user{}".format(i), "wb") as f1:
+            #     f1.write(wallet.address.privkey.hex)
+
+            # key = Key()
+            # key.generate()
+
+            # address = Address(key)
+            # address._generate_publicaddress1_testnet()
             
-            f.write("{}\n".format(address.pubaddr1_testnet))
+            # f.write("{}\n".format(address.pubaddr1_testnet))
 
             sk = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)
             vk = sk.get_verifying_key()
@@ -23,20 +53,68 @@ def makeNewAddresses(addressNumber):
             with open("../key/public_key_user{}.pem".format(i), "wb") as f2:
                 f2.write(vk.to_pem())
 
+            public_key_bytes = b"\x04" +  vk.to_string()
+
+            # Run SHA-256 for the public key
+            sha256_bpk = hashlib.sha256(public_key_bytes)
+            sha256_bpk_digest = sha256_bpk.digest()
+            # Run RIPEMD-160 for the SHA-256
+            ripemd160_bpk = hashlib.new('ripemd160')
+            ripemd160_bpk.update(sha256_bpk_digest)
+            ripemd160_bpk_digest = ripemd160_bpk.digest()
+
+            ripemd160_bpk_hex = codecs.encode(ripemd160_bpk_digest, 'hex')
+
+            network_bitcoin_public_key_bytes = b'\x6f' + ripemd160_bpk_digest
+
+            sha256_nbpk = hashlib.sha256(network_bitcoin_public_key_bytes)
+            sha256_nbpk_digest = sha256_nbpk.digest()
+            sha256_2_nbpk = hashlib.sha256(sha256_nbpk_digest)
+            sha256_2_nbpk_digest = sha256_2_nbpk.digest()
+            sha256_2_hex = codecs.encode(sha256_2_nbpk_digest, 'hex')
+            checksum = sha256_2_hex[:8]
+
+            bitcoin_address = base58(codecs.encode(network_bitcoin_public_key_bytes, 'hex') + checksum)
+            f.write("{}\n".format(bitcoin_address))
+            # print("bitcoin_address: ", bitcoin_address)
+
 def makeNewAccounts(accountNumber):
     if not os.path.exists("scriptAddress"):
         makeNewAddresses(accountNumber)
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
-    with open("scriptAccount", "wt") as f:
+    with open("scriptAddUser", "wt") as f:
+        for address in rdr:
+            settle_address = address[0]
+        
+            f.write("t v {} user{}\n".format(settle_address, rdr.line_num - 1))
+
+def getReadyForDeposit(accountNumber):
+    if not os.path.exists("scriptAddress"):
+        makeNewAddresses(accountNumber)
+    addressFile = open("scriptAddress", 'r')
+    rdr = csv.reader(addressFile)
+    with open("scriptDepositRequest", "wt") as f:
+        for address in rdr:
+            user_address = address[0]
+        
+            f.write("t j {} user{}\n".format(user_address, rdr.line_num - 1))
+
+def dealWithDepositTxs(accountNumber):
+    if not os.path.exists("scriptAddress"):
+        print("execute makeNewAddresses first\n")
+        return
+    addressFile = open("scriptAddress", 'r')
+    rdr = csv.reader(addressFile)
+    with open("scriptDepositTx", "wt") as f:
         for address in rdr:
             user_address = address[0]
         
             f.write("r {} {} 100000000 100 user{}\n".format(user_address, rdr.line_num - 1, rdr.line_num - 1))
 
 def doMultihopPayments(paymentNumber):
-    if not os.path.exists("scriptAccount"):
-        print("first execute makeNewAccounts\n")
+    if not os.path.exists("scriptAddress"):
+        print("execute makeNewAddresses first\n")
         return
 
     addressFile = open("scriptAddress", 'r')
@@ -61,8 +139,8 @@ def doMultihopPayments(paymentNumber):
             f.write("t m {} {} 10 1 user{}\n".format(sender_address, receiver_address, sender_index))
 
 def settleBalanceRequest(settleTxNumber):
-    if not os.path.exists("scriptAccount"):
-        print("first execute makeNewAccounts\n")
+    if not os.path.exists("scriptAddress"):
+        print("execute makeNewAddresses first\n")
         return
 
     addressFile = open("scriptAddress", 'r')
@@ -81,8 +159,8 @@ def settleBalanceRequest(settleTxNumber):
             f.write("t l {} 100000 user{}\n".format(user_address, user_index))
 
 def updateLatestSPV(updateSPVNumber):
-    if not os.path.exists("scriptAccount"):
-        print("first execute makeNewAccounts\n")
+    if not os.path.exists("scriptAddress"):
+        print("execute makeNewAddresses first\n")
         return
 
     addressFile = open("scriptAddress", 'r')
@@ -196,13 +274,17 @@ if __name__ == '__main__':
 
     elif command == 0:
         accountNumber = eval(input("how many routee accounts to generate: "))
+        makeNewAddresses(accountNumber)
         makeNewAccounts(accountNumber)
+        getReadyForDeposit(accountNumber)
+        dealWithDepositTxs(accountNumber)
         paymentNumber = eval(input("how many rouTEE payments to generate: "))
         doMultihopPayments(paymentNumber)
         settleRequestNumber = eval(input("how many rouTEE settle balance requests to generate: "))
         settleBalanceRequest(settleRequestNumber)
-        updateSPVNumber = eval(input("how many times to update rouTEE SPV block: "))
+        updateSPVNumber = eval(input("how many rouTEE SPV block updates to generate: "))
         updateLatestSPV(updateSPVNumber)
+
         scriptName = "scriptForAll"
 
     print("make script [", scriptName, "] Done")

@@ -738,7 +738,7 @@ int make_settle_transaction() {
 
 // insert deposit tx (for debugging)
 int insert_deposit_tx(char* request, int request_len) {
-    int signature_len = 65;
+    int signature_len = 64;
     int command_len = request_len - signature_len - 1;
     char command[command_len + 1];
     strncpy(command, request, (size_t) command_len);
@@ -1065,7 +1065,7 @@ int SGX_CDECL main(int argc, char* argv[]){
                 else {
                     // set the string terminating NULL byte on the end of the data read
                     request[read_len] = '\0';
-                    printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
+                    // printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
 
                     // execute client's command
                     char operation = request[0];
@@ -1090,7 +1090,7 @@ int SGX_CDECL main(int argc, char* argv[]){
                         // send result to the client
                         send(sd, response, strlen(response), 0);
                     }
-                    printf("execution result: %s\n\n", response);
+                    // printf("execution result: %s\n\n", response);
 
                 }
             }

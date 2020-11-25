@@ -42,7 +42,7 @@
 
 
 // print ecall results on screen or not
-const bool doPrint = true;
+const bool doPrint = false;
 
 // for AES-GCM128 encription / decription
 #define SGX_AESGCM_MAC_SIZE 16 // bytes
@@ -89,7 +89,7 @@ void printf(const char* fmt, ...) {
     ocall_print_string(buf); // OCall
 }
 
-int verify_user(const char* command, int cmd_len, const char* signature, int sig_len, string sessionID) {
+int verify_user(const unsigned char* command, int cmd_len, const char* signature, int sig_len, string public_key) {
     // hard-coded for alice's public key
     // char *_input = "MHQCAQEEIBw8tZ8KWVRPaBNFfaFp4sTeLLJGxdo5QIV4wQgdTZLWoAcGBSuBBAAKoUQDQgAER8COHjvsBtdXSL33gWCLqK0nXSpeAT5s3UIaG+QaknZvE3Bw0R+JluoY1RTROr4yzq2T2hHxkNOPYFTsVxCneA==";
     // unsigned char *input = reinterpret_cast<unsigned char *>(_input);
@@ -103,19 +103,19 @@ int verify_user(const char* command, int cmd_len, const char* signature, int sig
     //     printf("MBEDTLS_ERR_BASE64_INVALID_CHARACTER\n\n");
 
     // printf("pubkeylen: %d\n\n", pubkeylen);
-    if (sessionID.compare("host") == 0) {
+    if (public_key.compare("host") == 0) {
         return 0;
     }
 
-    if (state.verify_keys.find(sessionID) == state.verify_keys.end()) {
-        printf("no matching public key for this sessionID %s, please send request for deposit first\n", sessionID.c_str());
-        return -1;
-    }
+    // if (state.verify_keys.find(user_address) == state.verify_keys.end()) {
+    //     printf("no matching public key for this address %s, please send request for deposit first\n", user_address.c_str());
+    //     return -1;
+    // }
 
-    unsigned char* pubkey = (unsigned char*) state.verify_keys[sessionID].c_str();
-    size_t pubkey_len = state.verify_keys[sessionID].length();
+    unsigned char* pubkey = (unsigned char*) public_key.c_str();
+    size_t pubkey_len = public_key.length();
 
-    unsigned char hash[32];
+    //unsigned char hash[32];
     int ret = 1;
 
     mbedtls_ecdsa_context ctx_verify;
@@ -143,7 +143,7 @@ int verify_user(const char* command, int cmd_len, const char* signature, int sig
     /*
      * Compute message hash
      */
-    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+    //mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
     /*
      * Verify signature
@@ -158,7 +158,7 @@ int verify_user(const char* command, int cmd_len, const char* signature, int sig
     }
 
     if ((ret = mbedtls_ecdsa_verify( &ctx_verify.grp,
-                  hash, sizeof(hash),
+                  command, 32,
                   &ctx_verify.Q, &r, &s)) != 0) {
         printf("ecdsa_verify ret: %x\n\n", ret);
         goto exit;
@@ -176,7 +176,11 @@ int ecall_set_routing_fee(const char* command, int cmd_len, const char* signatur
     //
     // TODO: BITCOIN
     // check authority to set new routing fee (ex. rouTEE host's signature)
-    if (verify_user(command, cmd_len, signature, sig_len, "host") != 0) {
+    
+    unsigned char hash[32];
+    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+
+    if (verify_user(hash, 32, signature, sig_len, "host") != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -204,8 +208,10 @@ int ecall_set_routing_fee_address(const char* command, int cmd_len, const char* 
     // TODO: BITCOIN
     // check authority to set new routing fee (ex. rouTEE host's signature)
 
-    printf("command: %s, %d\n", command, strlen(command));
-    if (verify_user(command, cmd_len, signature, sig_len, "host") != 0) {
+    unsigned char hash[32];
+    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+
+    if (verify_user(hash, 32, signature, sig_len, "host") != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -239,7 +245,10 @@ int ecall_settle_routing_fee(const char* command, int cmd_len, const char* signa
     //
     // TODO: BITCOIN
     // check authority to set new routing fee (ex. rouTEE host's signature)
-    if (verify_user(command, cmd_len, signature, sig_len, "host") != 0) {
+    unsigned char hash[32];
+    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+
+    if (verify_user(hash, 32, signature, sig_len, "host") != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -445,9 +454,8 @@ exit:
 // operation function for secure_command
 int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
     // check authority to get paid the balance (ex. user's signature with settlement params)
-    if (verify_user(command, cmd_len, signature, sig_len, string(sessionID, sessionID_len)) != 0) {
-        return ERR_NO_AUTHORITY;
-    }
+    unsigned char hash[32];
+    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
     char* _cmd = strtok((char*) command, " ");
     char* _sender_address = strtok(NULL, " ");
@@ -463,10 +471,15 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
         return ERR_INVALID_PARAMS;
     }
 
-    // No account for this user address in rouTEE
-    if (state.users.find(sender_address) == state.users.end()) {
-        printf("No account exists for this user address in rouTEE\n");
-        return ERR_INVALID_PARAMS;
+    if (state.verify_keys.find(sender_address) == state.verify_keys.end()) {
+        printf("No verification public key for this address exists.\n");
+        return ERR_NO_USER_ACCOUNT;
+    }
+
+    string public_key = state.verify_keys[sender_address];
+
+    if (verify_user(hash, 32, signature, sig_len, public_key) != 0) {
+        return ERR_NO_AUTHORITY;
     }
 
     Account* account = state.users[sender_address];
@@ -523,7 +536,7 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
     }
 
     // send random address & block info to the sender
-    response_msg = (generated_address + " " + long_long_to_string(latest_block_number)).c_str();
+    //response_msg = (generated_address + " " + long_long_to_string(latest_block_number)).c_str();
 
     return NO_ERROR;
 }
@@ -533,9 +546,9 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
     //
     // TODO: BITCOIN
     // check authority to get paid the balance (ex. user's signature with settlement params)
-    if (verify_user(command, cmd_len, signature, sig_len, string(sessionID, sessionID_len)) != 0) {
-        return ERR_NO_AUTHORITY;
-    }
+    unsigned char hash[32];
+    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+
 
     char* _cmd = strtok((char*) command, " ");
     char* _user_address = strtok(NULL, " ");
@@ -552,13 +565,23 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
     }
 
     string user_address(_user_address, BITCOIN_ADDRESS_LEN);
-
+    unsigned long long amount = strtoull(_amount, NULL, 10);
+    
     if (!CBitcoinAddress(user_address).IsValid()) {
         printf("Invalid user address for settle balance\n");
         return ERR_INVALID_PARAMS;
     }
 
-    unsigned long long amount = strtoull(_amount, NULL, 10);
+    if (state.verify_keys.find(user_address) == state.verify_keys.end()) {
+        printf("No verification public key for this address exists.\n");
+        return ERR_NO_USER_ACCOUNT;
+    }    
+
+    string public_key = state.verify_keys[user_address];
+
+    if (verify_user(hash, 32, signature, sig_len, public_key) != 0) {
+        return ERR_NO_AUTHORITY;
+    }
 
     // amount should be bigger than minimum settle amount
     // minimum settle amount = tax to make settlement tx with only 1 settle request user = maximum tax to make settle tx
@@ -794,9 +817,8 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
     //
     // TODO: BITCOIN
     // check authority to send (ex. sender's signature with these params)
-    if (verify_user(command, cmd_len, signature, sig_len, string(sessionID, sessionID_len)) != 0) {
-        return ERR_NO_AUTHORITY;
-    }
+    unsigned char hash[32];
+    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
     char* _cmd = strtok((char*) command, " ");
     char* _sender_address = strtok(NULL, " ");
@@ -836,6 +858,17 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
     if (!CBitcoinAddress(receiver_address).IsValid()) {
         printf("Invalid receiver address for multihop payment\n");
         return ERR_INVALID_PARAMS;
+    }
+
+    if (state.verify_keys.find(sender_address) == state.verify_keys.end()) {
+        printf("No verification public key for this address exists.\n");
+        return ERR_NO_USER_ACCOUNT;
+    }
+
+    string public_key = state.verify_keys[sender_address];
+
+    if (verify_user(hash, 32, signature, sig_len, public_key) != 0) {
+        return ERR_NO_AUTHORITY;
     }
 
     // check the sender exists & has more than amount + fee to send
@@ -898,14 +931,21 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
     return NO_ERROR;
 }
 
-int secure_add_user(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* _user_pubkey, int pubkey_len, const char* response_msg) {
+int secure_add_user(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
     // initialize ECC State for Bitcoin Library
     initializeECCState();
-    CPubKey user_pubkey = CPubKey(_user_pubkey, _user_pubkey + pubkey_len);
+    CPubKey user_pubkey = CPubKey(command + 37, command + 37 + 65);
 
     if (!user_pubkey.IsValid()) {
         printf("Invalid public key\n");
         return ERR_INVALID_PARAMS;
+    }
+
+    unsigned char hash[32];
+    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+
+    if (verify_user(hash, 32, signature, sig_len, string(command + 37, 65)) != 0) {
+        return ERR_NO_AUTHORITY;
     }
 
     char* _cmd = strtok((char*) command, " ");
@@ -929,10 +969,6 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
 
     // get latest block in rouTEE
     // temp code
-
-    state.verify_keys[string(sessionID, sessionID_len)] = string(_user_pubkey, pubkey_len);
-    
-
     if (state.users.find(sender_address) != state.users.end()) {
         printf("rouTEE account already exists for this public key\n");
         return ERR_NO_AUTHORITY;
@@ -945,13 +981,17 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
     acc->settle_address = settle_address;
     state.users[sender_address] = acc;
     
+    state.verify_keys[sender_address] = string(command + 37, 65);
+
     // print result
     if (doPrint) {
         printf("sender address: %s / settle address: %s\n", sender_address.c_str(), settle_address.c_str());
     }
 
     // send random address & block info to the sender
-    // response_msg = (generated_address + " " + long_long_to_string(latest_block_number)).c_str();
+    // string response_str = "User account has been generated! sender address: " + sender_address + ", settle address: " + settle_address + "\n";
+    // memcpy((char*) response_msg, response_str.c_str(), response_str.length() + 1);
+    response_msg = ("User account has been generated! sender address: " + sender_address + ", settle address: " + settle_address + "\n").c_str();
 
     return 0;
 }
@@ -963,9 +1003,9 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     // check authority to change SPV block
     // ex. verify user's signature
     //
-    if (verify_user(command, cmd_len, signature, sig_len, string(sessionID, sessionID_len)) != 0) {
-        return ERR_NO_AUTHORITY;
-    }
+    unsigned char hash[32];
+    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+
 
     char* _cmd = strtok((char*) command, " ");
     char* _user_address = strtok(NULL, " ");
@@ -980,16 +1020,18 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
         return ERR_INVALID_PARAMS;
     }
 
-    char* _block_hash = strtok(NULL, " ");
-    if (_block_hash == NULL) {
-        printf("No block hash for update last SPV block\n");
-        return ERR_INVALID_PARAMS;
-    }  
+    // TODO: fix
+    // char* _block_hash = strtok(NULL, " ");
+    // if (_block_hash == NULL) {
+    //     printf("No block hash for update last SPV block\n");
+    //     return ERR_INVALID_PARAMS;
+    // }  
 
     string user_address(_user_address, BITCOIN_ADDRESS_LEN);
     unsigned long long block_number = strtoull(_block_number, NULL, 10);
-    uint256 block_hash;
-    block_hash.SetHex(string(_block_hash, BITCOIN_HEADER_HASH_LEN));
+    // TODO: fix
+    // uint256 block_hash;
+    // block_hash.SetHex(string(_block_hash, BITCOIN_HEADER_HASH_LEN));
     
 
     if (!CBitcoinAddress(user_address).IsValid()) {
@@ -1003,9 +1045,20 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     }
 
     // check user has same block with rouTEE
-    if (state.block_hash[block_number] != block_hash) {
-        printf("Given block hash is different from rouTEE has\n");
-        return ERR_INVALID_PARAMS;
+    // TODO: fix
+    // if (state.block_hash[block_number] != block_hash) {
+    //     printf("Given block hash is different from rouTEE has\n");
+    //     return ERR_INVALID_PARAMS;
+    // }
+    if (state.verify_keys.find(user_address) == state.verify_keys.end()) {
+        printf("No verification public key for this address exists.\n");
+        return ERR_NO_USER_ACCOUNT;
+    }
+
+    string public_key = state.verify_keys[user_address];
+
+    if (verify_user(hash, 32, signature, sig_len, public_key) != 0) {
+        return ERR_NO_AUTHORITY;
     }
 
     // check the user exists
@@ -1125,10 +1178,8 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
 
     string sender_addr;
     DepositRequest* dr;
-    if (tx_hash_len == 65) {
+    if (tx_hash_len == 64) {
         sender_addr = string(manager_address, manager_addr_len);
-        string sessionID = "user" + long_long_to_string((unsigned long long) tx_index);
-        state.verify_keys[sessionID] = string(tx_hash, tx_hash_len);
     }
     else {
         // get the deposit request for this deposit tx
@@ -1149,7 +1200,7 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
         state.users[sender_addr] = acc;
     }
 
-    // if (tx_hash_len == 65) {
+    // if (tx_hash_len == 64) {
     //     state.users[sender_addr]->settle_address = sender_addr;
     // }
     // else {
@@ -1176,17 +1227,17 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
 
     // add deposit
     Deposit* deposit = new Deposit;
-    deposit->tx_hash = string(tx_hash, tx_hash_len);
+    deposit->tx_hash = (tx_hash_len == 64)? "deposit_tx_hash_user" + long_long_to_string((unsigned long long) tx_index) : string(tx_hash, tx_hash_len);
     deposit->tx_index = tx_index;
-    if (tx_hash_len == 65) {
-        deposit->manager_private_key = "deposit_manager_private_key";
+    if (tx_hash_len == 64) {
+        deposit->manager_private_key = "deposit_manager_private_key_user" + long_long_to_string((unsigned long long) tx_index);
     }
     else {
         deposit->manager_private_key = dr->manager_private_key;
     }
     state.deposits.push(deposit);
 
-    if (tx_hash_len != 65) {
+    if (tx_hash_len != 64) {
         // delete deposit request
         delete dr;
         state.deposit_requests.erase(string(manager_address, manager_addr_len));
@@ -1200,7 +1251,7 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
 
     // print result
     if (doPrint) {
-        if (tx_hash_len != 65) {
+        if (tx_hash_len != 64) {
             printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", dr->sender_address.c_str(), balance_for_user, balance_for_tx_fee);
         }
         else {
@@ -1493,14 +1544,14 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
 
     char *decSignature = decMessage + decCommandLen + 1;
 
-    printf("decCommand: %s, %d\n\n", decCommand, decCommandLen);
+    // printf("decCommand: %s, %d\n\n", decCommand, decCommandLen);
 
     // find appropriate operation
     char operation = params[0][0];
     int operation_result;
     const char* response_msg;
     if (operation == OP_GET_READY_FOR_DEPOSIT) {
-        operation_result = secure_get_ready_for_deposit(decCommand, decCommandLen - 1, sessionID, sessionID_len, decSignature - 1, decSignatureLen + 1, response_msg);
+        operation_result = secure_get_ready_for_deposit(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
     }
     else if (operation == OP_SETTLE_BALANCE) {
         operation_result = secure_settle_balance(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
@@ -1509,7 +1560,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
         operation_result = secure_do_multihop_payment(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
     }
     else if (operation == OP_ADD_USER) {
-        operation_result = secure_add_user(decCommand, decCommandLen - 1, sessionID, sessionID_len, decSignature - 1, decSignatureLen + 1, response_msg);
+        operation_result = secure_add_user(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
     }
     else if (operation == OP_UPDATE_LATEST_SPV_BLOCK) {
         operation_result = secure_update_latest_SPV_block(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);

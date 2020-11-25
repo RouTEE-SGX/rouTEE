@@ -251,15 +251,14 @@ def secure_command(message, sessionID):
     
 
 def executeCommand(command):
-    print(command)
-
+    # print(command)
     isForDeposit = False
 
     # secure command option
     if command[0] == 't':
         isSecure = True
         # OP_GET_READY_FOR_DEPOSIT
-        if command[2] == 'j':
+        if command[2] == 'v':
             isForDeposit = True
     else:
         isSecure = False
@@ -320,19 +319,18 @@ def executeCommand(command):
 
     if isForDeposit:
         pubkey = b"\x04" + vk.pubkey.point.x().to_bytes(32, 'big') + vk.pubkey.point.y().to_bytes(32, 'big')
-        message = command + b" " + pubkey
+        command = command + b" " + pubkey
 
-    else:
-        sig = sk.sign(command, hashfunc=hashlib.sha256)
-        print(command)
+    sig = sk.sign(command, hashfunc=hashlib.sha256)
+    # print(command)
 
-        try:
-            vk.verify(sig, command, hashfunc=hashlib.sha256)
-            print("good signature")
-        except:
-            print("bad signature")
+    try:
+        vk.verify(sig, command, hashfunc=hashlib.sha256)
+        print("good signature")
+    except:
+        print("bad signature")
 
-        message = command + b" " + sig
+    message = command + b" " + sig
 
     if isSecure:
         # execute secure_command
