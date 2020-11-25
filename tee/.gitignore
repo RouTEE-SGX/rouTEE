@@ -5,7 +5,7 @@ remake.sh
 owner.key.encrypted
 state.encrypted
 core
-client/scripts/s*
+client/scripts/script*
 client/scripts/runMakeScript
 client/resultLogs/*
 client/test.py

@@ -101,15 +101,19 @@ def runScript(fileName):
         return
 
     # command count
+    addUserCount = 0
+    DepositReqCount = 0
+    DepositTxCount = 0
     paymentCount = 0
-    settleCount = 0
-    createChannelCount = 0
+    settleReqCount = 0
     updateSPVCount = 0
 
     # command execution time sum (microsec)
+    addUserTimeSum = 0
+    DepositReqTimeSum = 0
+    DepositTxTimeSum = 0
     paymentTimeSum = 0
-    settleTimeSum = 0
-    createChannelTimeSum = 0
+    settleReqTimeSum = 0
     updateSPVTimeSum = 0
 
     totalStartTime = datetime.now()
@@ -162,20 +166,30 @@ def runScript(fileName):
                 pass
 
             # logging execution time info
-            if command[0][0] == 'r':
-                createChannelCount = createChannelCount + 1
-                createChannelTimeSum = createChannelTimeSum + elapsedMicrosec
-                with open("experiment/newAccountResult", "at") as f1:
+            if command[0][0] == 't' and command[0][2] == 'v':
+                addUserCount = addUserCount + 1
+                addUserTimeSum = addUserTimeSum + elapsedMicrosec
+                with open("experiment/addUserResult", "at") as f1:
                     f1.write(repr(elapsedMicrosec) + "\n")
-            elif command[0][0] == 't' and command[0][2] == 'l':
-                settleCount = settleCount + 1
-                settleTimeSum = settleTimeSum + elapsedMicrosec
-                with open("experiment/settleRequestResult", "at") as f1:
+            elif command[0][0] == 't' and command[0][2] == 'j':
+                depositReqCount = depositReqCount + 1
+                depositReqTimeSum = depositReqTimeSum + elapsedMicrosec
+                with open("experiment/depositReqResult", "at") as f1:
+                    f1.write(repr(elapsedMicrosec) + "\n")
+            elif command[0][0] == 'r':
+                depositTxCount = depositTxCount + 1
+                depositTxTimeSum = depositTxTimeSum + elapsedMicrosec
+                with open("experiment/depositTxResult", "at") as f1:
                     f1.write(repr(elapsedMicrosec) + "\n")
             elif command[0][0] == 't' and command[0][2] == 'm':
                 paymentCount = paymentCount + 1
                 paymentTimeSum = paymentTimeSum + elapsedMicrosec
                 with open("experiment/paymentResult", "at") as f1:
+                    f1.write(repr(elapsedMicrosec) + "\n")
+            elif command[0][0] == 't' and command[0][2] == 'l':
+                settleReqCount = settleReqCount + 1
+                settleReqTimeSum = settleReqTimeSum + elapsedMicrosec
+                with open("experiment/settleReqResult", "at") as f1:
                     f1.write(repr(elapsedMicrosec) + "\n")
             elif command[0][0] == 't' and command[0][2] == 'q':
                 updateSPVCount = updateSPVCount + 1

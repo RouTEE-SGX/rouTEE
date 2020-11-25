@@ -27,6 +27,7 @@ def base58(address_hex):
         b58_string = '1' + b58_string
     return b58_string
 
+# Generate ECC private key, public key and bitcoin address
 def makeNewAddresses(addressNumber):
     with open("scriptAddress", "wt") as f:
         for i in range(addressNumber):
@@ -67,6 +68,7 @@ def makeNewAddresses(addressNumber):
 
             network_bitcoin_public_key_bytes = b'\x6f' + ripemd160_bpk_digest
 
+            # Double hashing for checksum
             sha256_nbpk = hashlib.sha256(network_bitcoin_public_key_bytes)
             sha256_nbpk_digest = sha256_nbpk.digest()
             sha256_2_nbpk = hashlib.sha256(sha256_nbpk_digest)
@@ -74,10 +76,12 @@ def makeNewAddresses(addressNumber):
             sha256_2_hex = codecs.encode(sha256_2_nbpk_digest, 'hex')
             checksum = sha256_2_hex[:8]
 
+            # base58 encoding
             bitcoin_address = base58(codecs.encode(network_bitcoin_public_key_bytes, 'hex') + checksum)
             f.write("{}\n".format(bitcoin_address))
             # print("bitcoin_address: ", bitcoin_address)
 
+# Script for generating rouTEE accounts
 def makeNewAccounts(accountNumber):
     if not os.path.exists("scriptAddress"):
         makeNewAddresses(accountNumber)
@@ -89,17 +93,20 @@ def makeNewAccounts(accountNumber):
         
             f.write("t v {} user{}\n".format(settle_address, rdr.line_num - 1))
 
+# Script for generating deposit requests
 def getReadyForDeposit(accountNumber):
     if not os.path.exists("scriptAddress"):
         makeNewAddresses(accountNumber)
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
-    with open("scriptDepositRequest", "wt") as f:
+    with open("scriptDepositReq", "wt") as f:
         for address in rdr:
             user_address = address[0]
         
             f.write("t j {} user{}\n".format(user_address, rdr.line_num - 1))
 
+# Script for managing deposit transactions
+# Should be used only for testing
 def dealWithDepositTxs(accountNumber):
     if not os.path.exists("scriptAddress"):
         print("execute makeNewAddresses first\n")
@@ -112,6 +119,7 @@ def dealWithDepositTxs(accountNumber):
         
             f.write("r {} {} 100000000 100 user{}\n".format(user_address, rdr.line_num - 1, rdr.line_num - 1))
 
+# Script for payments among users
 def doMultihopPayments(paymentNumber):
     if not os.path.exists("scriptAddress"):
         print("execute makeNewAddresses first\n")
@@ -138,6 +146,7 @@ def doMultihopPayments(paymentNumber):
         
             f.write("t m {} {} 10 1 user{}\n".format(sender_address, receiver_address, sender_index))
 
+# Script for generating settle requests
 def settleBalanceRequest(settleTxNumber):
     if not os.path.exists("scriptAddress"):
         print("execute makeNewAddresses first\n")
@@ -150,7 +159,7 @@ def settleBalanceRequest(settleTxNumber):
     for address in rdr:
         address_list.append(address[0])
 
-    with open("scriptSettle", "wt") as f:
+    with open("scriptSettleReq", "wt") as f:
         for i in range(settleTxNumber):
             user_index = random.randint(0, len(address_list) - 1)
 
@@ -158,6 +167,7 @@ def settleBalanceRequest(settleTxNumber):
         
             f.write("t l {} 100000 user{}\n".format(user_address, user_index))
 
+# Script for updating boundary block number
 def updateLatestSPV(updateSPVNumber):
     if not os.path.exists("scriptAddress"):
         print("execute makeNewAddresses first\n")
