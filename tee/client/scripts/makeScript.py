@@ -6,6 +6,11 @@ import csv
 import ecdsa
 import codecs
 import hashlib
+from Cryptodome.Cipher import AES
+from Cryptodome.Random import get_random_bytes
+from Cryptodome.Hash import SHA256
+from Cryptodome.PublicKey import ECC
+from Cryptodome.Signature import DSS
 
 def base58(address_hex):
     alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -27,6 +32,159 @@ def base58(address_hex):
         b58_string = '1' + b58_string
     return b58_string
 
+# encryption/decryption setting
+KEY_SIZE = 16 # bytes
+MAC_SIZE = 16 # bytes
+NONCE_SIZE = 12 # bytes
+
+# print byte array
+def print_hex_bytes(name, byte_array):
+    # print('{} len[{}]: '.format(name, len(byte_array)), end='')
+    for idx, c in enumerate(byte_array):
+        # print("{:02x}".format(int(c)), end='')
+        pass
+    # print("")
+
+# generate random key
+def gen_random_key():
+    return get_random_bytes(KEY_SIZE)
+
+# generate random nonce (= Initialization Vector, IV)
+def gen_random_nonce():
+    return get_random_bytes(NONCE_SIZE)
+
+# AES-GCM encryption
+def enc(key, aad, nonce, plain_data):
+
+    # AES-GCM cipher
+    cipher = AES.new(key, AES.MODE_GCM, nonce)
+
+    # add AAD (Additional Associated Data)
+    # cipher.update(aad)
+
+    # encrypt plain data & get MAC tag
+    cipher_data = cipher.encrypt(plain_data)
+    mac = cipher.digest()
+    return cipher_data, mac
+
+# AES-GCM decryption
+def dec(key, aad, nonce, cipher_data, mac):
+
+    # AES128-GCM cipher
+    cipher = AES.new(key, AES.MODE_GCM, nonce)
+    
+    # add AAD (Additional Associated Data)
+    # cipher.update(aad)
+
+    try:
+        # try decrypt
+        plain_data = cipher.decrypt_and_verify(cipher_data, mac)
+        return plain_data
+    except ValueError:
+        # ERROR: wrong MAC tag, data is contaminated
+        return None
+
+def executeCommand(command):
+    # print(command)
+    isForDeposit = False
+
+    # secure command option
+    if command[0] == 't':
+        isSecure = True
+        # OP_GET_READY_FOR_DEPOSIT
+        if command[2] == 'v':
+            isForDeposit = True
+    else:
+        isSecure = False
+        if command[0] == 'r':
+            isForDeposit = True
+
+
+
+    # # message: byte encoding of command
+    # message = command.encode('utf-8')
+
+    # # generate ECDSA signature
+    # private_key = ECC.import_key(open('./key/private_key_host.pem').read())
+    # h = SHA256.new(message)
+    # signer = DSS.new(private_key, 'fips-186-3')
+    # signature = signer.sign(h)
+
+    # # verify the signature
+    # public_key = ECC.import_key(open('./key/public_key_host.pem').read())
+    # h = SHA256.new(message)
+    # verifier = DSS.new(public_key, 'fips-186-3')
+    # try:
+    #     verifier.verify(h, signature)
+    #     print("The message is authentic.")
+    # except ValueError:
+    #     print("The message is not authentic.")
+
+    # r = signature[:signer._order_bytes]
+    # s = signature[signer._order_bytes:]
+
+    # # print signature
+    # print(r, s)
+
+    split_command = command.split(" ")
+    #print(split_command)
+
+    # commnad's last string means message sender 
+    user = split_command[-1]
+
+    if isSecure:
+        # remove 't ' from command
+        command = " ".join(split_command[1:-1])
+    else:
+        command = " ".join(split_command[:-1])
+
+    # encode command
+    command = command.encode('utf-8')
+
+    # encryption using ECDSA
+    try:
+        with open("../key/private_key_{}.pem".format(user), "rb") as f:
+            sk = ecdsa.SigningKey.from_pem(f.read())
+        with open("../key/public_key_{}.pem".format(user), "rb") as f:
+            vk = ecdsa.VerifyingKey.from_pem(f.read())
+    except:
+        print("no user key")
+        print("public_key_{}.pem".format(user))
+        exit()
+
+    if isForDeposit:
+        pubkey = b"\x04" + vk.pubkey.point.x().to_bytes(32, 'big') + vk.pubkey.point.y().to_bytes(32, 'big')
+        command = command + b" " + pubkey
+
+    sig = sk.sign(command, hashfunc=hashlib.sha256)
+    # print(command)
+
+    try:
+        vk.verify(sig, command, hashfunc=hashlib.sha256)
+    except:
+        print("bad signature")
+        exit()
+
+    message = command + b" " + sig
+
+    if isSecure:
+        # execute secure_command
+        # print("secure command")
+        return secure_command(message, user)
+    else:
+        return message
+
+def secure_command(message, sessionID):
+    # encrypt command with (hardcoded) symmetric key
+    key = bytes([0x0,0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xa,0xb,0xc,0xd,0xe,0xf])
+    aad = bytes([0])
+    nonce = gen_random_nonce()
+    # print("plain text command:", command[2:])
+    enc_cmd, mac = enc(key, aad, nonce, message)
+    secure_cmd = mac + nonce + enc_cmd
+    secure_cmd = ("p {} ".format(sessionID)).encode('utf-8') + secure_cmd
+    return secure_cmd
+
 # Generate ECC private key, public key and bitcoin address
 def makeNewAddresses(addressNumber):
     with open("scriptAddress", "wt") as f:
@@ -46,12 +204,13 @@ def makeNewAddresses(addressNumber):
             # address._generate_publicaddress1_testnet()
             
             # f.write("{}\n".format(address.pubaddr1_testnet))
+            userID = "user" + format(i, '03')
 
             sk = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)
             vk = sk.get_verifying_key()
-            with open("../key/private_key_user{}.pem".format(i), "wb") as f1:
+            with open("../key/private_key_{}.pem".format(userID), "wb") as f1:
                 f1.write(sk.to_pem())
-            with open("../key/public_key_user{}.pem".format(i), "wb") as f2:
+            with open("../key/public_key_{}.pem".format(userID), "wb") as f2:
                 f2.write(vk.to_pem())
 
             public_key_bytes = b"\x04" +  vk.to_string()
@@ -87,11 +246,15 @@ def makeNewAccounts(accountNumber):
         makeNewAddresses(accountNumber)
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
-    with open("scriptAddUser", "wt") as f:
+    with open("scriptAddUser", "wt") as fscript, open("signedAddUser", "wb") as fsigned:
         for address in rdr:
             settle_address = address[0]
-        
-            f.write("t v {} user{}\n".format(settle_address, rdr.line_num - 1))
+            userID = "user" + format(rdr.line_num - 1, '03')
+            command = "t v {} {}".format(settle_address, userID)
+            fscript.write(command + "\n")
+
+            signedCommand = executeCommand(command)
+            fsigned.write(signedCommand)
 
 # Script for generating deposit requests
 def getReadyForDeposit(accountNumber):
@@ -99,11 +262,16 @@ def getReadyForDeposit(accountNumber):
         makeNewAddresses(accountNumber)
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
-    with open("scriptDepositReq", "wt") as f:
+    with open("scriptDepositReq", "wt") as fscript, open("signedDepositReq", "wb") as fsigned:
         for address in rdr:
             user_address = address[0]
-        
-            f.write("t j {} user{}\n".format(user_address, rdr.line_num - 1))
+            userID = "user" + format(rdr.line_num - 1, '03')        
+            command = "t j {} {}".format(user_address, userID)
+            fscript.write(command + "\n")
+
+            signedCommand = executeCommand(command)
+            fsigned.write(signedCommand)
+
 
 # Script for managing deposit transactions
 # Should be used only for testing
@@ -113,11 +281,15 @@ def dealWithDepositTxs(accountNumber):
         return
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
-    with open("scriptDepositTx", "wt") as f:
+    with open("scriptDepositTx", "wt") as fscript, open("signedDepositTx", "wb") as fsigned:
         for address in rdr:
             user_address = address[0]
-        
-            f.write("r {} {} 100000000 100 user{}\n".format(user_address, rdr.line_num - 1, rdr.line_num - 1))
+            userID = "user" + format(rdr.line_num - 1, '03')         
+            command = "r {} 0 100000000 100 {}".format(user_address, userID)
+            fscript.write(command + "\n")
+
+            signedCommand = executeCommand(command)
+            fsigned.write(signedCommand)
 
 # Script for payments among users
 def doMultihopPayments(paymentNumber):
@@ -133,7 +305,7 @@ def doMultihopPayments(paymentNumber):
     for address in rdr:
         address_list.append(address[0])
 
-    with open("scriptPayment", "wt") as f:
+    with open("scriptPayment", "wt") as fscript, open("signedPayment", "wb") as fsigned:
         for i in range(paymentNumber):
             sender_index = random.randint(0, len(address_list) - 1)
             while True:
@@ -143,8 +315,12 @@ def doMultihopPayments(paymentNumber):
 
             sender_address = address_list[sender_index]
             receiver_address = address_list[receiver_index]
-        
-            f.write("t m {} {} 10 1 user{}\n".format(sender_address, receiver_address, sender_index))
+            senderID = "user" + format(sender_index, '03')        
+            command = "t m {} {} 10 1 {}".format(sender_address, receiver_address, senderID)
+            fscript.write(command + "\n")
+
+            signedCommand = executeCommand(command)
+            fsigned.write(signedCommand)
 
 # Script for generating settle requests
 def settleBalanceRequest(settleTxNumber):
@@ -159,13 +335,17 @@ def settleBalanceRequest(settleTxNumber):
     for address in rdr:
         address_list.append(address[0])
 
-    with open("scriptSettleReq", "wt") as f:
+    with open("scriptSettleReq", "wt") as fscript, open("signedSettleReq", "wb") as fsigned:
         for i in range(settleTxNumber):
             user_index = random.randint(0, len(address_list) - 1)
 
             user_address = address_list[user_index]
-        
-            f.write("t l {} 100000 user{}\n".format(user_address, user_index))
+            userID = "user" + format(user_index, '03')
+            command = "t l {} 100000 {}".format(user_address, userID)
+            fscript.write(command + "\n")
+
+            signedCommand = executeCommand(command)
+            fsigned.write(signedCommand)
 
 # Script for updating boundary block number
 def updateLatestSPV(updateSPVNumber):
@@ -180,13 +360,17 @@ def updateLatestSPV(updateSPVNumber):
     for address in rdr:
         address_list.append(address[0])
 
-    with open("scriptUpdateSPV", "wt") as f:
+    with open("scriptUpdateSPV", "wt") as fscript, open("signedUpdateSPV", "wb") as fsigned:
         for i in range(updateSPVNumber):
             user_index = random.randint(0, len(address_list) - 1)
 
             user_address = address_list[user_index]
-        
-            f.write("t q {} 3000 user{}\n".format(user_address, user_index))
+            userID = "user" + format(user_index, '03')
+            command = "t q {} 3000 {}".format(user_address, userID)
+            fscript.write(command + "\n")
+
+            signedCommand = executeCommand(command)
+            fsigned.write(signedCommand)
 
 def createChannels(channelNumber, scriptName):
 
@@ -288,12 +472,14 @@ if __name__ == '__main__':
         makeNewAccounts(accountNumber)
         getReadyForDeposit(accountNumber)
         dealWithDepositTxs(accountNumber)
+        settleBalanceRequest(accountNumber)
+        updateLatestSPV(accountNumber)
         paymentNumber = eval(input("how many rouTEE payments to generate: "))
         doMultihopPayments(paymentNumber)
-        settleRequestNumber = eval(input("how many rouTEE settle balance requests to generate: "))
-        settleBalanceRequest(settleRequestNumber)
-        updateSPVNumber = eval(input("how many rouTEE SPV block updates to generate: "))
-        updateLatestSPV(updateSPVNumber)
+        # settleRequestNumber = eval(input("how many rouTEE settle balance requests to generate: "))
+        # settleBalanceRequest(settleRequestNumber)
+        # updateSPVNumber = eval(input("how many rouTEE SPV block updates to generate: "))
+        # updateLatestSPV(updateSPVNumber)
 
         scriptName = "scriptForAll"
 

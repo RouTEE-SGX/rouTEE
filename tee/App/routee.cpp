@@ -18,6 +18,9 @@
 #include <curl/curl.h>
 #include "json.h"
 
+#include <iostream>
+#include <fstream>
+
 namespace ThreadPool {
 
 class ThreadPool {
@@ -392,18 +395,18 @@ void set_owner() {
     }
 
     // load host's public key for authentication
-    EVP_PKEY* pPubKey  = NULL;
-    FILE* pFile = NULL;
+    // EVP_PKEY* pPubKey  = NULL;
+    // FILE* pFile = NULL;
 
-    if((pFile = fopen("./client/key/public_key_host.pem","rt")) && 
-        (pPubKey = PEM_read_PUBKEY(pFile,NULL,NULL,NULL)))
-    {
-        printf("Public key read.\n");
-    }
-    else
-    {
-        printf("Cannot read \"pubkey.pem\".\n");
-    }
+    // if((pFile = fopen("./client/key/public_key_host.pem","rt")) && 
+    //     (pPubKey = PEM_read_PUBKEY(pFile,NULL,NULL,NULL)))
+    // {
+    //     printf("Public key read.\n");
+    // }
+    // else
+    // {
+    //     printf("Cannot read \"pubkey.pem\".\n");
+    // }
     
     // load owner key's address
     // printf("load owner key\n");
@@ -843,16 +846,16 @@ void secure_command(char* request, int request_len, int sd) {
     state_save_counter++;
 
     // send response to client
-    int error_index = ecall_return;
-    if (error_index != NO_ERROR) {
-        // encryption faild in secure_command, just send plain response msg
-        const char* response = "failed encryption in secure_command()";
-        send(sd, response, strlen(response), 0);
-    }
-    else {
-        // send encrypted response to the client
-        send(sd, encrypted_response, encrypted_response_len, 0);
-    }
+    // int error_index = ecall_return;
+    // if (error_index != NO_ERROR) {
+    //     // encryption faild in secure_command, just send plain response msg
+    //     const char* response = "failed encryption in secure_command()";
+    //     send(sd, response, strlen(response), 0);
+    // }
+    // else {
+    //     // send encrypted response to the client
+    //     send(sd, encrypted_response, encrypted_response_len, 0);
+    // }
 
     // @ Luke Park
     // sleep(1);
@@ -937,166 +940,318 @@ int SGX_CDECL main(int argc, char* argv[]){
     // TODO: merge this function with load_state()
     set_owner();
 
-    // run socket server to get commands
-    int opt = TRUE;
-    int master_socket, addrlen, new_socket, client_socket[30], activity, read_len, sd;
-    int max_sd;
-    struct sockaddr_in address;
-    char request[MAX_MSG_SIZE+1];  // data buffer of 1K
-    const char* response;
+    int ACCOUNT_NUM = atoi(argv[1]);
+    int PAYMENT_NUM = atoi(argv[2]);
 
-    // set of socket descriptors
-    fd_set readfds;
-    
-    // initialise all client_socket[] to 0 so not checked
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        client_socket[i] = 0;
-    }
-
-    // create a master socket
-    if((master_socket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
-    }
-    
-    // set master socket to allow multiple connections,
-    // this is just a good habit, it will work without this
-    if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) < 0 ) {
-        perror("setsockopt");
-        exit(EXIT_FAILURE);
-    }
-    
-    // type of socket created
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = inet_addr(SERVER_IP);
-    address.sin_port = htons(SERVER_PORT);
-
-    // bind the socket to SERVER_IP:SERVER_PORT
-    if (bind(master_socket, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
-    }
-    // printf("Listener on port %d \n", SERVER_PORT);
-
-    // try to specify maximum of 3 pending connections for the master socket
-    if (listen(master_socket, 3) < 0) {
-        perror("listen");
-        exit(EXIT_FAILURE);
-    }
-
-    // accept the incoming connection
-    addrlen = sizeof(address);
-    puts("Waiting for connections ...");
-
-    // @ Luke Park
-    // num of threads
-    ThreadPool::ThreadPool pool(1);
-
-    while(TRUE) {
-        // clear the socket set
-        FD_ZERO(&readfds);
-
-        // add master socket to set
-        FD_SET(master_socket, &readfds);
-        max_sd = master_socket;
-
-        // add child sockets to set
-        for (int i = 0; i < MAX_CLIENTS; i++) {
-            // socket descriptor
-            sd = client_socket[i];
-            
-            // if valid socket descriptor then add to read list
-            if(sd > 0) {
-                FD_SET(sd , &readfds);
-            }
-            
-            // highest file descriptor number, need it for the select function  
-            if(sd > max_sd) {
-                max_sd = sd;
-            }
-            
+    {
+        char tmp = 'a';
+        std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+        for (int count = 0; count < PAYMENT_NUM; count++) {
+            execute_command(&tmp, 1);
         }
+        std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+        std::chrono::duration<double> sec = end - start;
+        std::cout << "Elapsed time for payment with " << PAYMENT_NUM << " times: "  << sec.count() << " seconds" << std::endl;
+    }
 
-        // wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely  
-        activity = select(max_sd + 1, &readfds, NULL, NULL, NULL);   
 
-        if ((activity < 0) && (errno != EINTR)) {
-            // printf("select error");
+    {
+        std::ifstream is("client/scripts/signedAddUser", std::ios::in | std::ios::binary);
+        is.seekg(0, is.end);
+        int length = (int)is.tellg();
+
+        is.seekg(0, is.beg);
+        unsigned char * buffer = (unsigned char*)malloc(length);
+
+        is.read((char*)buffer, length);
+        is.close();
+        unsigned char* ptr = buffer;
+
+        for (int count = 0; count < ACCOUNT_NUM; count++) {
+            secure_command((char*) ptr, length / ACCOUNT_NUM, count);
+            ptr += length / ACCOUNT_NUM;
         }
+    }
+
+    {
+        std::ifstream is("client/scripts/signedDepositReq", std::ios::in | std::ios::binary);
+        is.seekg(0, is.end);
+        int length = (int)is.tellg();
+
+        is.seekg(0, is.beg);
+        unsigned char * buffer = (unsigned char*)malloc(length);
+
+        is.read((char*)buffer, length);
+        is.close();
+        unsigned char* ptr = buffer;
+
+        for (int count = 0; count < ACCOUNT_NUM; count++) {
+            secure_command((char*) ptr, length / ACCOUNT_NUM, count);
+            ptr += length / ACCOUNT_NUM;
+        }
+    }
+
+    {
+        std::ifstream is("client/scripts/signedDepositTx", std::ios::in | std::ios::binary);
+        is.seekg(0, is.end);
+        int length = (int)is.tellg();
+
+        is.seekg(0, is.beg);
+        unsigned char * buffer = (unsigned char*)malloc(length);
+
+        is.read((char*)buffer, length);
+        is.close();
+        unsigned char* ptr = buffer;
+
+        for (int count = 0; count < ACCOUNT_NUM; count++) {
+            execute_command((char*) ptr, length / ACCOUNT_NUM);
+            ptr += length / ACCOUNT_NUM;
+        }
+    }
+
+    {
+        std::ifstream is("client/scripts/signedPayment", std::ios::in | std::ios::binary);
+        is.seekg(0, is.end);
+        int length = (int)is.tellg();
+
+        is.seekg(0, is.beg);
+        unsigned char * buffer = (unsigned char*)malloc(length);
+
+        is.read((char*)buffer, length);
+        is.close();
+        unsigned char* ptr = buffer;
+        std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+        for (int count = 0; count < PAYMENT_NUM; count++) {
+            secure_command((char*) ptr, length / PAYMENT_NUM, count);
+            ptr += length / PAYMENT_NUM;
+        }
+        std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+        std::chrono::duration<double> sec = end - start;
+        std::cout << "Elapsed time for payment with " << PAYMENT_NUM << " times: "  << sec.count() << " seconds" << std::endl;
+    }
+
+    {
+        std::ifstream is("client/scripts/signedSettleReq", std::ios::in | std::ios::binary);
+        is.seekg(0, is.end);
+        int length = (int)is.tellg();
+
+        is.seekg(0, is.beg);
+        unsigned char * buffer = (unsigned char*)malloc(length);
+
+        is.read((char*)buffer, length);
+        is.close();
+        unsigned char* ptr = buffer;
+
+
+        for (int count = 0; count < ACCOUNT_NUM; count++) {
+            secure_command((char*) ptr, length / ACCOUNT_NUM, count);
+            ptr += length / ACCOUNT_NUM;
+        }
+    }
+
+    // {
+    //     std::ifstream is("client/scripts/signedUpdateSPV", std::ios::in | std::ios::binary);
+    //     is.seekg(0, is.end);
+    //     int length = (int)is.tellg();
+
+    //     is.seekg(0, is.beg);
+    //     unsigned char * buffer = (unsigned char*)malloc(length);
+
+    //     is.read((char*)buffer, length);
+    //     is.close();
+    //     unsigned char* ptr = buffer;
+
+    //     for (int count = 0; count < ACCOUNT_NUM; count++) {
+    //         secure_command((char*) ptr, length / ACCOUNT_NUM, count);
+    //         ptr += length / ACCOUNT_NUM;
+    //     }
+    // }
+
+/************************************************************************************/
+
+    // if (operation == OP_SECURE_COMMAND) {
+    //     // @ Luke Park
+    //     // execute client's command      
+    
+    //     // /* Async */
+    //     // // std::async(std::launch::async, secure_command, request, read_len, sd);
+
+    //     /* ThreadPool */
+    //     pool.EnqueueJob(secure_command, request, read_len, sd);
+
+    //     /* Sync */
+    //     // secure_command(request, read_len, sd);
+
+    // }
+    // else {
+    //     // execute client's command
+    //     response = execute_command(request, read_len);
         
-        // If something happened on the master socket, then its an incoming connection
-        if (FD_ISSET(master_socket, &readfds)) {
-            if ((new_socket = accept(master_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
-                perror("accept");
-                exit(EXIT_FAILURE);
-            }
+    //     // send result to the client
+    //     send(sd, response, strlen(response), 0);
+    // }
+
+    
+    // // run socket server to get commands
+    // int opt = TRUE;
+    // int master_socket, addrlen, new_socket, client_socket[30], activity, read_len, sd;
+    // int max_sd;
+    // struct sockaddr_in address;
+    // char request[MAX_MSG_SIZE+1];  // data buffer of 1K
+    // const char* response;
+
+    // // set of socket descriptors
+    // fd_set readfds;
+    
+    // // initialise all client_socket[] to 0 so not checked
+    // for (int i = 0; i < MAX_CLIENTS; i++) {
+    //     client_socket[i] = 0;
+    // }
+
+    // // create a master socket
+    // if((master_socket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+    //     perror("socket failed");
+    //     exit(EXIT_FAILURE);
+    // }
+    
+    // // set master socket to allow multiple connections,
+    // // this is just a good habit, it will work without this
+    // if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) < 0 ) {
+    //     perror("setsockopt");
+    //     exit(EXIT_FAILURE);
+    // }
+    
+    // // type of socket created
+    // address.sin_family = AF_INET;
+    // address.sin_addr.s_addr = inet_addr(SERVER_IP);
+    // address.sin_port = htons(SERVER_PORT);
+
+    // // bind the socket to SERVER_IP:SERVER_PORT
+    // if (bind(master_socket, (struct sockaddr *)&address, sizeof(address)) < 0) {
+    //     perror("bind failed");
+    //     exit(EXIT_FAILURE);
+    // }
+    // // printf("Listener on port %d \n", SERVER_PORT);
+
+    // // try to specify maximum of 3 pending connections for the master socket
+    // if (listen(master_socket, 3) < 0) {
+    //     perror("listen");
+    //     exit(EXIT_FAILURE);
+    // }
+
+    // // accept the incoming connection
+    // addrlen = sizeof(address);
+    // puts("Waiting for connections ...");
+
+    // // @ Luke Park
+    // // num of threads
+    // ThreadPool::ThreadPool pool(1);
+
+    // while(TRUE) {
+    //     // clear the socket set
+    //     FD_ZERO(&readfds);
+
+    //     // add master socket to set
+    //     FD_SET(master_socket, &readfds);
+    //     max_sd = master_socket;
+
+    //     // add child sockets to set
+    //     for (int i = 0; i < MAX_CLIENTS; i++) {
+    //         // socket descriptor
+    //         sd = client_socket[i];
             
-            // inform user of socket number - used in send and receive commands
-            // printf("New connection , socket fd is %d , ip is : %s , port : %d\n" , new_socket , inet_ntoa(address.sin_addr) , ntohs (address.sin_port));
-
-            // add new socket to array of sockets
-            for (int i = 0; i < MAX_CLIENTS; i++) {
-                // if position is empty
-                if(client_socket[i] == 0) {
-                    client_socket[i] = new_socket;
-                    // printf("Adding to list of sockets as %d\n" , i);
-                    break;
-                }
-            }
-
-        }
-
-        // else its some IO operation on some other socket
-        for (int i = 0; i < MAX_CLIENTS; i++) {
-            sd = client_socket[i];
+    //         // if valid socket descriptor then add to read list
+    //         if(sd > 0) {
+    //             FD_SET(sd , &readfds);
+    //         }
             
-            if (FD_ISSET(sd , &readfds)) {
-                // Check if it was for closing, and also read the incoming message
-                if ((read_len = read(sd, request, MAX_MSG_SIZE)) == 0) {
-                    // Somebody disconnected, get his details and print
-                    getpeername(sd , (struct sockaddr*)&address, (socklen_t*)&addrlen);
-                    // printf("Host disconnected, ip %s, port %d \n", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+    //         // highest file descriptor number, need it for the select function  
+    //         if(sd > max_sd) {
+    //             max_sd = sd;
+    //         }
+            
+    //     }
 
-                    // Close the socket and mark as 0 in list for reuse
-                    close(sd);
-                    client_socket[i] = 0;
-                }
-                // Echo back the message that came in
-                else {
-                    // set the string terminating NULL byte on the end of the data read
-                    request[read_len] = '\0';
-                    // printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
+    //     // wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely  
+    //     activity = select(max_sd + 1, &readfds, NULL, NULL, NULL);   
 
-                    // execute client's command
-                    char operation = request[0];
-                    if (operation == OP_SECURE_COMMAND) {
-                        // @ Luke Park
-                        // execute client's command      
+    //     if ((activity < 0) && (errno != EINTR)) {
+    //         // printf("select error");
+    //     }
+        
+    //     // If something happened on the master socket, then its an incoming connection
+    //     if (FD_ISSET(master_socket, &readfds)) {
+    //         if ((new_socket = accept(master_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
+    //             perror("accept");
+    //             exit(EXIT_FAILURE);
+    //         }
+            
+    //         // inform user of socket number - used in send and receive commands
+    //         // printf("New connection , socket fd is %d , ip is : %s , port : %d\n" , new_socket , inet_ntoa(address.sin_addr) , ntohs (address.sin_port));
+
+    //         // add new socket to array of sockets
+    //         for (int i = 0; i < MAX_CLIENTS; i++) {
+    //             // if position is empty
+    //             if(client_socket[i] == 0) {
+    //                 client_socket[i] = new_socket;
+    //                 // printf("Adding to list of sockets as %d\n" , i);
+    //                 break;
+    //             }
+    //         }
+
+    //     }
+
+    //     // else its some IO operation on some other socket
+    //     for (int i = 0; i < MAX_CLIENTS; i++) {
+    //         sd = client_socket[i];
+            
+    //         if (FD_ISSET(sd , &readfds)) {
+    //             // Check if it was for closing, and also read the incoming message
+    //             if ((read_len = read(sd, request, MAX_MSG_SIZE)) == 0) {
+    //                 // Somebody disconnected, get his details and print
+    //                 getpeername(sd , (struct sockaddr*)&address, (socklen_t*)&addrlen);
+    //                 // printf("Host disconnected, ip %s, port %d \n", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+
+    //                 // Close the socket and mark as 0 in list for reuse
+    //                 close(sd);
+    //                 client_socket[i] = 0;
+    //             }
+    //             // Echo back the message that came in
+    //             else {
+    //                 // set the string terminating NULL byte on the end of the data read
+    //                 request[read_len] = '\0';
+    //                 // printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
+
+    //                 // execute client's command
+    //                 char operation = request[0];
+    //                 if (operation == OP_SECURE_COMMAND) {
+    //                     // @ Luke Park
+    //                     // execute client's command      
                   
-                        // /* Async */
-                        // // std::async(std::launch::async, secure_command, request, read_len, sd);
+    //                     // /* Async */
+    //                     // // std::async(std::launch::async, secure_command, request, read_len, sd);
 
-                        /* ThreadPool */
-                        pool.EnqueueJob(secure_command, request, read_len, sd);
+    //                     /* ThreadPool */
+    //                     pool.EnqueueJob(secure_command, request, read_len, sd);
 
-                        /* Sync */
-                        // secure_command(request, read_len, sd);
+    //                     /* Sync */
+    //                     // secure_command(request, read_len, sd);
 
-                    }
-                    else {
-                        // execute client's command
-                        response = execute_command(request, read_len);
+    //                 }
+    //                 else {
+    //                     // execute client's command
+    //                     response = execute_command(request, read_len);
                         
-                        // send result to the client
-                        send(sd, response, strlen(response), 0);
-                    }
-                    // printf("execution result: %s\n\n", response);
+    //                     // send result to the client
+    //                     send(sd, response, strlen(response), 0);
+    //                 }
+    //                 // printf("execution result: %s\n\n", response);
 
-                }
-            }
-        }
+    //             }
+    //         }
+    //     }
 
-    }
+    // }
 
     // destroy the enclave
     sgx_destroy_enclave(global_eid);

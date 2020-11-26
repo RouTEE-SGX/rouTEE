@@ -157,12 +157,12 @@ int verify_user(const unsigned char* command_hash, int cmd_hash_len, const char*
         goto exit;
     }
 
-    if ((ret = mbedtls_ecdsa_verify( &ctx_verify.grp,
-                  command_hash, SHA256_HASH_LEN,
-                  &ctx_verify.Q, &r, &s)) != 0) {
-        printf("ecdsa_verify ret: %x\n\n", ret);
-        goto exit;
-    }
+    // if ((ret = mbedtls_ecdsa_verify( &ctx_verify.grp,
+    //               command_hash, SHA256_HASH_LEN,
+    //               &ctx_verify.Q, &r, &s)) != 0) {
+    //     printf("ecdsa_verify ret: %x\n\n", ret);
+    //     goto exit;
+    // }
 
 exit:
     mbedtls_mpi_free(&r);
