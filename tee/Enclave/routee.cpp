@@ -89,7 +89,7 @@ void printf(const char* fmt, ...) {
     ocall_print_string(buf); // OCall
 }
 
-int verify_user(const unsigned char* command, int cmd_len, const char* signature, int sig_len, string public_key) {
+int verify_user(const unsigned char* command_hash, int cmd_hash_len, const char* signature, int sig_len, string public_key) {
     // hard-coded for alice's public key
     // char *_input = "MHQCAQEEIBw8tZ8KWVRPaBNFfaFp4sTeLLJGxdo5QIV4wQgdTZLWoAcGBSuBBAAKoUQDQgAER8COHjvsBtdXSL33gWCLqK0nXSpeAT5s3UIaG+QaknZvE3Bw0R+JluoY1RTROr4yzq2T2hHxkNOPYFTsVxCneA==";
     // unsigned char *input = reinterpret_cast<unsigned char *>(_input);
@@ -115,7 +115,7 @@ int verify_user(const unsigned char* command, int cmd_len, const char* signature
     unsigned char* pubkey = (unsigned char*) public_key.c_str();
     size_t pubkey_len = public_key.length();
 
-    //unsigned char hash[32];
+    //unsigned char hash[SHA256_HASH_LEN];
     int ret = 1;
 
     mbedtls_ecdsa_context ctx_verify;
@@ -148,17 +148,17 @@ int verify_user(const unsigned char* command, int cmd_len, const char* signature
     /*
      * Verify signature
      */
-    if ((ret = mbedtls_mpi_read_binary( &r, (unsigned char*) signature, 32 )) != 0) {
+    if ((ret = mbedtls_mpi_read_binary( &r, (unsigned char*) signature, ECDSA_SIGNATURE_LEN / 2 )) != 0) {
         printf("mpi_read_binary r ret: %x\n", ret);
         goto exit;
     }
-    if ((ret = mbedtls_mpi_read_binary( &s, (unsigned char*) signature + 32, 32 )) != 0) {
+    if ((ret = mbedtls_mpi_read_binary( &s, (unsigned char*) signature + ECDSA_SIGNATURE_LEN / 2, ECDSA_SIGNATURE_LEN / 2 )) != 0) {
         printf("mpi_read_binary s ret: %x\n", ret);
         goto exit;
     }
 
     if ((ret = mbedtls_ecdsa_verify( &ctx_verify.grp,
-                  command, 32,
+                  command_hash, SHA256_HASH_LEN,
                   &ctx_verify.Q, &r, &s)) != 0) {
         printf("ecdsa_verify ret: %x\n\n", ret);
         goto exit;
@@ -177,10 +177,10 @@ int ecall_set_routing_fee(const char* command, int cmd_len, const char* signatur
     // TODO: BITCOIN
     // check authority to set new routing fee (ex. rouTEE host's signature)
     
-    unsigned char hash[32];
+    unsigned char hash[SHA256_HASH_LEN];
     mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
-    if (verify_user(hash, 32, signature, sig_len, "host") != 0) {
+    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, "host") != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -208,10 +208,10 @@ int ecall_set_routing_fee_address(const char* command, int cmd_len, const char* 
     // TODO: BITCOIN
     // check authority to set new routing fee (ex. rouTEE host's signature)
 
-    unsigned char hash[32];
+    unsigned char hash[SHA256_HASH_LEN];
     mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
-    if (verify_user(hash, 32, signature, sig_len, "host") != 0) {
+    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, "host") != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -245,10 +245,10 @@ int ecall_settle_routing_fee(const char* command, int cmd_len, const char* signa
     //
     // TODO: BITCOIN
     // check authority to set new routing fee (ex. rouTEE host's signature)
-    unsigned char hash[32];
+    unsigned char hash[SHA256_HASH_LEN];
     mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
-    if (verify_user(hash, 32, signature, sig_len, "host") != 0) {
+    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, "host") != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -454,7 +454,7 @@ exit:
 // operation function for secure_command
 int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
     // check authority to get paid the balance (ex. user's signature with settlement params)
-    unsigned char hash[32];
+    unsigned char hash[SHA256_HASH_LEN];
     mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
     char* _cmd = strtok((char*) command, " ");
@@ -478,9 +478,11 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
 
     string public_key = state.verify_keys[sender_address];
 
-    if (verify_user(hash, 32, signature, sig_len, public_key) != 0) {
+    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
         return ERR_NO_AUTHORITY;
     }
+
+    sgx_thread_mutex_lock(&state_mutex);
 
     Account* account = state.users[sender_address];
     // printf("secure_get_ready_for_deposit: %s, %s\n\n", sender_address.c_str(), settle_address.c_str());
@@ -538,6 +540,8 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
     // send random address & block info to the sender
     //response_msg = (generated_address + " " + long_long_to_string(latest_block_number)).c_str();
 
+    sgx_thread_mutex_unlock(&state_mutex);
+
     return NO_ERROR;
 }
 
@@ -546,7 +550,7 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
     //
     // TODO: BITCOIN
     // check authority to get paid the balance (ex. user's signature with settlement params)
-    unsigned char hash[32];
+    unsigned char hash[SHA256_HASH_LEN];
     mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
 
@@ -579,7 +583,7 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
 
     string public_key = state.verify_keys[user_address];
 
-    if (verify_user(hash, 32, signature, sig_len, public_key) != 0) {
+    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -597,6 +601,9 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
         // user is not in the state || has not enough balance
         return ERR_NOT_ENOUGH_BALANCE;
     }
+
+    sgx_thread_mutex_lock(&state_mutex);
+
     Account* user_acc = iter->second;
 
     // push new waiting settle request
@@ -628,6 +635,8 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
     if (doPrint) {
         printf("user %s requested settlement: %llu satoshi\n", user_address.c_str(), amount);
     }
+
+    sgx_thread_mutex_unlock(&state_mutex);
 
     return NO_ERROR;
 }
@@ -817,7 +826,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
     //
     // TODO: BITCOIN
     // check authority to send (ex. sender's signature with these params)
-    unsigned char hash[32];
+    unsigned char hash[SHA256_HASH_LEN];
     mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
     char* _cmd = strtok((char*) command, " ");
@@ -867,7 +876,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
 
     string public_key = state.verify_keys[sender_address];
 
-    if (verify_user(hash, 32, signature, sig_len, public_key) != 0) {
+    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -877,7 +886,6 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         // sender is not in the state || has not enough balance
         return ERR_NOT_ENOUGH_BALANCE;
     }
-    Account* sender_acc = iter->second;
 
     // check routing fee
     if (fee < state.routing_fee) {
@@ -890,6 +898,10 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         // receiver is not in the state
         return ERR_NO_RECEIVER;
     }
+
+    sgx_thread_mutex_lock(&state_mutex);
+
+    Account* sender_acc = iter->second;
     Account* receiver_acc = iter->second;
 
     // check the receiver is ready to get paid (temporarily deprecated for easy tests)
@@ -928,23 +940,25 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         // printf("user %s send %llu satoshi to user %s (routing fee: %llu)\n", sender_address.c_str(), amount, receiver_address.c_str(), fee);
     }
 
+    sgx_thread_mutex_unlock(&state_mutex);
+
     return NO_ERROR;
 }
 
 int secure_add_user(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
     // initialize ECC State for Bitcoin Library
     initializeECCState();
-    CPubKey user_pubkey = CPubKey(command + 37, command + 37 + 65);
+    CPubKey user_pubkey = CPubKey(command + 37, command + 37 + BITCOIN_PUBLIC_KEY_LEN);
 
     if (!user_pubkey.IsValid()) {
         printf("Invalid public key\n");
         return ERR_INVALID_PARAMS;
     }
 
-    unsigned char hash[32];
+    unsigned char hash[SHA256_HASH_LEN];
     mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
-    if (verify_user(hash, 32, signature, sig_len, string(command + 37, 65)) != 0) {
+    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, string(command + 37, BITCOIN_PUBLIC_KEY_LEN)) != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -973,6 +987,9 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
         printf("rouTEE account already exists for this public key\n");
         return ERR_NO_AUTHORITY;
     }
+
+    sgx_thread_mutex_lock(&state_mutex);
+
     // sender is not in the state, create new account
     Account* acc = new Account;
     acc->balance = 0;
@@ -981,7 +998,7 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
     acc->settle_address = settle_address;
     state.users[sender_address] = acc;
     
-    state.verify_keys[sender_address] = string(command + 37, 65);
+    state.verify_keys[sender_address] = string(command + 37, BITCOIN_PUBLIC_KEY_LEN);
 
     // print result
     if (doPrint) {
@@ -993,6 +1010,8 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
     // memcpy((char*) response_msg, response_str.c_str(), response_str.length() + 1);
     response_msg = ("User account has been generated! sender address: " + sender_address + ", settle address: " + settle_address + "\n").c_str();
 
+    sgx_thread_mutex_unlock(&state_mutex);
+
     return 0;
 }
 
@@ -1003,7 +1022,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     // check authority to change SPV block
     // ex. verify user's signature
     //
-    unsigned char hash[32];
+    unsigned char hash[SHA256_HASH_LEN];
     mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
 
@@ -1057,7 +1076,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
 
     string public_key = state.verify_keys[user_address];
 
-    if (verify_user(hash, 32, signature, sig_len, public_key) != 0) {
+    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
         return ERR_NO_AUTHORITY;
     }
 
@@ -1068,6 +1087,9 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
         // printf("address %s is not in the state\n", user_address);
         return ERR_ADDRESS_NOT_EXIST;
     }
+
+    sgx_thread_mutex_lock(&state_mutex);
+
     Account* user_acc = iter->second;
 
     // check the block number is larger than user's previous latest block number
@@ -1085,6 +1107,8 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
         // printf("user %s update SPV block number to %llu\n", user_address.c_str(), block_number);
     }
     
+    sgx_thread_mutex_unlock(&state_mutex);
+
     return NO_ERROR;
 }
 
@@ -1528,15 +1552,14 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     //
     // @ Luke Park
     // mutex lock
-    sgx_thread_mutex_lock(&state_mutex);
+    // sgx_thread_mutex_lock(&state_mutex);
 
     // parse the command to get parameters
     vector<string> params;
     string cmd = string(decMessage, decMessageLen);
     split(cmd, params, ' ');
 
-    const int decSignatureLen = 64;
-    const int decCommandLen = decMessageLen - decSignatureLen - 1;
+    const int decCommandLen = decMessageLen - ECDSA_SIGNATURE_LEN - 1;
 
     char *decCommand = (char *) malloc((decCommandLen+1)*sizeof(char));
     memcpy(decCommand, decMessage, decCommandLen);
@@ -1551,19 +1574,19 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     int operation_result;
     const char* response_msg;
     if (operation == OP_GET_READY_FOR_DEPOSIT) {
-        operation_result = secure_get_ready_for_deposit(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
+        operation_result = secure_get_ready_for_deposit(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, ECDSA_SIGNATURE_LEN, response_msg);
     }
     else if (operation == OP_SETTLE_BALANCE) {
-        operation_result = secure_settle_balance(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
+        operation_result = secure_settle_balance(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, ECDSA_SIGNATURE_LEN, response_msg);
     }
     else if (operation == OP_DO_MULTIHOP_PAYMENT) {
-        operation_result = secure_do_multihop_payment(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
+        operation_result = secure_do_multihop_payment(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, ECDSA_SIGNATURE_LEN, response_msg);
     }
     else if (operation == OP_ADD_USER) {
-        operation_result = secure_add_user(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
+        operation_result = secure_add_user(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, ECDSA_SIGNATURE_LEN, response_msg);
     }
     else if (operation == OP_UPDATE_LATEST_SPV_BLOCK) {
-        operation_result = secure_update_latest_SPV_block(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, decSignatureLen, response_msg);
+        operation_result = secure_update_latest_SPV_block(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, ECDSA_SIGNATURE_LEN, response_msg);
     }
     else {
         // invalid opcode
@@ -1575,7 +1598,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     //
     // @ Luke Park
     // mutex unlock
-    sgx_thread_mutex_unlock(&state_mutex);
+    // sgx_thread_mutex_unlock(&state_mutex);
 
     // encrypt the response for client & return NO_ERROR to hide the ecall result from rouTEE host
     if (operation_result != -1) {

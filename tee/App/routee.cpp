@@ -211,9 +211,9 @@ void print_error_message(sgx_status_t ret){
         if (ret == sgx_errlist[index].err){
             // find matching error in the sgx_errlist. print it
             if (sgx_errlist[index].sug != NULL){
-                // printf("Info: %s\n", sgx_errlist[index].sug);
+                printf("Info: %s\n", sgx_errlist[index].sug);
             }
-            // printf("Error: %s\n", sgx_errlist[index].msg);
+            printf("Error: %s\n", sgx_errlist[index].msg);
             return;
         }
     }
@@ -251,12 +251,12 @@ int initialize_enclave(void){
     FILE *fp = fopen(token_path, "rb");
     if (fp == NULL){
         // failed to open the launch token file
-        // printf("Warning: Failed to open the launch token file \"%s\".\n", token_path);
+        printf("Warning: Failed to open the launch token file \"%s\".\n", token_path);
     }
     // try to create new launch token file
     if ((fp = fopen(token_path, "wb")) == NULL){
         // failed to create a launch token file
-        // printf("Warning: Failed to create a launch token file \"%s\".\n", token_path);
+        printf("Warning: Failed to create a launch token file \"%s\".\n", token_path);
     }
     if (fp != NULL) {
         // read the token from saved file
@@ -264,7 +264,7 @@ int initialize_enclave(void){
         if (read_num != 0 && read_num != sizeof(sgx_launch_token_t)){
             // if token is invalid, clear the buffer
             memset(&token, 0x0, sizeof(sgx_launch_token_t));
-            // printf("Warning: Invalid launch token read from \"%s\".\n", token_path);
+            printf("Warning: Invalid launch token read from \"%s\".\n", token_path);
         }
     }
 
@@ -296,7 +296,7 @@ int initialize_enclave(void){
     }
     size_t write_num = fwrite(token, 1, sizeof(sgx_launch_token_t), fp);
     if (write_num != sizeof(sgx_launch_token_t)){
-        // printf("Warning: Failed to save launch token to \"%s\".\n", token_path);
+        printf("Warning: Failed to save launch token to \"%s\".\n", token_path);
     }
     fclose(fp);
     return 0;   // fail to save but success creating enclave, it's ok
