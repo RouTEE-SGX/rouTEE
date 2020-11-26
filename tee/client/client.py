@@ -102,16 +102,16 @@ def runScript(fileName):
 
     # command count
     addUserCount = 0
-    DepositReqCount = 0
-    DepositTxCount = 0
+    depositReqCount = 0
+    depositTxCount = 0
     paymentCount = 0
     settleReqCount = 0
     updateSPVCount = 0
 
     # command execution time sum (microsec)
     addUserTimeSum = 0
-    DepositReqTimeSum = 0
-    DepositTxTimeSum = 0
+    depositReqTimeSum = 0
+    depositTxTimeSum = 0
     paymentTimeSum = 0
     settleReqTimeSum = 0
     updateSPVTimeSum = 0
