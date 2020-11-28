@@ -10,10 +10,8 @@ import base64
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Hash import SHA256
-from Cryptodome.PublicKey import ECC, RSA
-from Cryptodome.Signature import DSS, pkcs1_15
-
-import ecdsa
+from Cryptodome.PublicKey import RSA
+from Cryptodome.Signature import pkcs1_15
 import hashlib
 
 # rouTEE IP address
@@ -130,23 +128,6 @@ def runScript(fileName):
         cnt = cnt + 1
 
         result, elapsed = executeCommand(command[0])
-
-        # # send cmd & measure execution time
-        # startTime = datetime.now()
-        # if command[0][0] == 't':
-        #     # send encrypted cmd & get encrypted response and decrypt it
-        #     secure_command(command[0])
-        #     continue
-        # else:
-        #     # send plain cmd & get plain response
-        #     client_socket.sendall(command[0].encode())
-        #     data = client_socket.recv(1024)
-        #     # check the result
-        #     if data.decode() != "SUCCESS":
-        #         # print("ERROR: command failed\n")
-        #         # print("error msg:", data.decode())
-        #         return
-        # elapsed = datetime.now() - startTime
 
         if result is None:
             print("something went wrong!\n")
@@ -296,16 +277,6 @@ def executeCommand(command):
     # encode command
     command = command.encode('utf-8')
 
-    # encryption using ECDSA
-    # try:
-    #     with open("./key/private_key_{}.pem".format(user)) as f:
-    #         sk = ecdsa.SigningKey.from_pem(f.read())
-    #     with open("./key/public_key_{}.pem".format(user)) as f:
-    #         vk = ecdsa.VerifyingKey.from_pem(f.read())
-    # except:
-    #     print("no user key")
-    #     return None, None
-
     try:
         with open("./key/private_key_{}.pem".format(user), "rb") as f:
             sk = RSA.import_key(f.read())
@@ -314,22 +285,6 @@ def executeCommand(command):
     except:
         print("no user key")
         exit()
-
-    # if isForDeposit:
-    #     pubkey = b"\x04" + vk.pubkey.point.x().to_bytes(32, 'big') + vk.pubkey.point.y().to_bytes(32, 'big')
-    #     command = command + b" " + pubkey
-
-    # sig = sk.sign(command, hashfunc=hashlib.sha256)
-    # # print(command)
-
-    # try:
-    #     vk.verify(sig, command, hashfunc=hashlib.sha256)
-    #     print("good signature")
-    # except:
-    #     print("bad signature")
-
-    # message = command + b" " + sig
-
 
     if isForDeposit:
         pubkey = (vk.n).to_bytes(384, 'little')
@@ -341,12 +296,6 @@ def executeCommand(command):
         # print(hash.digest().hex())
         sig = pkcs1_15.new(sk).sign(hash)
         message = command + b" " + sig
-
-        # try:
-        #     pkcs1_15.new(vk).verify(hash, sig)
-        # except:
-        #     print("bad signature")
-        #     exit()
 
     if isSecure:
         # execute secure_command

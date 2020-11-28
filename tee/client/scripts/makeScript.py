@@ -1,17 +1,16 @@
 from tqdm import tqdm
 import random
 import sys
-from bitcoinaddress import Wallet, Address, Key
+from bitcoinaddress import Address, Key
 import os.path
 import csv
-import ecdsa
 import codecs
 import hashlib
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from Crypto.Hash import SHA256
-from Crypto.PublicKey import ECC, RSA
-from Crypto.Signature import DSS, pkcs1_15
+from Crypto.PublicKey import RSA
+from Crypto.Signature import pkcs1_15
 
 def base58(address_hex):
     alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -100,33 +99,6 @@ def executeCommand(command):
         if command[0] == 'r':
             isForDeposit = True
 
-
-
-    # # message: byte encoding of command
-    # message = command.encode('utf-8')
-
-    # # generate ECDSA signature
-    # private_key = ECC.import_key(open('./key/private_key_host.pem').read())
-    # h = SHA256.new(message)
-    # signer = DSS.new(private_key, 'fips-186-3')
-    # signature = signer.sign(h)
-
-    # # verify the signature
-    # public_key = ECC.import_key(open('./key/public_key_host.pem').read())
-    # h = SHA256.new(message)
-    # verifier = DSS.new(public_key, 'fips-186-3')
-    # try:
-    #     verifier.verify(h, signature)
-    #     print("The message is authentic.")
-    # except ValueError:
-    #     print("The message is not authentic.")
-
-    # r = signature[:signer._order_bytes]
-    # s = signature[signer._order_bytes:]
-
-    # # print signature
-    # print(r, s)
-
     split_command = command.split(" ")
     #print(split_command)
 
@@ -142,17 +114,6 @@ def executeCommand(command):
     # encode command
     command = command.encode('utf-8')
 
-    # # encryption using ECDSA
-    # try:
-    #     with open("../key/private_key_{}.pem".format(user), "rb") as f:
-    #         sk = ecdsa.SigningKey.from_pem(f.read())
-    #     with open("../key/public_key_{}.pem".format(user), "rb") as f:
-    #         vk = ecdsa.VerifyingKey.from_pem(f.read())
-    # except:
-    #     print("no user key")
-    #     print("public_key_{}.pem".format(user))
-    #     exit()
-
     # encryption using RSA
     try:
         with open("../key/private_key_{}.pem".format(user), "rb") as f:
@@ -162,19 +123,6 @@ def executeCommand(command):
     except:
         print("no user key")
         exit()
-
-    # if isForDeposit:
-    #     pubkey = b"\x04" + vk.pubkey.point.x().to_bytes(32, 'big') + vk.pubkey.point.y().to_bytes(32, 'big')
-    #     command = command + b" " + pubkey
-
-    # sig = sk.sign(command, hashfunc=hashlib.sha256)
-    # # print(command)
-
-    # try:
-    #     vk.verify(sig, command, hashfunc=hashlib.sha256)
-    # except:
-    #     print("bad signature")
-    #     exit()
 
     if isForDeposit:
         pubkey = (vk.n).to_bytes(384, 'little')
@@ -195,7 +143,6 @@ def executeCommand(command):
 
     if isSecure:
         # execute secure_command
-        # print("secure command")
         return secure_command(message, user)
     else:
         return message
@@ -233,41 +180,6 @@ def makeNewAddresses(addressNumber):
             address._generate_publicaddress1_testnet()
             
             f.write("{}\n".format(address.pubaddr1_testnet))
-
-
-            # sk = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)
-            # vk = sk.get_verifying_key()
-            # with open("../key/private_key_{}.pem".format(userID), "wb") as f1:
-            #     f1.write(sk.to_pem())
-            # with open("../key/public_key_{}.pem".format(userID), "wb") as f2:
-            #     f2.write(vk.to_pem())
-
-            # public_key_bytes = b"\x04" +  vk.to_string()
-
-            # # Run SHA-256 for the public key
-            # sha256_bpk = hashlib.sha256(public_key_bytes)
-            # sha256_bpk_digest = sha256_bpk.digest()
-            # # Run RIPEMD-160 for the SHA-256
-            # ripemd160_bpk = hashlib.new('ripemd160')
-            # ripemd160_bpk.update(sha256_bpk_digest)
-            # ripemd160_bpk_digest = ripemd160_bpk.digest()
-
-            # ripemd160_bpk_hex = codecs.encode(ripemd160_bpk_digest, 'hex')
-
-            # network_bitcoin_public_key_bytes = b'\x6f' + ripemd160_bpk_digest
-
-            # # Double hashing for checksum
-            # sha256_nbpk = hashlib.sha256(network_bitcoin_public_key_bytes)
-            # sha256_nbpk_digest = sha256_nbpk.digest()
-            # sha256_2_nbpk = hashlib.sha256(sha256_nbpk_digest)
-            # sha256_2_nbpk_digest = sha256_2_nbpk.digest()
-            # sha256_2_hex = codecs.encode(sha256_2_nbpk_digest, 'hex')
-            # checksum = sha256_2_hex[:8]
-
-            # # base58 encoding
-            # bitcoin_address = base58(codecs.encode(network_bitcoin_public_key_bytes, 'hex') + checksum)
-            # f.write("{}\n".format(bitcoin_address))
-            # # print("bitcoin_address: ", bitcoin_address)
 
 # Script for generating rouTEE accounts
 def makeNewAccounts(accountNumber):
