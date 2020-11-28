@@ -47,6 +47,7 @@ You can see the msg `Waiting for connections ...` .
 $ cd tee/client
 $ mkdir key
 $ mkdir experiment
+$ pip3 install -r requirements.txt
 ```
 
 ### Make scripts
