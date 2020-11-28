@@ -18,6 +18,8 @@
 #include <curl/curl.h>
 #include "json.h"
 
+#define SGX_RSA3072_KEY_SIZE 384
+
 namespace ThreadPool {
 
 class ThreadPool {
@@ -433,7 +435,7 @@ vector<string> parse_request(const char* request) {
 
 // set routing fee
 int set_routing_fee(char* request, int request_len) {
-    int signature_len = 64;
+    int signature_len = SGX_RSA3072_KEY_SIZE;
     int command_len = request_len - signature_len - 1;
     char command[command_len + 1];
     strncpy(command, request, (size_t) command_len);
@@ -476,7 +478,7 @@ int set_routing_fee_address(char* request, int request_len) {
     // string fee_address = params[1];
     // string signature = params[2];
 
-    int signature_len = 64;
+    int signature_len = SGX_RSA3072_KEY_SIZE;
     int command_len = request_len - signature_len - 1;
     char command[command_len + 1];
     strncpy(command, request, (size_t) command_len);
@@ -687,7 +689,7 @@ int settle_routing_fee(char* request, int request_len) {
     // unsigned long long amount = strtoull(params[1].c_str(), NULL, 10);
     // string signature = params[2];
 
-    int signature_len = 64;
+    int signature_len = SGX_RSA3072_KEY_SIZE;
     int command_len = request_len - signature_len - 1;
     char command[command_len + 1];
     strncpy(command, request, (size_t) command_len);
@@ -738,7 +740,7 @@ int make_settle_transaction() {
 
 // insert deposit tx (for debugging)
 int insert_deposit_tx(char* request, int request_len) {
-    int signature_len = 64;
+    int signature_len = SGX_RSA3072_KEY_SIZE;
     int command_len = request_len - signature_len - 1;
     char command[command_len + 1];
     strncpy(command, request, (size_t) command_len);

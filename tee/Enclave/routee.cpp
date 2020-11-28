@@ -454,8 +454,11 @@ exit:
 // operation function for secure_command
 int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
     // check authority to get paid the balance (ex. user's signature with settlement params)
-    unsigned char hash[SHA256_HASH_LEN];
-    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+    // unsigned char hash[SHA256_HASH_LEN];
+    // mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+
+    char cmd_tmp[cmd_len];
+    memcpy(cmd_tmp, command, cmd_len);
 
     char* _cmd = strtok((char*) command, " ");
     char* _sender_address = strtok(NULL, " ");
@@ -478,9 +481,31 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
 
     string public_key = state.verify_keys[sender_address];
 
-    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
-        return ERR_NO_AUTHORITY;
-    }
+    // if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
+    //     return ERR_NO_AUTHORITY;
+    // }
+
+    sgx_rsa3072_public_key_t rsa_pubkey;
+    memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    // int8_t exp[SGX_RSA3072_PUB_EXP_SIZE] = {1, 0, 1, 0};
+    // memcpy(rsa_pubkey.exp, exp, SGX_RSA3072_PUB_EXP_SIZE);
+    rsa_pubkey.exp[0] = 1;
+    rsa_pubkey.exp[1] = 0;
+    rsa_pubkey.exp[2] = 1;
+    rsa_pubkey.exp[3] = 0;
+
+    sgx_rsa_result_t result;
+
+    sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
+
+    // if (result != SGX_RSA_VALID) {
+    //     printf("bad signature\n");
+    // }
+    // else {
+    //     printf("good signature\n");
+    // }
+
 
     sgx_thread_mutex_lock(&state_mutex);
 
@@ -550,9 +575,11 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
     //
     // TODO: BITCOIN
     // check authority to get paid the balance (ex. user's signature with settlement params)
-    unsigned char hash[SHA256_HASH_LEN];
-    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+    // unsigned char hash[SHA256_HASH_LEN];
+    // mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
+    char cmd_tmp[cmd_len];
+    memcpy(cmd_tmp, command, cmd_len);
 
     char* _cmd = strtok((char*) command, " ");
     char* _user_address = strtok(NULL, " ");
@@ -583,9 +610,30 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
 
     string public_key = state.verify_keys[user_address];
 
-    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
-        return ERR_NO_AUTHORITY;
-    }
+    // if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
+    //     return ERR_NO_AUTHORITY;
+    // }
+
+    sgx_rsa3072_public_key_t rsa_pubkey;
+    memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    // int8_t exp[SGX_RSA3072_PUB_EXP_SIZE] = {1, 0, 1, 0};
+    // memcpy(rsa_pubkey.exp, exp, SGX_RSA3072_PUB_EXP_SIZE);
+    rsa_pubkey.exp[0] = 1;
+    rsa_pubkey.exp[1] = 0;
+    rsa_pubkey.exp[2] = 1;
+    rsa_pubkey.exp[3] = 0;
+
+    sgx_rsa_result_t result;
+
+    sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
+
+    // if (result != SGX_RSA_VALID) {
+    //     printf("bad signature\n");
+    // }
+    // else {
+    //     printf("good signature\n");
+    // }
 
     // amount should be bigger than minimum settle amount
     // minimum settle amount = tax to make settlement tx with only 1 settle request user = maximum tax to make settle tx
@@ -826,8 +874,17 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
     //
     // TODO: BITCOIN
     // check authority to send (ex. sender's signature with these params)
-    unsigned char hash[SHA256_HASH_LEN];
-    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+
+    // unsigned char hash[SHA256_HASH_LEN];
+    // mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+
+    // for (int i = 0; i < SHA256_HASH_LEN; i++) {
+    //     printf("%x%x", hash[i] / 16, hash[i] % 16);
+    // }
+    // printf("\n");
+
+    char cmd_tmp[cmd_len];
+    memcpy(cmd_tmp, command, cmd_len);
 
     char* _cmd = strtok((char*) command, " ");
     char* _sender_address = strtok(NULL, " ");
@@ -876,9 +933,48 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
 
     string public_key = state.verify_keys[sender_address];
 
-    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
-        return ERR_NO_AUTHORITY;
+    // if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
+    //     return ERR_NO_AUTHORITY;
+    // }
+
+    sgx_rsa3072_public_key_t rsa_pubkey;
+    memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    // int8_t exp[SGX_RSA3072_PUB_EXP_SIZE] = {1, 0, 1, 0};
+    // memcpy(rsa_pubkey.exp, exp, SGX_RSA3072_PUB_EXP_SIZE);
+    rsa_pubkey.exp[0] = 1;
+    rsa_pubkey.exp[1] = 0;
+    rsa_pubkey.exp[2] = 1;
+    rsa_pubkey.exp[3] = 0;
+
+    // for (int i = 0; i < 10; i++) {
+    //     printf("%x%x", rsa_pubkey.mod[i] / 16, rsa_pubkey.mod[i] % 16);
+    // }
+    // printf("\n");
+
+    sgx_rsa_result_t result;
+
+    sgx_status_t retval = sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
+
+    // if (retval == SGX_ERROR_INVALID_PARAMETER) {
+    //     printf("SGX_ERROR_INVALID_PARAMETER\n");
+    // }
+    // else if (retval == SGX_ERROR_INVALID_PARAMETER) {
+    //     printf("SGX_ERROR_OUT_OF_MEMORY\n");
+    // }
+    // else if (retval == SGX_ERROR_UNEXPECTED) {
+    //     printf("SGX_ERROR_UNEXPECTED\n");
+    // }
+    //     else if (retval == SGX_SUCCESS) {
+    //     printf("SGX_SUCCESS\n");
+    // }
+
+    if (result != SGX_RSA_VALID) {
+        printf("bad signature\n");
     }
+    // else {
+    //     printf("good signature\n");
+    // }
 
     // check the sender exists & has more than amount + fee to send
     map<string, Account*>::iterator iter = state.users.find(sender_address);
@@ -948,38 +1044,55 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
 int secure_add_user(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
     // initialize ECC State for Bitcoin Library
     initializeECCState();
-    CPubKey user_pubkey = CPubKey(command + 37, command + 37 + BITCOIN_PUBLIC_KEY_LEN);
+    // CPubKey user_pubkey = CPubKey(command + 72, command + 72 + SGX_RSA3072_KEY_SIZE);
 
-    if (!user_pubkey.IsValid()) {
-        printf("Invalid public key\n");
+    // if (!user_pubkey.IsValid()) {
+    //     printf("Invalid public key\n");
+    //     return ERR_INVALID_PARAMS;
+    // }
+    // for (int i = 0; i < 10; i++) {
+    //     printf("%x%x\n", (unsigned int) signature[i] / 16, (unsigned int) signature[i] % 16);
+    // }
+    // printf("\n");
+
+    // unsigned char hash[SHA256_HASH_LEN];
+    // mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+
+    // if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, string(command + 72, SGX_RSA3072_KEY_SIZE)) != 0) {
+    //     return ERR_NO_AUTHORITY;
+    // }
+
+    char* _cmd = strtok((char*) command, " ");
+
+    char* _sender_address = strtok(NULL, " ");
+    if (_sender_address == NULL) {
+        printf("No sender address\n");
         return ERR_INVALID_PARAMS;
     }
 
-    unsigned char hash[SHA256_HASH_LEN];
-    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
-
-    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, string(command + 37, BITCOIN_PUBLIC_KEY_LEN)) != 0) {
-        return ERR_NO_AUTHORITY;
-    }
-
-    char* _cmd = strtok((char*) command, " ");
     char* _settle_address = strtok(NULL, " ");
     if (_settle_address == NULL) {
         printf("No settle address\n");
         return ERR_INVALID_PARAMS;
     }
 
+    string sender_address(_sender_address, BITCOIN_ADDRESS_LEN);
     string settle_address(_settle_address, BITCOIN_ADDRESS_LEN);
+
+    if (!CBitcoinAddress(sender_address).IsValid()) {
+        printf("Invalid sender address\n");
+        return ERR_INVALID_PARAMS;
+    }
 
     if (!CBitcoinAddress(settle_address).IsValid()) {
         printf("Invalid settle address\n");
         return ERR_INVALID_PARAMS;
     }    
 
-    CBitcoinAddress sender_addr;
-    sender_addr.Set(user_pubkey.GetID());
+    // CBitcoinAddress sender_addr;
+    // sender_addr.Set(user_pubkey.GetID());
 
-    std::string sender_address = sender_addr.ToString();
+    // std::string sender_address = sender_addr.ToString();
 
     // get latest block in rouTEE
     // temp code
@@ -987,6 +1100,23 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
         printf("rouTEE account already exists for this public key\n");
         return ERR_NO_AUTHORITY;
     }
+
+    // sgx_rsa3072_public_key_t rsa_pubkey;
+    // memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
+    // memcpy(rsa_pubkey.mod, signature, SGX_RSA3072_KEY_SIZE);
+    // int8_t exp[SGX_RSA3072_PUB_EXP_SIZE] = {1, 0, 1, 0};
+    // memcpy(rsa_pubkey.exp, exp, SGX_RSA3072_PUB_EXP_SIZE);
+    // rsa_pubkey.exp[0] = 1;
+    // rsa_pubkey.exp[1] = 0;
+    // rsa_pubkey.exp[2] = 1;
+    // rsa_pubkey.exp[3] = 0;
+
+    // sgx_rsa_result_t result;
+
+    // sgx_rsa3072_verify((uint8_t*) hash, 32, &pubkey, (sgx_rsa3072_signature_t*) signature, &result);
+
+
+    // printf("%d\n", result);
 
     sgx_thread_mutex_lock(&state_mutex);
 
@@ -998,7 +1128,15 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
     acc->settle_address = settle_address;
     state.users[sender_address] = acc;
     
-    state.verify_keys[sender_address] = string(command + 37, BITCOIN_PUBLIC_KEY_LEN);
+    state.verify_keys[sender_address] = string(signature, SGX_RSA3072_KEY_SIZE);
+    
+    // sgx_rsa3072_key_t rsa_pubkey;
+    // sgx_rsa3072_signature_t rsa_sig;
+
+    // sgx_rsa3072_sign(hash, 32,
+	// const sgx_rsa3072_key_t * p_key,
+	// sgx_rsa3072_signature_t * p_signature)
+
 
     // print result
     if (doPrint) {
@@ -1022,9 +1160,11 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     // check authority to change SPV block
     // ex. verify user's signature
     //
-    unsigned char hash[SHA256_HASH_LEN];
-    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
+    // unsigned char hash[SHA256_HASH_LEN];
+    // mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
+    char cmd_tmp[cmd_len];
+    memcpy(cmd_tmp, command, cmd_len);
 
     char* _cmd = strtok((char*) command, " ");
     char* _user_address = strtok(NULL, " ");
@@ -1076,9 +1216,31 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
 
     string public_key = state.verify_keys[user_address];
 
-    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
-        return ERR_NO_AUTHORITY;
-    }
+    // if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
+    //     return ERR_NO_AUTHORITY;
+    // }
+
+    sgx_rsa3072_public_key_t rsa_pubkey;
+    memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    // int8_t exp[SGX_RSA3072_PUB_EXP_SIZE] = {1, 0, 1, 0};
+    // memcpy(rsa_pubkey.exp, exp, SGX_RSA3072_PUB_EXP_SIZE);
+    rsa_pubkey.exp[0] = 1;
+    rsa_pubkey.exp[1] = 0;
+    rsa_pubkey.exp[2] = 1;
+    rsa_pubkey.exp[3] = 0;
+
+
+    sgx_rsa_result_t result;
+
+    sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
+
+    // if (result != SGX_RSA_VALID) {
+    //     printf("bad signature\n");
+    // }
+    // else {
+    //     printf("good signature\n");
+    // }
 
     // check the user exists
     map<string, Account*>::iterator iter = state.users.find(user_address);
@@ -1202,7 +1364,7 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
 
     string sender_addr;
     DepositRequest* dr;
-    if (tx_hash_len == 64) {
+    if (tx_hash_len == SGX_RSA3072_KEY_SIZE) {
         sender_addr = string(manager_address, manager_addr_len);
     }
     else {
@@ -1224,7 +1386,7 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
         state.users[sender_addr] = acc;
     }
 
-    // if (tx_hash_len == 64) {
+    // if (tx_hash_len == SGX_RSA3072_KEY_SIZE) {
     //     state.users[sender_addr]->settle_address = sender_addr;
     // }
     // else {
@@ -1251,9 +1413,9 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
 
     // add deposit
     Deposit* deposit = new Deposit;
-    deposit->tx_hash = (tx_hash_len == 64)? "deposit_tx_hash_user" + long_long_to_string((unsigned long long) tx_index) : string(tx_hash, tx_hash_len);
+    deposit->tx_hash = (tx_hash_len == SGX_RSA3072_KEY_SIZE)? "deposit_tx_hash_user" + long_long_to_string((unsigned long long) tx_index) : string(tx_hash, tx_hash_len);
     deposit->tx_index = tx_index;
-    if (tx_hash_len == 64) {
+    if (tx_hash_len == SGX_RSA3072_KEY_SIZE) {
         deposit->manager_private_key = "deposit_manager_private_key_user" + long_long_to_string((unsigned long long) tx_index);
     }
     else {
@@ -1261,7 +1423,7 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
     }
     state.deposits.push(deposit);
 
-    if (tx_hash_len != 64) {
+    if (tx_hash_len != SGX_RSA3072_KEY_SIZE) {
         // delete deposit request
         delete dr;
         state.deposit_requests.erase(string(manager_address, manager_addr_len));
@@ -1275,7 +1437,7 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
 
     // print result
     if (doPrint) {
-        if (tx_hash_len != 64) {
+        if (tx_hash_len != SGX_RSA3072_KEY_SIZE) {
             printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", dr->sender_address.c_str(), balance_for_user, balance_for_tx_fee);
         }
         else {
@@ -1559,7 +1721,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     string cmd = string(decMessage, decMessageLen);
     split(cmd, params, ' ');
 
-    const int decCommandLen = decMessageLen - ECDSA_SIGNATURE_LEN - 1;
+    const int decCommandLen = decMessageLen - SGX_RSA3072_KEY_SIZE - 1;
 
     char *decCommand = (char *) malloc((decCommandLen+1)*sizeof(char));
     memcpy(decCommand, decMessage, decCommandLen);
@@ -1574,19 +1736,19 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     int operation_result;
     const char* response_msg;
     if (operation == OP_GET_READY_FOR_DEPOSIT) {
-        operation_result = secure_get_ready_for_deposit(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, ECDSA_SIGNATURE_LEN, response_msg);
+        operation_result = secure_get_ready_for_deposit(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, SGX_RSA3072_KEY_SIZE, response_msg);
     }
     else if (operation == OP_SETTLE_BALANCE) {
-        operation_result = secure_settle_balance(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, ECDSA_SIGNATURE_LEN, response_msg);
+        operation_result = secure_settle_balance(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, SGX_RSA3072_KEY_SIZE, response_msg);
     }
     else if (operation == OP_DO_MULTIHOP_PAYMENT) {
-        operation_result = secure_do_multihop_payment(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, ECDSA_SIGNATURE_LEN, response_msg);
+        operation_result = secure_do_multihop_payment(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, SGX_RSA3072_KEY_SIZE, response_msg);
     }
     else if (operation == OP_ADD_USER) {
-        operation_result = secure_add_user(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, ECDSA_SIGNATURE_LEN, response_msg);
+        operation_result = secure_add_user(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, SGX_RSA3072_KEY_SIZE, response_msg);
     }
     else if (operation == OP_UPDATE_LATEST_SPV_BLOCK) {
-        operation_result = secure_update_latest_SPV_block(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, ECDSA_SIGNATURE_LEN, response_msg);
+        operation_result = secure_update_latest_SPV_block(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, SGX_RSA3072_KEY_SIZE, response_msg);
     }
     else {
         // invalid opcode

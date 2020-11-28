@@ -6,6 +6,7 @@ owner.key.encrypted
 state.encrypted
 core
 client/scripts/script*
+client/scripts/signed*
 client/scripts/runMakeScript
 client/resultLogs/*
 client/test.py
