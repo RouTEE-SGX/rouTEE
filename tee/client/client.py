@@ -10,8 +10,8 @@ import base64
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Hash import SHA256
-from Cryptodome.PublicKey import ECC
-from Cryptodome.Signature import DSS
+from Cryptodome.PublicKey import ECC, RSA
+from Cryptodome.Signature import DSS, pkcs1_15
 
 import ecdsa
 import hashlib
@@ -149,7 +149,7 @@ def runScript(fileName):
         if result is None:
             print("something went wrong!\n")
         else:
-            print(result)
+            # print(result)
 
             # calculate elapsed time
             elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
@@ -278,33 +278,6 @@ def executeCommand(command):
         isSecure = False
         if command[0] == 'r':
             isForDeposit = True
-    
-
-
-    # # message: byte encoding of command
-    # message = command.encode('utf-8')
-
-    # # generate ECDSA signature
-    # private_key = ECC.import_key(open('./key/private_key_host.pem').read())
-    # h = SHA256.new(message)
-    # signer = DSS.new(private_key, 'fips-186-3')
-    # signature = signer.sign(h)
-
-    # # verify the signature
-    # public_key = ECC.import_key(open('./key/public_key_host.pem').read())
-    # h = SHA256.new(message)
-    # verifier = DSS.new(public_key, 'fips-186-3')
-    # try:
-    #     verifier.verify(h, signature)
-    #     print("The message is authentic.")
-    # except ValueError:
-    #     print("The message is not authentic.")
-
-    # r = signature[:signer._order_bytes]
-    # s = signature[signer._order_bytes:]
-
-    # # print signature
-    # print(r, s)
 
     split_command = command.split(" ")
     #print(split_command)
@@ -322,29 +295,56 @@ def executeCommand(command):
     command = command.encode('utf-8')
 
     # encryption using ECDSA
+    # try:
+    #     with open("./key/private_key_{}.pem".format(user)) as f:
+    #         sk = ecdsa.SigningKey.from_pem(f.read())
+    #     with open("./key/public_key_{}.pem".format(user)) as f:
+    #         vk = ecdsa.VerifyingKey.from_pem(f.read())
+    # except:
+    #     print("no user key")
+    #     return None, None
+
     try:
-        with open("./key/private_key_{}.pem".format(user)) as f:
-            sk = ecdsa.SigningKey.from_pem(f.read())
-        with open("./key/public_key_{}.pem".format(user)) as f:
-            vk = ecdsa.VerifyingKey.from_pem(f.read())
+        with open("./key/private_key_{}.pem".format(user), "rb") as f:
+            sk = RSA.import_key(f.read())
+        with open("./key/public_key_{}.pem".format(user), "rb") as f:
+            vk = RSA.import_key(f.read())
     except:
         print("no user key")
-        return None, None
+        exit()
+
+    # if isForDeposit:
+    #     pubkey = b"\x04" + vk.pubkey.point.x().to_bytes(32, 'big') + vk.pubkey.point.y().to_bytes(32, 'big')
+    #     command = command + b" " + pubkey
+
+    # sig = sk.sign(command, hashfunc=hashlib.sha256)
+    # # print(command)
+
+    # try:
+    #     vk.verify(sig, command, hashfunc=hashlib.sha256)
+    #     print("good signature")
+    # except:
+    #     print("bad signature")
+
+    # message = command + b" " + sig
+
 
     if isForDeposit:
-        pubkey = b"\x04" + vk.pubkey.point.x().to_bytes(32, 'big') + vk.pubkey.point.y().to_bytes(32, 'big')
-        command = command + b" " + pubkey
+        pubkey = (vk.n).to_bytes(384, 'little')
+        # pubkey_hex = pubkey.hex()
+        # print(pubkey_hex)
+        message = command + b" " + pubkey
+    else:
+        hash = SHA256.new(command)
+        # print(hash.digest().hex())
+        sig = pkcs1_15.new(sk).sign(hash)
+        message = command + b" " + sig
 
-    sig = sk.sign(command, hashfunc=hashlib.sha256)
-    # print(command)
-
-    try:
-        vk.verify(sig, command, hashfunc=hashlib.sha256)
-        print("good signature")
-    except:
-        print("bad signature")
-
-    message = command + b" " + sig
+        # try:
+        #     pkcs1_15.new(vk).verify(hash, sig)
+        # except:
+        #     print("bad signature")
+        #     exit()
 
     if isSecure:
         # execute secure_command
@@ -399,7 +399,7 @@ if __name__ == "__main__":
             print("something went wrong! try again\n")
             
         else:
-            print(data)
+            # print(data)
             elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
             elapsedMillisec = elapsedMicrosec / 1000.0
             elapsedSec = elapsedMillisec / 1000.0
