@@ -274,7 +274,7 @@ def makeNewAccounts(accountNumber):
         makeNewAddresses(accountNumber)
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
-    with open("scriptAddUser", "wt") as fscript, open("signedAddUser", "wb") as fsigned:
+    with open("scriptAddUser", "wt") as fscript, open("signedAddUser", "w") as fsigned:
         for address in rdr:
             sender_address = address[0]
             settle_address = sender_address
@@ -283,7 +283,8 @@ def makeNewAccounts(accountNumber):
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
-            fsigned.write(signedCommand)
+            fsigned.write(signedCommand.hex())
+            fsigned.write('\n')
 
 # Script for generating deposit requests
 def getReadyForDeposit(accountNumber):
@@ -291,7 +292,7 @@ def getReadyForDeposit(accountNumber):
         makeNewAddresses(accountNumber)
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
-    with open("scriptDepositReq", "wt") as fscript, open("signedDepositReq", "wb") as fsigned:
+    with open("scriptDepositReq", "wt") as fscript, open("signedDepositReq", "w") as fsigned:
         for address in rdr:
             user_address = address[0]
             userID = "user" + format(rdr.line_num - 1, '03')        
@@ -299,8 +300,8 @@ def getReadyForDeposit(accountNumber):
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
-            fsigned.write(signedCommand)
-
+            fsigned.write(signedCommand.hex())
+            fsigned.write('\n')
 
 # Script for managing deposit transactions
 # Should be used only for testing
@@ -310,7 +311,7 @@ def dealWithDepositTxs(accountNumber):
         return
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
-    with open("scriptDepositTx", "wt") as fscript, open("signedDepositTx", "wb") as fsigned:
+    with open("scriptDepositTx", "wt") as fscript, open("signedDepositTx", "w") as fsigned:
         for address in rdr:
             user_address = address[0]
             userID = "user" + format(rdr.line_num - 1, '03')         
@@ -318,7 +319,8 @@ def dealWithDepositTxs(accountNumber):
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
-            fsigned.write(signedCommand)
+            fsigned.write(signedCommand.hex())
+            fsigned.write('\n')
 
 # Script for payments among users
 def doMultihopPayments(paymentNumber):
@@ -334,7 +336,7 @@ def doMultihopPayments(paymentNumber):
     for address in rdr:
         address_list.append(address[0])
 
-    with open("scriptPayment", "wt") as fscript, open("signedPayment", "wb") as fsigned:
+    with open("scriptPayment", "wt") as fscript, open("signedPayment", "w") as fsigned:
         for i in range(paymentNumber):
             sender_index = random.randint(0, len(address_list) - 1)
             while True:
@@ -349,7 +351,8 @@ def doMultihopPayments(paymentNumber):
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
-            fsigned.write(signedCommand)
+            fsigned.write(signedCommand.hex())
+            fsigned.write('\n')
 
 # Script for generating settle requests
 def settleBalanceRequest(settleTxNumber):
@@ -364,7 +367,7 @@ def settleBalanceRequest(settleTxNumber):
     for address in rdr:
         address_list.append(address[0])
 
-    with open("scriptSettleReq", "wt") as fscript, open("signedSettleReq", "wb") as fsigned:
+    with open("scriptSettleReq", "wt") as fscript, open("signedSettleReq", "w") as fsigned:
         for i in range(settleTxNumber):
             user_index = random.randint(0, len(address_list) - 1)
 
@@ -374,7 +377,8 @@ def settleBalanceRequest(settleTxNumber):
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
-            fsigned.write(signedCommand)
+            fsigned.write(signedCommand.hex())
+            fsigned.write('\n')
 
 # Script for updating boundary block number
 def updateLatestSPV(updateSPVNumber):
@@ -389,7 +393,7 @@ def updateLatestSPV(updateSPVNumber):
     for address in rdr:
         address_list.append(address[0])
 
-    with open("scriptUpdateSPV", "wt") as fscript, open("signedUpdateSPV", "wb") as fsigned:
+    with open("scriptUpdateSPV", "wt") as fscript, open("signedUpdateSPV", "w") as fsigned:
         for i in range(updateSPVNumber):
             user_index = random.randint(0, len(address_list) - 1)
 
@@ -399,7 +403,8 @@ def updateLatestSPV(updateSPVNumber):
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
-            fsigned.write(signedCommand)
+            fsigned.write(signedCommand.hex())
+            fsigned.write('\n')
 
 def createChannels(channelNumber, scriptName):
 

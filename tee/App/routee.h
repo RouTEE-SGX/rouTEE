@@ -29,7 +29,7 @@ int state_save_counter = 0;
 #define MAX_MSG_SIZE    1024
 #define MAX_CLIENTS 30
 #define SERVER_IP   "127.0.0.1"
-#define SERVER_PORT 7223
+#define SERVER_PORT 7327
 
 extern sgx_enclave_id_t global_eid; // global enclave id (from routee.cpp)
 

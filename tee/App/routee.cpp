@@ -26,6 +26,9 @@ class ThreadPool {
     public:
         ThreadPool(size_t num_threads);
         ~ThreadPool();
+        int workCount = 0;
+        std::chrono::system_clock::time_point start_time;
+        std::chrono::system_clock::time_point end_time;
 
     template <class F, class... Args>
     std::future<typename std::result_of<F(Args...)>::type> EnqueueJob(
@@ -61,7 +64,13 @@ void ThreadPool::WorkerThread() {
         std::function<void()> job = std::move(jobs_.front());
         jobs_.pop();
         lock.unlock();
+
+        if (workCount == 0) {
+            start_time = std::chrono::system_clock::now();
+        }
         job();  // Run
+        end_time = std::chrono::system_clock::now();
+        workCount++;
     }
 }
 
@@ -993,6 +1002,7 @@ int SGX_CDECL main(int argc, char* argv[]){
     // @ Luke Park
     // num of threads
     ThreadPool::ThreadPool pool(1);
+    int works = 0;
 
     while(TRUE) {
         // clear the socket set
@@ -1094,6 +1104,10 @@ int SGX_CDECL main(int argc, char* argv[]){
                     }
                     // printf("execution result: %s\n\n", response);
 
+                    works++;
+                    if ((pool.workCount + 1) % 1000 == 0) {
+                        std::cout << works << "\t" << std::chrono::duration<double>(pool.end_time - pool.start_time).count() << " (s)" << std::endl;
+                    }
                 }
             }
         }

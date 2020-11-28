@@ -17,8 +17,10 @@ import ecdsa
 import hashlib
 
 # rouTEE IP address
-SERVER_IP = "127.0.0.1"
-PORT = 7223
+# SERVER_IP = "127.0.0.1"
+SERVER_IP = "satoshi.snu.ac.kr"
+# PORT = 7223
+PORT = 7327
 
 # open socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -372,22 +374,43 @@ def executeCommand(command):
     # elapsedSec = elapsedMillisec / 1000.0
     # print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
 
+
+def send_line(command):
+    # if FILE_NAME[:6] != 'signed':
+    #     return
+    client_socket.sendall(bytes.fromhex(command))
+    data_ = client_socket.recv(1024)
+
+
 if __name__ == "__main__":
     print("start")
 
     # if there is sys.argv input from command line, run a single script
+    # if len(sys.argv) == 2:
+    #     scriptName = sys.argv[1]
+    #     runScript(scriptName)
+    #     sys.exit()
+
     if len(sys.argv) == 2:
-        scriptName = sys.argv[1]
-        runScript(scriptName)
-        sys.exit()
+        if sys.argv[1] == 'signed':
+            SEND_SIGNED = True
 
     while (True):
-        command = input("input command: ")
+        # command = input("input command: ")
+        try:
+            command = input()
+        except EOFError:
+            break
+
+        if SEND_SIGNED:
+            send_line(command)
+            continue
+
         if len(command) == 0:
             # ignore '\n'
             # print("")
             continue
-        
+
         if command[0] == 's':
             # execute script
             runScript(command)
