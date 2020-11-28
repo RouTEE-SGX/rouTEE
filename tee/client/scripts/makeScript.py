@@ -1,3 +1,4 @@
+from tqdm import tqdm
 import random
 import sys
 from bitcoinaddress import Wallet, Address, Key
@@ -275,7 +276,7 @@ def makeNewAccounts(accountNumber):
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
     with open("scriptAddUser", "wt") as fscript, open("signedAddUser", "w") as fsigned:
-        for address in rdr:
+        for address in tqdm(rdr):
             sender_address = address[0]
             settle_address = sender_address
             userID = "user" + format(rdr.line_num - 1, '03')
@@ -293,7 +294,7 @@ def getReadyForDeposit(accountNumber):
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
     with open("scriptDepositReq", "wt") as fscript, open("signedDepositReq", "w") as fsigned:
-        for address in rdr:
+        for address in tqdm(rdr):
             user_address = address[0]
             userID = "user" + format(rdr.line_num - 1, '03')        
             command = "t j {} {}".format(user_address, userID)
@@ -312,7 +313,7 @@ def dealWithDepositTxs(accountNumber):
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
     with open("scriptDepositTx", "wt") as fscript, open("signedDepositTx", "w") as fsigned:
-        for address in rdr:
+        for address in tqdm(rdr):
             user_address = address[0]
             userID = "user" + format(rdr.line_num - 1, '03')         
             command = "r {} 0 100000000 100 {}".format(user_address, userID)
@@ -337,7 +338,7 @@ def doMultihopPayments(paymentNumber):
         address_list.append(address[0])
 
     with open("scriptPayment", "wt") as fscript, open("signedPayment", "w") as fsigned:
-        for i in range(paymentNumber):
+        for i in tqdm(range(paymentNumber)):
             sender_index = random.randint(0, len(address_list) - 1)
             while True:
                 receiver_index = random.randint(0, len(address_list) - 1)
@@ -368,7 +369,7 @@ def settleBalanceRequest(settleTxNumber):
         address_list.append(address[0])
 
     with open("scriptSettleReq", "wt") as fscript, open("signedSettleReq", "w") as fsigned:
-        for i in range(settleTxNumber):
+        for i in tqdm(range(settleTxNumber)):
             user_index = random.randint(0, len(address_list) - 1)
 
             user_address = address_list[user_index]
@@ -394,7 +395,7 @@ def updateLatestSPV(updateSPVNumber):
         address_list.append(address[0])
 
     with open("scriptUpdateSPV", "wt") as fscript, open("signedUpdateSPV", "w") as fsigned:
-        for i in range(updateSPVNumber):
+        for i in tqdm(range(updateSPVNumber)):
             user_index = random.randint(0, len(address_list) - 1)
 
             user_address = address_list[user_index]
