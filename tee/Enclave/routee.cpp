@@ -89,28 +89,12 @@ void printf(const char* fmt, ...) {
     ocall_print_string(buf); // OCall
 }
 
+/************ Deprecated *************/
 int verify_user(const unsigned char* command_hash, int cmd_hash_len, const char* signature, int sig_len, string public_key) {
-    // hard-coded for alice's public key
-    // char *_input = "MHQCAQEEIBw8tZ8KWVRPaBNFfaFp4sTeLLJGxdo5QIV4wQgdTZLWoAcGBSuBBAAKoUQDQgAER8COHjvsBtdXSL33gWCLqK0nXSpeAT5s3UIaG+QaknZvE3Bw0R+JluoY1RTROr4yzq2T2hHxkNOPYFTsVxCneA==";
-    // unsigned char *input = reinterpret_cast<unsigned char *>(_input);
-    // unsigned char pubkey[118];
-    // size_t pubkeylen;
 
-    // printf("strlen_input: %d\n\n", strlen(_input));
-
-    // ret = mbedtls_base64_decode( NULL, 0, &pubkeylen, input, strlen(_input) );
-    // if ( ret == MBEDTLS_ERR_BASE64_INVALID_CHARACTER )
-    //     printf("MBEDTLS_ERR_BASE64_INVALID_CHARACTER\n\n");
-
-    // printf("pubkeylen: %d\n\n", pubkeylen);
     if (public_key.compare("host") == 0) {
         return 0;
     }
-
-    // if (state.verify_keys.find(user_address) == state.verify_keys.end()) {
-    //     printf("no matching public key for this address %s, please send request for deposit first\n", user_address.c_str());
-    //     return -1;
-    // }
 
     unsigned char* pubkey = (unsigned char*) public_key.c_str();
     size_t pubkey_len = public_key.length();
@@ -140,10 +124,6 @@ int verify_user(const unsigned char* command_hash, int cmd_hash_len, const char*
         printf("ecp_check_pubkey ret: %x\n\n", ret);
         goto exit;
     }
-    /*
-     * Compute message hash
-     */
-    //mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
     /*
      * Verify signature
@@ -499,15 +479,13 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
 
     sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
 
-    // if (result != SGX_RSA_VALID) {
-    //     printf("bad signature\n");
-    // }
-    // else {
-    //     printf("good signature\n");
-    // }
+    if (result != SGX_RSA_VALID) {
+        printf("Signature verification failed\n");
+        return ERR_VERIFY_SIG_FAILED;
+    }
 
 
-    sgx_thread_mutex_lock(&state_mutex);
+    // sgx_thread_mutex_lock(&state_mutex);
 
     Account* account = state.users[sender_address];
     // printf("secure_get_ready_for_deposit: %s, %s\n\n", sender_address.c_str(), settle_address.c_str());
@@ -565,7 +543,7 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
     // send random address & block info to the sender
     //response_msg = (generated_address + " " + long_long_to_string(latest_block_number)).c_str();
 
-    sgx_thread_mutex_unlock(&state_mutex);
+    // sgx_thread_mutex_unlock(&state_mutex);
 
     return NO_ERROR;
 }
@@ -628,12 +606,10 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
 
     sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
 
-    // if (result != SGX_RSA_VALID) {
-    //     printf("bad signature\n");
-    // }
-    // else {
-    //     printf("good signature\n");
-    // }
+    if (result != SGX_RSA_VALID) {
+        printf("Signature verification failed\n");
+        return ERR_VERIFY_SIG_FAILED;
+    }
 
     // amount should be bigger than minimum settle amount
     // minimum settle amount = tax to make settlement tx with only 1 settle request user = maximum tax to make settle tx
@@ -650,7 +626,7 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
         return ERR_NOT_ENOUGH_BALANCE;
     }
 
-    sgx_thread_mutex_lock(&state_mutex);
+    // sgx_thread_mutex_lock(&state_mutex);
 
     Account* user_acc = iter->second;
 
@@ -684,7 +660,7 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
         printf("user %s requested settlement: %llu satoshi\n", user_address.c_str(), amount);
     }
 
-    sgx_thread_mutex_unlock(&state_mutex);
+    // sgx_thread_mutex_unlock(&state_mutex);
 
     return NO_ERROR;
 }
@@ -927,7 +903,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
     }
 
     if (state.verify_keys.find(sender_address) == state.verify_keys.end()) {
-        printf("No verification public key for this address exists.\n");
+        printf("No verification public key for this address exists\n");
         return ERR_NO_USER_ACCOUNT;
     }
 
@@ -954,27 +930,12 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
 
     sgx_rsa_result_t result;
 
-    sgx_status_t retval = sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
-
-    // if (retval == SGX_ERROR_INVALID_PARAMETER) {
-    //     printf("SGX_ERROR_INVALID_PARAMETER\n");
-    // }
-    // else if (retval == SGX_ERROR_INVALID_PARAMETER) {
-    //     printf("SGX_ERROR_OUT_OF_MEMORY\n");
-    // }
-    // else if (retval == SGX_ERROR_UNEXPECTED) {
-    //     printf("SGX_ERROR_UNEXPECTED\n");
-    // }
-    //     else if (retval == SGX_SUCCESS) {
-    //     printf("SGX_SUCCESS\n");
-    // }
+    sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
 
     if (result != SGX_RSA_VALID) {
-        printf("bad signature\n");
+        printf("Signature verification failed\n");
+        return ERR_VERIFY_SIG_FAILED;
     }
-    // else {
-    //     printf("good signature\n");
-    // }
 
     // check the sender exists & has more than amount + fee to send
     map<string, Account*>::iterator iter = state.users.find(sender_address);
@@ -995,7 +956,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         return ERR_NO_RECEIVER;
     }
 
-    sgx_thread_mutex_lock(&state_mutex);
+    // sgx_thread_mutex_lock(&state_mutex);
 
     Account* sender_acc = iter->second;
     Account* receiver_acc = iter->second;
@@ -1036,7 +997,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         // printf("user %s send %llu satoshi to user %s (routing fee: %llu)\n", sender_address.c_str(), amount, receiver_address.c_str(), fee);
     }
 
-    sgx_thread_mutex_unlock(&state_mutex);
+    // sgx_thread_mutex_unlock(&state_mutex);
 
     return NO_ERROR;
 }
@@ -1044,23 +1005,6 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
 int secure_add_user(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
     // initialize ECC State for Bitcoin Library
     initializeECCState();
-    // CPubKey user_pubkey = CPubKey(command + 72, command + 72 + SGX_RSA3072_KEY_SIZE);
-
-    // if (!user_pubkey.IsValid()) {
-    //     printf("Invalid public key\n");
-    //     return ERR_INVALID_PARAMS;
-    // }
-    // for (int i = 0; i < 10; i++) {
-    //     printf("%x%x\n", (unsigned int) signature[i] / 16, (unsigned int) signature[i] % 16);
-    // }
-    // printf("\n");
-
-    // unsigned char hash[SHA256_HASH_LEN];
-    // mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
-
-    // if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, string(command + 72, SGX_RSA3072_KEY_SIZE)) != 0) {
-    //     return ERR_NO_AUTHORITY;
-    // }
 
     char* _cmd = strtok((char*) command, " ");
 
@@ -1089,11 +1033,6 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
         return ERR_INVALID_PARAMS;
     }    
 
-    // CBitcoinAddress sender_addr;
-    // sender_addr.Set(user_pubkey.GetID());
-
-    // std::string sender_address = sender_addr.ToString();
-
     // get latest block in rouTEE
     // temp code
     if (state.users.find(sender_address) != state.users.end()) {
@@ -1101,24 +1040,7 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
         return ERR_NO_AUTHORITY;
     }
 
-    // sgx_rsa3072_public_key_t rsa_pubkey;
-    // memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
-    // memcpy(rsa_pubkey.mod, signature, SGX_RSA3072_KEY_SIZE);
-    // int8_t exp[SGX_RSA3072_PUB_EXP_SIZE] = {1, 0, 1, 0};
-    // memcpy(rsa_pubkey.exp, exp, SGX_RSA3072_PUB_EXP_SIZE);
-    // rsa_pubkey.exp[0] = 1;
-    // rsa_pubkey.exp[1] = 0;
-    // rsa_pubkey.exp[2] = 1;
-    // rsa_pubkey.exp[3] = 0;
-
-    // sgx_rsa_result_t result;
-
-    // sgx_rsa3072_verify((uint8_t*) hash, 32, &pubkey, (sgx_rsa3072_signature_t*) signature, &result);
-
-
-    // printf("%d\n", result);
-
-    sgx_thread_mutex_lock(&state_mutex);
+    // sgx_thread_mutex_lock(&state_mutex);
 
     // sender is not in the state, create new account
     Account* acc = new Account;
@@ -1129,14 +1051,6 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
     state.users[sender_address] = acc;
     
     state.verify_keys[sender_address] = string(signature, SGX_RSA3072_KEY_SIZE);
-    
-    // sgx_rsa3072_key_t rsa_pubkey;
-    // sgx_rsa3072_signature_t rsa_sig;
-
-    // sgx_rsa3072_sign(hash, 32,
-	// const sgx_rsa3072_key_t * p_key,
-	// sgx_rsa3072_signature_t * p_signature)
-
 
     // print result
     if (doPrint) {
@@ -1148,9 +1062,9 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
     // memcpy((char*) response_msg, response_str.c_str(), response_str.length() + 1);
     response_msg = ("User account has been generated! sender address: " + sender_address + ", settle address: " + settle_address + "\n").c_str();
 
-    sgx_thread_mutex_unlock(&state_mutex);
+    // sgx_thread_mutex_unlock(&state_mutex);
 
-    return 0;
+    return NO_ERROR;
 }
 
 // update user's latest SPV block
@@ -1159,9 +1073,6 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     // TODO: BITCOIN
     // check authority to change SPV block
     // ex. verify user's signature
-    //
-    // unsigned char hash[SHA256_HASH_LEN];
-    // mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
     char cmd_tmp[cmd_len];
     memcpy(cmd_tmp, command, cmd_len);
@@ -1188,10 +1099,10 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
 
     string user_address(_user_address, BITCOIN_ADDRESS_LEN);
     unsigned long long block_number = strtoull(_block_number, NULL, 10);
+
     // TODO: fix
     // uint256 block_hash;
     // block_hash.SetHex(string(_block_hash, BITCOIN_HEADER_HASH_LEN));
-    
 
     if (!CBitcoinAddress(user_address).IsValid()) {
         printf("Invalid user address for update last SPV block\n");
@@ -1209,16 +1120,13 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     //     printf("Given block hash is different from rouTEE has\n");
     //     return ERR_INVALID_PARAMS;
     // }
+
     if (state.verify_keys.find(user_address) == state.verify_keys.end()) {
         printf("No verification public key for this address exists.\n");
         return ERR_NO_USER_ACCOUNT;
     }
 
     string public_key = state.verify_keys[user_address];
-
-    // if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
-    //     return ERR_NO_AUTHORITY;
-    // }
 
     sgx_rsa3072_public_key_t rsa_pubkey;
     memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
@@ -1230,17 +1138,14 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     rsa_pubkey.exp[2] = 1;
     rsa_pubkey.exp[3] = 0;
 
-
     sgx_rsa_result_t result;
 
     sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
 
-    // if (result != SGX_RSA_VALID) {
-    //     printf("bad signature\n");
-    // }
-    // else {
-    //     printf("good signature\n");
-    // }
+    if (result != SGX_RSA_VALID) {
+        printf("Signature verification failed\n");
+        return ERR_VERIFY_SIG_FAILED;
+    }
 
     // check the user exists
     map<string, Account*>::iterator iter = state.users.find(user_address);
@@ -1250,7 +1155,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
         return ERR_ADDRESS_NOT_EXIST;
     }
 
-    sgx_thread_mutex_lock(&state_mutex);
+    // sgx_thread_mutex_lock(&state_mutex);
 
     Account* user_acc = iter->second;
 
@@ -1269,7 +1174,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
         // printf("user %s update SPV block number to %llu\n", user_address.c_str(), block_number);
     }
     
-    sgx_thread_mutex_unlock(&state_mutex);
+    // sgx_thread_mutex_unlock(&state_mutex);
 
     return NO_ERROR;
 }
@@ -1385,15 +1290,6 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
         acc->latest_SPV_block_number = 0;
         state.users[sender_addr] = acc;
     }
-
-    // if (tx_hash_len == SGX_RSA3072_KEY_SIZE) {
-    //     state.users[sender_addr]->settle_address = sender_addr;
-    // }
-    // else {
-    //     // update settle address
-    //     state.users[sender_addr]->settle_address = dr->settle_address;
-    // }
-
 
     // now take some of the deposit
     state.balances_for_settle_tx_fee += balance_for_tx_fee;
@@ -1523,17 +1419,17 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
     // 
     CBlock block;
     if (!DecodeHexBlk(block, string(hex_block, hex_block_len))) {
-        printf("invalid block hex string was given\n");
+        printf("Invalid block hex string was given\n");
         return ERR_INVALID_PARAMS;
     };
 
     if (!verify_block(block)) {
-        printf("invalid block\n");
+        printf("Invalid block was inserted\n");
         return ERR_INVALID_PARAMS;
     }
 
-    printf("block info: %s, %d\n\n", block.ToString().c_str(), block.vtx.size());
-    printf("tx_vout: %s\n", block.vtx[0]->vout[0].ToString().c_str());
+    // printf("block info: %s, %d\n\n", block.ToString().c_str(), block.vtx.size());
+    // printf("tx_vout: %s\n", block.vtx[0]->vout[0].ToString().c_str());
     string txid;
     CTxDestination tx_dest;
     string keyID;
@@ -1545,7 +1441,7 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
         // printf("vtx=: %s\n\n", block.vtx[tx_index]->vout[0].ToString().c_str());
         if (!ExtractDestination(block.vtx[tx_index]->vout[0].scriptPubKey, tx_dest)) {
             printf("Extract Destination Error\n\n");
-            printf("rr: %d\n\n", tx_dest.class_type);
+            // printf("rr: %d\n\n", tx_dest.class_type);
         }
 
         keyID = tx_dest.keyID->ToString();
@@ -1554,71 +1450,22 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
         pending_settle_tx_hash = state.pending_settle_tx_infos.front()->tx_hash;
 
         if (state.deposit_requests.find(keyID) != state.deposit_requests.end()) {
-            printf("deal_with_deposit_tx called\n");
+            // printf("deal_with_deposit_tx called\n");
             deal_with_deposit_tx(keyID.c_str(), keyID.length(), txid.c_str(), txid.length(), 0, amount, block_number);
         }
         else if (txid.compare(pending_settle_tx_hash) == 0) {
-            printf("deal_with_settlement_tx called\n");
+            // printf("deal_with_settlement_tx called\n");
             deal_with_settlement_tx();
         }
         
-        printf("TX: %s\n", block.vtx[tx_index]->GetHash().GetHex().c_str());
-        printf("tx_vout 0: %lld\n", block.vtx[tx_index]->vout[0].nValue);
+        // printf("TX: %s\n", block.vtx[tx_index]->GetHash().GetHex().c_str());
+        // printf("tx_vout 0: %lld\n", block.vtx[tx_index]->vout[0].nValue);
     }
 
     state.block_number = block_number;
     state.block_hash[block_number] = block.GetBlockHeader().GetHash();
 
-    // map<string, TxOut*>* txout_list = static_cast<map<string, TxOut*>*>(void_txout_list);
-    // TxOut* txout;
-    // //string manager_address;
-    // unsigned long long amount;
-    // string txid;
-    // int tx_index;
-    // printf("rr, %d\n\n", txout_list->size());
-    //for (map<string, TxOut*>::iterator iter_txout = (*txout_list).begin(); iter_txout != (*txout_list).end(); iter_txout++) {
-    // for (auto iter_txout = (*txout_list).begin(); iter_txout != (*txout_list).end(); iter_txout++) {
-    //     printf("ff, %d, %d, %d\n\n", iter_txout, (*txout_list).begin(), (*txout_list).end());
-    //     string manager_address = (*txout_list).begin()->first;
-    //     txout = (*txout_list).begin()->second;
-    //     printf("manager_address: %s", manager_address.c_str());
-
-    //     if (state.deposit_requests.find(manager_address) != state.deposit_requests.end()) {
-    //         amount = txout->amount;
-    //         txid = txout->txid;
-    //         tx_index = txout->tx_index;
-    //         printf("insert_block: %ull", amount);
-    //         //deal_with_deposit_tx(manager_address.c_str(), manager_address.length(), txid.c_str(), txid.length(), tx_index, amount, block_number);
-    //     }
-
-    //     delete txout;
-    // }
-    // char* _cmd = strtok((char*) command, " ");
-    // char* _block_number = strtok(NULL, " ");
-    // if (_block_number == NULL) {
-    //     printf("No block number parameter for insert block\n");
-    //     return ERR_INVALID_PARAMS;
-    // }
-
-    // unsigned block_number = strtoull(_block_number, NULL, 10);
-
-    // for (auto iter_tx = block_txs.begin(); iter_tx != block_txs.end(); iter_tx++) {
-    //     string tx_hash = (string) *iter_tx;
-    //     for (map<string, DepositRequest*>::iterator iter = state.deposit_requests.begin(); iter != state.deposit_requests.end(); iter++){
-    //         string generated_address = iter->first;
-    //         DepositRequest* deposit_request = iter->second;
-
-    //         //deal_with_deposit_tx(deposit_request->sender_address, int sender_addr_len, unsigned long long amount, unsigned long long block_number);
-    //     }
-    // }
-
-
-
-    // //for (queue<SettleRequest>::iterator iter = state.settle_requests_waiting.begin(); iter != state.settle_requests_waiting.end(); iter++) {
-    //     deal_with_settlement_tx();
-    // //}
-
-    printf("block number: %d\n\n", block_number);
+    // printf("block number: %d\n\n", block_number);
 
     return 0;
 }
@@ -1714,7 +1561,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     //
     // @ Luke Park
     // mutex lock
-    // sgx_thread_mutex_lock(&state_mutex);
+    sgx_thread_mutex_lock(&state_mutex);
 
     // parse the command to get parameters
     vector<string> params;
@@ -1760,7 +1607,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     //
     // @ Luke Park
     // mutex unlock
-    // sgx_thread_mutex_unlock(&state_mutex);
+    sgx_thread_mutex_unlock(&state_mutex);
 
     // encrypt the response for client & return NO_ERROR to hide the ecall result from rouTEE host
     if (operation_result != -1) {

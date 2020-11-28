@@ -950,7 +950,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 
     // run socket server to get commands
     int opt = TRUE;
-    int master_socket, addrlen, new_socket, client_socket[30], activity, read_len, sd;
+    int master_socket, addrlen, new_socket, client_socket[MAX_CLIENTS], activity, read_len, sd;
     int max_sd;
     struct sockaddr_in address;
     char request[MAX_MSG_SIZE+1];  // data buffer of 1K

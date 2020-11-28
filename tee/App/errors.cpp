@@ -50,6 +50,8 @@ const char* error_to_msg(int err) {
             return "ERROR: this user doesn't have authority";
         case ERR_NO_USER_ACCOUNT:
             return "ERROR: no user account exists for this address";
+        case ERR_VERIFY_SIG_FAILED:
+            return "ERROR: signature verification failed";
         default:
             return "ERROR: this error index does not exist";
     }
