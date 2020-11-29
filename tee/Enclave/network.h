@@ -12,8 +12,9 @@
 #define OP_SET_ROUTING_FEE  104 // h (cmd: h fee)
 #define OP_SET_ROUTING_FEE_ADDRESS  105 // i (cmd: i fee_addr)
 #define OP_MAKE_SETTLE_TRANSACTION  110 // n (cmd: n)
-#define OP_INSERT_BLOCK 111 // o (cmd: o block_data)
+#define OP_INSERT_BLOCK 111 // o (cmd: o block_number)
 #define OP_SETTLE_ROUTING_FEE 118 // v (cmd: v amount)
+#define OP_SYNC_WITH_BLOCKCHAIN 98 // b (cmd: b)
 
 // opcodes for rouTEE users
 #define OP_SECURE_COMMAND 112 // p (cmd: p sessionID encrypted_command_data)

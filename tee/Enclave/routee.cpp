@@ -468,8 +468,6 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
     sgx_rsa3072_public_key_t rsa_pubkey;
     memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
     memcpy(rsa_pubkey.mod, public_key.c_str(), SGX_RSA3072_KEY_SIZE);
-    // int8_t exp[SGX_RSA3072_PUB_EXP_SIZE] = {1, 0, 1, 0};
-    // memcpy(rsa_pubkey.exp, exp, SGX_RSA3072_PUB_EXP_SIZE);
     rsa_pubkey.exp[0] = 1;
     rsa_pubkey.exp[1] = 0;
     rsa_pubkey.exp[2] = 1;
@@ -595,8 +593,6 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
     sgx_rsa3072_public_key_t rsa_pubkey;
     memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
     memcpy(rsa_pubkey.mod, public_key.c_str(), SGX_RSA3072_KEY_SIZE);
-    // int8_t exp[SGX_RSA3072_PUB_EXP_SIZE] = {1, 0, 1, 0};
-    // memcpy(rsa_pubkey.exp, exp, SGX_RSA3072_PUB_EXP_SIZE);
     rsa_pubkey.exp[0] = 1;
     rsa_pubkey.exp[1] = 0;
     rsa_pubkey.exp[2] = 1;
@@ -825,6 +821,7 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
         printf("routing fee waiting: %llu / psti->pending balances: %llu / state.total balance: %llu\n", state.routing_fee_waiting, psti->pending_balances, state.total_balances);
     }
 
+    // printf("input string: %s\noutput string: %s\n", input_string.c_str(), output_string.c_str());
     std::string create_transaction_rpc = create_raw_transaction_rpc();
     create_transaction_rpc += input_string + " " + output_string;
     UniValue settle_transaction = executeCommand(create_transaction_rpc);
@@ -916,17 +913,10 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
     sgx_rsa3072_public_key_t rsa_pubkey;
     memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
     memcpy(rsa_pubkey.mod, public_key.c_str(), SGX_RSA3072_KEY_SIZE);
-    // int8_t exp[SGX_RSA3072_PUB_EXP_SIZE] = {1, 0, 1, 0};
-    // memcpy(rsa_pubkey.exp, exp, SGX_RSA3072_PUB_EXP_SIZE);
     rsa_pubkey.exp[0] = 1;
     rsa_pubkey.exp[1] = 0;
     rsa_pubkey.exp[2] = 1;
     rsa_pubkey.exp[3] = 0;
-
-    // for (int i = 0; i < 10; i++) {
-    //     printf("%x%x", rsa_pubkey.mod[i] / 16, rsa_pubkey.mod[i] % 16);
-    // }
-    // printf("\n");
 
     sgx_rsa_result_t result;
 
@@ -1050,6 +1040,7 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
     acc->settle_address = settle_address;
     state.users[sender_address] = acc;
     
+    // store the user's RSA public key for signature verification 
     state.verify_keys[sender_address] = string(signature, SGX_RSA3072_KEY_SIZE);
 
     // print result
@@ -1131,8 +1122,6 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     sgx_rsa3072_public_key_t rsa_pubkey;
     memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
     memcpy(rsa_pubkey.mod, public_key.c_str(), SGX_RSA3072_KEY_SIZE);
-    // int8_t exp[SGX_RSA3072_PUB_EXP_SIZE] = {1, 0, 1, 0};
-    // memcpy(rsa_pubkey.exp, exp, SGX_RSA3072_PUB_EXP_SIZE);
     rsa_pubkey.exp[0] = 1;
     rsa_pubkey.exp[1] = 0;
     rsa_pubkey.exp[2] = 1;
@@ -1441,6 +1430,7 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
         // printf("vtx=: %s\n\n", block.vtx[tx_index]->vout[0].ToString().c_str());
         if (!ExtractDestination(block.vtx[tx_index]->vout[0].scriptPubKey, tx_dest)) {
             printf("Extract Destination Error\n\n");
+            return ERR_INVALID_PARAMS;
             // printf("rr: %d\n\n", tx_dest.class_type);
         }
 
@@ -1468,6 +1458,12 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
     // printf("block number: %d\n\n", block_number);
 
     return 0;
+}
+
+int ecall_get_current_block_number(int* current_block_number) {
+    *current_block_number = state.block_number;
+
+    return NO_ERROR;
 }
 
 int make_encrypted_response(const char* response_msg, sgx_aes_gcm_128bit_key_t *session_key, char* encrypted_response, int* encrypted_response_len) {

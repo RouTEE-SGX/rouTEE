@@ -15,9 +15,6 @@
 
 #include "mbedtls/pem.h"
 
-#include <curl/curl.h>
-#include "json.h"
-
 #define SGX_RSA3072_KEY_SIZE 384
 
 namespace ThreadPool {
@@ -506,55 +503,10 @@ int set_routing_fee_address(char* request, int request_len) {
     return ecall_return;
 }
 
-size_t callBackFunk(char* ptr, size_t size, size_t nmemb, string* stream)
-{
-    int realsize = size * nmemb;
-    stream->append(ptr, realsize);
-    return realsize;
-}
-
-void getData(string& data, string& chunk) {
-    CURL *curl = curl_easy_init();
-    CURLcode res;
-    struct curl_slist *headers = NULL;
-
-    if (!curl) {
-        printf("Unexpected respose for curl\n");
-        curl_easy_cleanup(curl);
-        return;
-    }
-
-    headers = curl_slist_append(headers, "content-type: text/plain;");
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
-    curl_easy_setopt(curl, CURLOPT_URL, "http://127.0.0.1:1234/");
-
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, data.length());
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
-
-    curl_easy_setopt(curl, CURLOPT_USERPWD, "node1:1234");
-
-    curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_TRY);
-
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, callBackFunk);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, chunk);
-    
-    res = curl_easy_perform(curl);
-
-    if(res != CURLE_OK) {
-        fprintf(stderr, "curl_easy_perform() failed: %s\n",
-                curl_easy_strerror(res));
-    }
-    curl_easy_cleanup(curl);
-    curl_slist_free_all(headers);
-
-    return;
-}
-
 // set bitcoin-cli path
 const string base_cmd = "~/bitcoin-0.20.1/bin/bitcoin-cli ";
 // option for bitcoin network
-const string mode = "-regtest -rpcuser=node1 -rpcpassword=1234 -rpcport=1234 ";
+const string mode = "-regtest -rpcport=1234 -rpcuser=node -rpcpassword=0000 ";
 
 std::string exec(const char* cmd) {
     char buffer[256];
@@ -617,7 +569,21 @@ std::string get_hexed_block(std::string hashval){
     return line;
 }
 
-// insert blovk
+std::string get_block_count(){
+    std::string rpc("getblockcount");
+    rpc = base_cmd + mode + rpc;
+    const char* cmd = rpc.c_str();
+    std::string pout = exec(cmd);
+    if (pout.find("error") != std::string::npos)
+        throw std::runtime_error(pout);
+    while (pout.find ("\n") != std::string::npos )
+    {
+        pout.erase (pout.find ("\n"), 1 );
+    }
+    return pout;
+}
+
+// insert block
 int insert_block(char* request, int request_len) {
     vector<string> params = parse_request(request);
 
@@ -648,44 +614,30 @@ int insert_block(char* request, int request_len) {
     }
 
     return ecall_return;
+}
 
-    // string getblockhash_chunk;
+int sync_blockchain(char* request, int request_len) {
+    int current_block_number;
 
-    // string getblockhash_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblockhash\", \"params\": [" + block_number + "]}";
+    int ecall_return;
+    int ecall_result = ecall_get_current_block_number(global_eid, &ecall_return, &current_block_number);
+    // printf("ecall_sync_blockchain() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_sync_blockchain");
+        return ecall_return;
+    }
 
-    
-    // getData(getblockhash_data, getblockhash_chunk);
+    int block_height = std::stoi(get_block_count());
+    for (int i = current_block_number; i <= block_height; i++) {
+        string request_str = "o " + std::to_string(i) + " host";
+        ecall_return = insert_block((char*) request_str.c_str(), request_str.length());
+        if (ecall_return != NO_ERROR) {
+            printf("something went wrong while syncing with blockchain!\n");
+            break;
+        }
+    }
 
-    // Json::Reader reader;
-    // Json::Value root;
-
-    // reader.parse(getblockhash_chunk, root);
-
-    // string block_hash = root["result"].asString();
-
-    // string getblock_chunk;
-
-    // string getblock_data = "{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"getblock\", \"params\": [\"" + block_hash + "\", 0]}";
-
-    // std::cout << getblock_data << std::endl;
-    
-    // getData(getblock_data, getblock_chunk);
-
-    // reader.parse(getblock_chunk, root);
-
-    // std::cout << getblock_chunk << std::endl;
-    // string block_hex = root["result"].asString();
-
-    // std::cout << block_hex << std::endl;
-
-    // int ecall_return;
-    // int ecall_result = ecall_insert_block(global_eid, &ecall_return, std::stoi(block_number), block_hex.c_str(), block_hex.length());
-    // // printf("ecall_insert_block() -> result:%d / return:%d\n", ecall_result, ecall_return);
-    // if (ecall_result != SGX_SUCCESS) {
-    //     error("ecall_insert_block");
-    // }
-
-    // return ecall_return;
+    return ecall_return;
 }
 
 // settle request for routing fee
@@ -898,6 +850,10 @@ const char* execute_command(char* request, int request_len) {
     else if (operation == OP_INSERT_BLOCK) {
         // printf("insert block executed\n");
         ecall_return = insert_block(request, request_len);
+    }
+    else if (operation == OP_SYNC_WITH_BLOCKCHAIN) {
+        // printf("sync blockchain executed\n");
+        ecall_return = sync_blockchain(request, request_len);
     }
     else if (operation == OP_SETTLE_ROUTING_FEE) {
         // printf("settle routing fee executed\n");

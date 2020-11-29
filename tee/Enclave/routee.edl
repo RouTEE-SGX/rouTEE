@@ -12,6 +12,7 @@ enclave {
         public int ecall_set_routing_fee_address([in, size=cmd_len] const char* command, int cmd_len, [in, size=sig_len] const char* signature, int sig_len);
         public int ecall_settle_routing_fee([in, size=cmd_len] const char* command, int cmd_len, [in, size=sig_len] const char* signature, int sig_len);
         public int ecall_insert_block(int block_number, [in, size=hex_block_len] const char* hex_block, int hex_block_len);
+        public int ecall_get_current_block_number([in, out] int* current_block_number);
         public void ecall_print_state();
         public int ecall_make_settle_transaction([user_check] const char* settle_transaction, [in, out] int* settle_tx_len);
         public int ecall_secure_command([in, size=sessionID_len] const char* sessionID, int sessionID_len, [in, size=encrypted_cmd_len] const char* encrypted_cmd, int encrypted_cmd_len, [user_check] char* encrypted_response, [in, out] int* encrypted_response_len);
