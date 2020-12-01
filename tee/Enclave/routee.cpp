@@ -20,6 +20,7 @@
 #include "core_io.h"
 #include "pow.h"
 #include "chain.h"
+#include "consensus/merkle.h"
 
 #include "mbedtls/sha256.h"
 #include "bitcoin/key.h"
@@ -366,6 +367,7 @@ void ecall_print_state() {
     printf("pending_routing_fees = %llu\n", pending_routing_fees);
     printf("routing_fee_confirmed = %llu\n", state.routing_fee_confirmed);
     printf("routing_fee_settled = %llu\n", state.routing_fee_settled);
+    printf("current block number = %llu\n", state.block_number);
 
     unsigned long long calculated_total_deposit = 0;
     calculated_total_deposit += state.total_balances;
@@ -394,7 +396,7 @@ void ecall_print_state() {
     if (isCorrect) {
         printf("\n=> CORRECT: all deposits are in correct way\n\n");
     }
-    // printf("\n\n\n******************** END PRINT STATE ********************\n");
+    printf("\n\n\n******************** END PRINT STATE ********************\n");
     return;
 }
 
@@ -927,12 +929,16 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         return ERR_VERIFY_SIG_FAILED;
     }
 
+    // sgx_thread_mutex_lock(&state_mutex);
+
     // check the sender exists & has more than amount + fee to send
     map<string, Account*>::iterator iter = state.users.find(sender_address);
     if (iter == state.users.end() || iter->second->balance < amount + fee) {
         // sender is not in the state || has not enough balance
         return ERR_NOT_ENOUGH_BALANCE;
     }
+
+    Account* sender_acc = iter->second;
 
     // check routing fee
     if (fee < state.routing_fee) {
@@ -946,9 +952,6 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         return ERR_NO_RECEIVER;
     }
 
-    // sgx_thread_mutex_lock(&state_mutex);
-
-    Account* sender_acc = iter->second;
     Account* receiver_acc = iter->second;
 
     // check the receiver is ready to get paid (temporarily deprecated for easy tests)
@@ -1374,10 +1377,10 @@ void deal_with_settlement_tx() {
     return;
 }
 
-bool verify_block(CBlock& block){
-    CBlockHeader bh = block.GetBlockHeader();
+bool verify_block_header(CBlockHeader& blockHeader){
+    CBlockHeader bh = blockHeader;
 
-    if (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus())){
+    if (!CheckProofOfWork(bh.GetHash(), bh.nBits, chainparams.GetConsensus())){
         return false;
     }
     if ((bh.nVersion == genesis.nVersion) && (bh.hashMerkleRoot == genesis.hashMerkleRoot) && (bh.nTime == genesis.nTime)
@@ -1395,6 +1398,28 @@ bool verify_block(CBlock& block){
     return false;
 } 
 
+bool verify_block(CBlock& block){
+    CBlockHeader bh = block.GetBlockHeader();
+
+    // return verify_block_header(bh);
+
+    if (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus())){
+        return false;
+    }
+    if ((bh.nVersion == genesis.nVersion) && (bh.hashMerkleRoot == genesis.hashMerkleRoot) && (bh.nTime == genesis.nTime)
+        && (bh.nNonce == genesis.nNonce) && (bh.nBits == genesis.nBits) && (bh.hashPrevBlock == genesis.hashPrevBlock)){
+        return true;
+    }
+    if (bh.nBits == GetNextWorkRequired(lastIndex, &bh, chainparams.GetConsensus()) && bh.hashMerkleRoot == BlockMerkleRoot(block)){
+        CBlockIndex* pindexNew = new CBlockIndex(bh);
+        pindexNew->pprev = lastIndex;
+        pindexNew->nHeight = pindexNew->pprev->nHeight+1;
+        pindexNew->BuildSkip();
+        lastIndex = pindexNew;
+        return true;
+    }
+    return false;
+} 
 
 int ecall_insert_block(int block_number, const char* hex_block, int hex_block_len) {
     // 
@@ -1419,24 +1444,28 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
 
     // printf("block info: %s, %d\n\n", block.ToString().c_str(), block.vtx.size());
     // printf("tx_vout: %s\n", block.vtx[0]->vout[0].ToString().c_str());
+    CTransactionRef transaction;
     string txid;
     CTxDestination tx_dest;
     string keyID;
     int tx_index;
     unsigned long long amount;
     string pending_settle_tx_hash;
-    
+
+    unsigned int total_tx_size = 0;
+
     for (int tx_index = 0; tx_index < block.vtx.size(); tx_index++){
         // printf("vtx=: %s\n\n", block.vtx[tx_index]->vout[0].ToString().c_str());
-        if (!ExtractDestination(block.vtx[tx_index]->vout[0].scriptPubKey, tx_dest)) {
+        transaction = block.vtx[tx_index];
+        if (!ExtractDestination(transaction->vout[0].scriptPubKey, tx_dest)) {
             printf("Extract Destination Error\n\n");
             return ERR_INVALID_PARAMS;
             // printf("rr: %d\n\n", tx_dest.class_type);
         }
 
         keyID = tx_dest.keyID->ToString();
-        txid = block.vtx[tx_index]->GetHash().GetHex();
-        amount = block.vtx[tx_index]->vout[0].nValue;
+        txid = transaction->GetHash().GetHex();
+        amount = transaction->vout[0].nValue;
         pending_settle_tx_hash = state.pending_settle_tx_infos.front()->tx_hash;
 
         if (state.deposit_requests.find(keyID) != state.deposit_requests.end()) {
@@ -1448,16 +1477,65 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
             deal_with_settlement_tx();
         }
         
+        if (!transaction->IsCoinBase()) {
+            total_tx_size += transaction->GetTotalSize();
+        }
+        
         // printf("TX: %s\n", block.vtx[tx_index]->GetHash().GetHex().c_str());
         // printf("tx_vout 0: %lld\n", block.vtx[tx_index]->vout[0].nValue);
+    }
+
+    int nSubsidyHalvened = block_number / chainparams.GetConsensus().nSubsidyHalvingInterval;
+    unsigned long long block_reward = 5000000000;
+    while (nSubsidyHalvened != 0) {
+        block_reward /= 2;
+        nSubsidyHalvened--;
     }
 
     state.block_number = block_number;
     state.block_hash[block_number] = block.GetBlockHeader().GetHash();
 
+    if (block.vtx.size() - 1 != 0) {
+        unsigned long long total_tx_fee = block.vtx[0]->vout[0].nValue - block_reward;
+        state.accumulated_tx_fee += total_tx_fee;
+        state.accumulated_tx_size += total_tx_size;
+        state.tx_fee_infos.push(TxFeeInfo(total_tx_fee, total_tx_size));
+
+        if (state.tx_fee_infos.size() > QUEUING_TX_INFO_NUM) {
+            TxFeeInfo old_tx_fee_info = state.tx_fee_infos.front();
+
+            state.accumulated_tx_fee -= old_tx_fee_info.total_tx_fee;
+            state.accumulated_tx_size -= old_tx_fee_info.total_tx_size;
+
+            state.tx_fee_infos.pop();
+        }
+
+        state.avg_tx_fee_per_byte = state.accumulated_tx_fee / state.accumulated_tx_size;
+        // printf("avg. tx fee: %llu, %llu, %llu\n", state.accumulated_tx_fee , state.accumulated_tx_size, state.avg_tx_fee_per_byte);
+    }
+
     // printf("block number: %d\n\n", block_number);
 
-    return 0;
+    return NO_ERROR;
+}
+
+int ecall_insert_block_header(int block_number, const char* hex_block_header, int hex_block_header_len) {
+    CBlockHeader block_header;
+
+    if (!DecodeHexBlkHeader(block_header, string(hex_block_header, hex_block_header_len))) {
+        printf("Invalid block header hex string was given\n");
+        return ERR_INVALID_PARAMS;
+    };
+
+    if (!verify_block_header(block_header)) {
+        printf("Invalid block header was inserted\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    state.block_number = block_number;
+    state.block_hash[block_number] = block_header.GetHash();
+
+    return NO_ERROR;
 }
 
 int ecall_get_current_block_number(int* current_block_number) {

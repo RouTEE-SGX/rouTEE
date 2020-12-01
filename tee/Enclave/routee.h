@@ -19,6 +19,8 @@
 
 #define MAX_NUM_STR_LENGTH 100
 
+#define QUEUING_TX_INFO_NUM 50
+
 #if defined(__cplusplus)
 extern "C"{
 #endif

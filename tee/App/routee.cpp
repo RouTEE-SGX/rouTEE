@@ -569,6 +569,20 @@ std::string get_hexed_block(std::string hashval){
     return line;
 }
 
+std::string get_hexed_block_header(std::string hashval){
+    std::string rpc("getblockheader ");
+    std::string verbose(" false");
+    rpc = base_cmd + mode + rpc + hashval + verbose;
+    const char* cmd = rpc.c_str();
+    std::string pout = exec(cmd);
+    if (pout.find("error") != std::string::npos)
+        throw std::runtime_error(pout);
+    std::stringstream ss(pout);
+    std::string line;
+    ss >> line;
+    return line;
+}
+
 std::string get_block_count(){
     std::string rpc("getblockcount");
     rpc = base_cmd + mode + rpc;
@@ -616,23 +630,63 @@ int insert_block(char* request, int request_len) {
     return ecall_return;
 }
 
-int sync_blockchain(char* request, int request_len) {
+int insert_block_header(char* request, int request_len) {
+    vector<string> params = parse_request(request);
+
+    if (params.size() < 3) {
+        printf("no sufficient params!\n");
+        return ERR_INVALID_PARAMS;
+    }
+    string block_number = params[1];
+    string signature = params[2];
+
+    string block_hash = get_block_hash(block_number);
+    if (block_hash.compare("false") == 0) {
+        printf("invalid block number insertion\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    string hexed_block_header = get_hexed_block_header(block_hash);
+    // std::cout << hexed_block_header << std::endl;
+
+    int ecall_return;
+    int ecall_result = ecall_insert_block_header(global_eid, &ecall_return, std::stoi(block_number), hexed_block_header.c_str(), hexed_block_header.length());
+    // printf("ecall_insert_block() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_insert_block_header");
+    }
+
+    return ecall_return;
+}
+
+int sync_with_blockchain(char* request, int request_len) {
+    vector<string> params = parse_request(request);
+
+    if (params.size() < 2) {
+        printf("no sufficient params!\n");
+        return ERR_INVALID_PARAMS;
+    }
+    int block_end = std::stoi(params[1]);
+
     int current_block_number;
 
     int ecall_return;
     int ecall_result = ecall_get_current_block_number(global_eid, &ecall_return, &current_block_number);
     // printf("ecall_sync_blockchain() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
-        error("ecall_sync_blockchain");
+        error("ecall_get_current_block_number");
         return ecall_return;
     }
 
     int block_height = std::stoi(get_block_count());
-    for (int i = current_block_number; i <= block_height; i++) {
-        string request_str = "o " + std::to_string(i) + " host";
+    block_height = block_end < block_height? block_end : block_height;
+    printf("inserted block number: %d\n", block_height - current_block_number);
+    for (int i = current_block_number + 1; i <= block_height; i++) {
+        string request_str = "d " + std::to_string(i) + " host";
+        // For debugging
         ecall_return = insert_block((char*) request_str.c_str(), request_str.length());
         if (ecall_return != NO_ERROR) {
-            printf("something went wrong while syncing with blockchain!\n");
+            printf("something went wrong while syncing with blockchain at %d\n", i);
             break;
         }
     }
@@ -851,9 +905,13 @@ const char* execute_command(char* request, int request_len) {
         // printf("insert block executed\n");
         ecall_return = insert_block(request, request_len);
     }
+    else if (operation == OP_INSERT_BLOCK_HEADER) {
+        // printf("insert block executed\n");
+        ecall_return = insert_block_header(request, request_len);
+    }
     else if (operation == OP_SYNC_WITH_BLOCKCHAIN) {
         // printf("sync blockchain executed\n");
-        ecall_return = sync_blockchain(request, request_len);
+        ecall_return = sync_with_blockchain(request, request_len);
     }
     else if (operation == OP_SETTLE_ROUTING_FEE) {
         // printf("settle routing fee executed\n");

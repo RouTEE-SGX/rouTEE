@@ -9,6 +9,7 @@
 #include <vector>
 
 class CBlock;
+class CBlockHeader;
 class CScript;
 class CTransaction;
 class uint256;
@@ -19,6 +20,7 @@ CScript ParseScript(const std::string& s);
 std::string ScriptToAsmStr(const CScript& script, const bool fAttemptSighashDecode = false);
 bool DecodeHexTx(CTransaction& tx, const std::string& strHexTx, bool fTryNoWitness = false);
 bool DecodeHexBlk(CBlock&, const std::string& strHexBlk);
+bool DecodeHexBlkHeader(CBlockHeader& blockHeader, const std::string& strHexBlkHeader);
 uint256 ParseHashUV(const UniValue& v, const std::string& strName);
 uint256 ParseHashStr(const std::string&, const std::string& strName);
 std::vector<unsigned char> ParseHexUV(const UniValue& v, const std::string& strName);

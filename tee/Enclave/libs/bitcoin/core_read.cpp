@@ -142,6 +142,23 @@ bool DecodeHexBlk(CBlock& block, const std::string& strHexBlk)
     return true;
 }
 
+bool DecodeHexBlkHeader(CBlockHeader& blockHeader, const std::string& strHexBlkHeader)
+{
+    if (!IsHex(strHexBlkHeader))
+        return false;
+
+    std::vector<unsigned char> blockHeaderData(ParseHex(strHexBlkHeader));
+    CDataStream ssBlockHeader(blockHeaderData, SER_NETWORK, PROTOCOL_VERSION);
+    try {
+        ssBlockHeader >> blockHeader;
+    }
+    catch (const std::exception&) {
+        return false;
+    }
+
+    return true;
+}
+
 uint256 ParseHashUV(const UniValue& v, const string& strName)
 {
     string strHex;

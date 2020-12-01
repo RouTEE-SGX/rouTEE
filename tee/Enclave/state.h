@@ -103,6 +103,19 @@ class PendingSettleTxInfo {
         Deposit* leftover_deposit;
 };
 
+class TxFeeInfo {
+    public:
+        unsigned long long total_tx_fee;
+        unsigned long long total_tx_size;
+
+        TxFeeInfo(unsigned long long total_tx_fee, unsigned long long total_tx_size) {
+            this->total_tx_fee = total_tx_fee;
+            this->total_tx_size = total_tx_size;
+        }
+
+        ~TxFeeInfo() { }
+};
+
 // global state
 class State {
 
@@ -163,7 +176,12 @@ class State {
 
         // average on-chain tx fee per byte
         // for simple test: set this 0, to make tx fee 0
-        unsigned long long avg_tx_fee_per_byte = 100;
+        unsigned long long accumulated_tx_fee;
+        unsigned long long accumulated_tx_size;
+
+        unsigned long long avg_tx_fee_per_byte;
+
+        queue<TxFeeInfo> tx_fee_infos;
 
         // deposit_requests[manager_address] = deposit_request
         map<string, DepositRequest*> deposit_requests;
