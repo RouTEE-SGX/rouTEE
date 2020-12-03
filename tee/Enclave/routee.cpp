@@ -295,8 +295,8 @@ void ecall_print_state() {
 
     printf("\n\n\n\n\n***** deposit requests *****\n\n");
     for (map<string, DepositRequest*>::iterator iter = state.deposit_requests.begin(); iter != state.deposit_requests.end(); iter++){
-        printf("manager key id: %s -> sender address: %s / block number:%llu\n", 
-            (iter->first).c_str(), iter->second->sender_address.c_str(), iter->second->block_number);
+        printf("manager key id: %s -> sender address: %s / manager address: %s / block number:%llu\n", 
+            (iter->first).c_str(), iter->second->sender_address.c_str(), iter->second->manager_address.c_str(), iter->second->block_number);
     }
 
     printf("\n\n\n\n\n***** deposits *****\n\n");
@@ -529,6 +529,7 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
 
     DepositRequest *deposit_request = new DepositRequest;
     deposit_request->manager_private_key = generated_private_key;
+    deposit_request->manager_address = generated_address;
     deposit_request->sender_address = sender_address;
     deposit_request->block_number = latest_block_number;
     
@@ -739,6 +740,7 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
 
     // make transaction inputs for settle transaction
     string input_string = "[";
+    string prevouts = "[";
     string privkey = "[";
 
     while (!state.deposits.empty()) {
@@ -748,16 +750,20 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
 
         string tx_hash = deposit->tx_hash;
         unsigned long long tx_index = deposit->tx_index;
+        string script = deposit->script;
 
         input_string += "{\"txid\":\"" + tx_hash + "\",\"vout\":" + long_long_to_string(0) + "}";
+        prevouts += "{\"txid\":\"" + tx_hash + "\",\"vout\":" + long_long_to_string(0) + ",\"scriptPubKey\":\"" + script + "\",\"redeemScript\":\"\"}";
         privkey += "\"" + deposit->manager_private_key + "\"";
         if (!state.deposits.empty()) {
             input_string += ","; // add commas if not last item
-            privkey = ",";
+            prevouts += ",";
+            privkey += ",";
         }
         else {
             input_string += "]"; // add bracket if last item
-            privkey = "]";
+            prevouts += "]";
+            privkey += "]";
         }
         psti->used_deposits.push(deposit);
     }
@@ -793,11 +799,11 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
 
             unsigned long long total_out = state.d_total_deposit - total_settle_amount - ((tx_output_num * TX_OUTPUT_SIZE) + TX_INPUT_SIZE) * state.avg_tx_fee_per_byte;
 
-            output_string += "\"" + state.owner_address + "\":" + satoshi_to_bitcoin(total_out) + "}"; // TODO fix
+            output_string += "\"" + state.owner_address + "\":" + satoshi_to_bitcoin(total_out) + "}";
 
             state.deposits.push(leftover_deposit);
             psti->leftover_deposit = leftover_deposit;
-            printf("state.d_total_deposit: %llu, total_settle_amount: %llu, total_out: %llu\n", state.d_total_deposit, total_settle_amount, total_out);
+            // printf("state.d_total_deposit: %llu, total_settle_amount: %llu, total_out: %llu\n", state.d_total_deposit, total_settle_amount, total_out);
         }
         else {
             // TODO
@@ -809,7 +815,7 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
     state.routing_fee_waiting -= psti->pending_routing_fees;
     int settle_tx_size = TX_INPUT_SIZE * tx_input_num + TX_OUTPUT_SIZE * tx_output_num;
     psti->pending_tx_fee = state.avg_tx_fee_per_byte * settle_tx_size;
-    psti->leftover_deposit->tx_hash = "0x_tx_hash"; // TODO fix
+    psti->leftover_deposit->tx_hash = "0x_tx_hash"; // TODO fix (sjkim)
     state.pending_settle_tx_infos.push(psti);
     state.balances_for_settle_tx_fee -= psti->pending_tx_fee;
 
@@ -819,6 +825,7 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
     // print result
     if (doPrint) {
         printf("input string: %s\n", input_string.c_str());
+        printf("output string: %s\n", output_string.c_str());
         printf("settle tx intput num: %d / settle tx output num: %d\n", tx_input_num, tx_output_num);
         printf("routing fee waiting: %llu / psti->pending balances: %llu / state.total balance: %llu\n", state.routing_fee_waiting, psti->pending_balances, state.total_balances);
     }
@@ -826,17 +833,18 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
     // printf("input string: %s\noutput string: %s\n", input_string.c_str(), output_string.c_str());
     std::string create_transaction_rpc = create_raw_transaction_rpc();
     create_transaction_rpc += input_string + " " + output_string;
+    // printf("create transaction rpc: %s\n", create_transaction_rpc.c_str());
     UniValue settle_transaction = executeCommand(create_transaction_rpc);
     //std::string settle_transaction_string = remove_surrounding_quotes(settle_transaction.write());
     std::string settle_transaction_string = settle_transaction.write();
-    printf("settle_transaction_string: %s\n", settle_transaction_string.c_str());
-    // return settle_transaction_string;
+    // printf("settle_transaction_string: %s\n", settle_transaction_string.c_str());
 
     std::string sign_transaction_rpc = sign_raw_transaction_rpc();
-    sign_transaction_rpc += settle_transaction_string + " " + privkey;
+    sign_transaction_rpc += settle_transaction_string.substr(1, settle_transaction_string.size() - 2) + " " + prevouts + " " + privkey + " ALL";
+    // printf("sign_transaction_rpc: %s\n", sign_transaction_rpc.c_str());
     UniValue signed_settle_transaction = executeCommand(sign_transaction_rpc);
     std::string signed_settle_transaction_string = signed_settle_transaction.write();
-    printf("signed_settle_transaction_string: %s\n", signed_settle_transaction_string.c_str());
+    // printf("signed_settle_transaction_string: %s\n", signed_settle_transaction_string.c_str());
 
     *settle_tx_len = signed_settle_transaction_string.length();
     memcpy((char*) settle_transaction_ret, signed_settle_transaction_string.c_str(), signed_settle_transaction_string.length());
@@ -868,15 +876,66 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         return ERR_INVALID_PARAMS;
     }
 
-    char* _receiver_address = strtok(NULL, " ");
-    if (_receiver_address == NULL) {
-        printf("No receiver address for multihop payment\n");
+    string sender_address(_sender_address, BITCOIN_ADDRESS_LEN);
+
+    char* _batch_size = strtok(NULL, " ");
+    if (_batch_size == NULL) {
+        printf("No batch size for multihop payment\n");
         return ERR_INVALID_PARAMS;
     }
-    
-    char* _amount = strtok(NULL, " ");
-    if (_amount == NULL) {
-        printf("No amount parameter for multihop payment\n");
+
+    int batch_size = atoi(_batch_size);
+
+    queue<PaymentInfo> queue;
+    map<string, Account*>::iterator iter;
+    Account* receiver_acc;
+    string receiver_address;
+    unsigned long long amount;
+    unsigned long long total_amount;
+
+    for (int i = 0; i < batch_size; i++) {
+        char* _receiver_address = strtok(NULL, " ");
+        if (_receiver_address == NULL) {
+            printf("No receiver address for multihop payment\n");
+            return ERR_INVALID_PARAMS;
+        }
+        
+        receiver_address = string(_receiver_address, BITCOIN_ADDRESS_LEN);
+
+        if (!CBitcoinAddress(receiver_address).IsValid()) {
+            printf("Invalid receiver address for multihop payment\n");
+            return ERR_INVALID_PARAMS;
+        }
+
+        // check the receiver exists
+        iter = state.users.find(receiver_address);
+        if (iter == state.users.end()) {
+            // receiver is not in the state
+            printf("No receiver account for paymenn");
+            return ERR_NO_RECEIVER;
+        }
+
+        char* _amount = strtok(NULL, " ");
+        if (_amount == NULL) {
+            printf("No amount parameter for multihop payment\n");
+            return ERR_INVALID_PARAMS;
+        }
+
+        amount = strtoull(_amount, NULL, 10);
+        total_amount += amount;
+
+        receiver_acc = iter->second;
+
+        // check the receiver is ready to get paid (temporarily deprecated for easy tests) (for debugging) (sjkim)
+        // if (sender_acc->min_requested_block_number > receiver_acc->latest_SPV_block_number) {
+        //     return ERR_RECEIVER_NOT_READY;
+        // }
+
+        queue.push(PaymentInfo(receiver_acc, amount));
+    }
+
+    if (batch_size != queue.size()) {
+        printf("Batch size is different from queue size\n");
         return ERR_INVALID_PARAMS;
     }
 
@@ -886,20 +945,27 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         return ERR_INVALID_PARAMS;
     }
 
-    string sender_address(_sender_address, BITCOIN_ADDRESS_LEN);
-    string receiver_address(_receiver_address, BITCOIN_ADDRESS_LEN);
-    unsigned long long amount = strtoull(_amount, NULL, 10);
+    // string receiver_address(_receiver_address, BITCOIN_ADDRESS_LEN);
     unsigned long long fee = strtoull(_fee, NULL, 10);
+
+    // check routing fee
+    if (fee < state.routing_fee) {
+        return ERR_NOT_ENOUGH_FEE;
+    }
 
     if (!CBitcoinAddress(sender_address).IsValid()) {
         printf("Invalid sender address for multihop payment\n");
         return ERR_INVALID_PARAMS;
     }
 
-    if (!CBitcoinAddress(receiver_address).IsValid()) {
-        printf("Invalid receiver address for multihop payment\n");
-        return ERR_INVALID_PARAMS;
+    // check the sender exists & has more than amount + fee to send
+    iter = state.users.find(sender_address);
+    if (iter == state.users.end() || iter->second->balance < total_amount + batch_size * fee) {
+        // sender is not in the state || has not enough balance
+        return ERR_NOT_ENOUGH_BALANCE;
     }
+
+    Account* sender_acc = iter->second;
 
     if (state.verify_keys.find(sender_address) == state.verify_keys.end()) {
         printf("No verification public key for this address exists\n");
@@ -931,55 +997,35 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
 
     // sgx_thread_mutex_lock(&state_mutex);
 
-    // check the sender exists & has more than amount + fee to send
-    map<string, Account*>::iterator iter = state.users.find(sender_address);
-    if (iter == state.users.end() || iter->second->balance < amount + fee) {
-        // sender is not in the state || has not enough balance
-        return ERR_NOT_ENOUGH_BALANCE;
-    }
+    for (int i = 0; i < queue.size(); i++) {
+        PaymentInfo payment_info = queue.front();
+        receiver_acc = payment_info.receiver_account;
+        amount = payment_info.amount;
 
-    Account* sender_acc = iter->second;
+        // move balance
+        sender_acc->balance -= (amount + fee);
+        receiver_acc->balance += amount;
 
-    // check routing fee
-    if (fee < state.routing_fee) {
-        return ERR_NOT_ENOUGH_FEE;
-    }
+        // add routing fee for this payment
+        state.routing_fee_waiting += fee;
+        // update total balances
+        state.total_balances -= fee;
 
-    // check the receiver exists
-    iter = state.users.find(receiver_address);
-    if (iter == state.users.end()) {
-        // receiver is not in the state
-        return ERR_NO_RECEIVER;
-    }
+        // increase sender's nonce
+        sender_acc->nonce++;
 
-    Account* receiver_acc = iter->second;
+        // update receiver's requested_block_number
+        if (receiver_acc->min_requested_block_number < sender_acc->min_requested_block_number) {
+            receiver_acc->min_requested_block_number = sender_acc->min_requested_block_number;
+        }
 
-    // check the receiver is ready to get paid (temporarily deprecated for easy tests)
-    // if (sender_acc->min_requested_block_number > receiver_acc->latest_SPV_block_number) {
-    //     return ERR_RECEIVER_NOT_READY;
-    // }
+        // update sender's requested_block_number
+        if (sender_acc->balance == 0) {
+            // sender spent all balance -> reset min requested block number
+            sender_acc->min_requested_block_number = 0;
+        }
 
-    // move balance
-    sender_acc->balance -= (amount + fee);
-    receiver_acc->balance += amount;
-
-    // add routing fee for this payment
-    state.routing_fee_waiting += fee;
-    // update total balances
-    state.total_balances -= fee;
-
-    // increase sender's nonce
-    sender_acc->nonce++;
-
-    // update receiver's requested_block_number
-    if (receiver_acc->min_requested_block_number < sender_acc->min_requested_block_number) {
-        receiver_acc->min_requested_block_number = sender_acc->min_requested_block_number;
-    }
-
-    // update sender's requested_block_number
-    if (sender_acc->balance == 0) {
-        // sender spent all balance -> reset min requested block number
-        sender_acc->min_requested_block_number = 0;
+        queue.pop();
     }
 
     // increase state id
@@ -1037,8 +1083,9 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
 
     // sender is not in the state, create new account
     Account* acc = new Account;
-    acc->balance = 0;
+    acc->balance = 100000000; // for debugging (sjkim)
     acc->nonce = 0;
+    acc->min_requested_block_number = 0;
     acc->latest_SPV_block_number = 0;
     acc->settle_address = settle_address;
     state.users[sender_address] = acc;
@@ -1244,7 +1291,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     
     // real implementation for this function
     // change param: sender_address -> manager_address
-void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, const char* tx_hash, int tx_hash_len, int tx_index, unsigned long long amount, unsigned long long block_number) {
+void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, const char* tx_hash, int tx_hash_len, int tx_index, const char* script, int script_len, unsigned long long amount, unsigned long long block_number) {
 
     // will take some of the deposit to pay tx fee later
     unsigned long long balance_for_tx_fee = state.avg_tx_fee_per_byte * TX_INPUT_SIZE * TAX_RATE_FOR_SETTLE_TX;
@@ -1301,10 +1348,12 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
 
     // add deposit
     Deposit* deposit = new Deposit;
-    deposit->tx_hash = (tx_hash_len == SGX_RSA3072_KEY_SIZE)? "deposit_tx_hash_user" + long_long_to_string((unsigned long long) tx_index) : string(tx_hash, tx_hash_len);
+    // Use hard-coded tx hash for debugging (sjkim)
+    deposit->tx_hash = (tx_hash_len == SGX_RSA3072_KEY_SIZE)? "dbc95751f2a57e0ffde6b288162a72ae8e0d45dc87cf00d0ba909bbdde31d700" : string(tx_hash, tx_hash_len);
     deposit->tx_index = tx_index;
+    deposit->script = string(script, script_len);
     if (tx_hash_len == SGX_RSA3072_KEY_SIZE) {
-        deposit->manager_private_key = "deposit_manager_private_key_user" + long_long_to_string((unsigned long long) tx_index);
+        deposit->manager_private_key = "cQzmrNwgfV8MVncGfUcKfaz5s6YegeJARpYPhrjbF6SBPRVQLc9e";
     }
     else {
         deposit->manager_private_key = dr->manager_private_key;
@@ -1450,6 +1499,7 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
     string keyID;
     int tx_index;
     unsigned long long amount;
+    string script;
     string pending_settle_tx_hash;
 
     unsigned int total_tx_size = 0;
@@ -1464,13 +1514,16 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
         }
 
         keyID = tx_dest.keyID->ToString();
+        script = HexStr(transaction->vout[0].scriptPubKey);
         txid = transaction->GetHash().GetHex();
         amount = transaction->vout[0].nValue;
+        // script = transaction->vout[0].scriptPubKey;
+
         pending_settle_tx_hash = state.pending_settle_tx_infos.front()->tx_hash;
 
         if (state.deposit_requests.find(keyID) != state.deposit_requests.end()) {
-            // printf("deal_with_deposit_tx called\n");
-            deal_with_deposit_tx(keyID.c_str(), keyID.length(), txid.c_str(), txid.length(), 0, amount, block_number);
+            printf("deal_with_deposit_tx called\n");
+            deal_with_deposit_tx(keyID.c_str(), keyID.length(), txid.c_str(), txid.length(), tx_index, script.c_str(), script.length(), amount, block_number);
         }
         else if (txid.compare(pending_settle_tx_hash) == 0) {
             // printf("deal_with_settlement_tx called\n");
@@ -1791,6 +1844,8 @@ int ecall_load_owner_key(const char* sealed_owner_private_key, int sealed_key_le
     state.owner_address = generated_address;
 
     state.block_number = 0;
+    state.accumulated_tx_fee = 0;
+    state.accumulated_tx_size = 0;
 
     printf("ecall_load_owner_key.generated_private_key: %s\n", CBitcoinSecret(key).ToString().c_str());
     printf("ecall_load_owner_key.generated_public_key: %s\n", generated_public_key.c_str());

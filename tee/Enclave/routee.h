@@ -70,7 +70,7 @@ int ecall_load_state(const char* sealed_state, int sealed_state_len);
 // Ecalls functions for debugging
 //
 
-void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, const char* txid, int txid_len, int tx_index, unsigned long long amount, unsigned long long block_number);
+void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, const char* txid, int txid_len, int tx_index, const char* script, int script_len, unsigned long long amount, unsigned long long block_number);
 void deal_with_settlement_tx();
 
 #if defined(__cplusplus)

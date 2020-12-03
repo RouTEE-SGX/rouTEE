@@ -43,6 +43,7 @@ class Deposit {
     public:
         string tx_hash;
         int tx_index;
+        string script;
         string manager_private_key;
 };
 
@@ -51,11 +52,13 @@ class DepositRequest {
         // user should send deposit to this private key's address
         string manager_private_key;
 
+        string manager_address;
+
         // when find deposit tx, balance goes to this address
         string sender_address;
 
         // when the user requests settlement, balances goes to this address
-        // tring settle_address;
+        // string settle_address;
 
         // kind of timestamp: when the user requested deposit
         unsigned long long block_number;
@@ -114,6 +117,19 @@ class TxFeeInfo {
         }
 
         ~TxFeeInfo() { }
+};
+
+class PaymentInfo {
+    public:
+        Account* receiver_account;
+        unsigned long long amount;
+
+        PaymentInfo(Account* receiver_account, unsigned long long amount) {
+            this->receiver_account = receiver_account;
+            this->amount = amount;
+        }
+
+        ~PaymentInfo() { }
 };
 
 // global state

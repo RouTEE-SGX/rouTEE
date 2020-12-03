@@ -23,7 +23,7 @@ enclave {
         public int ecall_load_state([in, size=sealed_state_len] const char* sealed_state, int sealed_state_len);
 
         // debugging functions (temp ecall functions)
-        public void deal_with_deposit_tx([in, size=manager_addr_len] const char* manager_address, int manager_addr_len, [in, size=txid_len] const char* txid, int txid_len, int tx_index, unsigned long long amount, unsigned long long block_number);
+        public void deal_with_deposit_tx([in, size=manager_addr_len] const char* manager_address, int manager_addr_len, [in, size=txid_len] const char* txid, int txid_len, int tx_index, [in, size=script_len] const char* script, int script_len, unsigned long long amount, unsigned long long block_number);
         public void deal_with_settlement_tx();
     };
 
