@@ -88,7 +88,7 @@ void ThreadPool::WorkerThread() {
         workCount++;
 
         std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-        if (orkCount % PRINT_EPOCH == 0) {
+        if (workCount % PRINT_EPOCH == 0) {
             std::cout << workCount << "\t" << milli.count() << std::endl;
         }
     }
