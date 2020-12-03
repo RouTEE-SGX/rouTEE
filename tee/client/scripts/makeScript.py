@@ -161,7 +161,7 @@ def secure_command(message, sessionID):
 # Generate ECC private key, public key and bitcoin address
 def makeNewAddresses(addressNumber):
     with open("scriptAddress", "wt") as f:
-        for i in range(addressNumber):
+        for i in tqdm(range(addressNumber)):
 
             userID = "user" + format(i, '03')
 
@@ -184,9 +184,11 @@ def makeNewAddresses(addressNumber):
 # Script for generating rouTEE accounts
 def makeNewAccounts(accountNumber):
     if not os.path.exists("scriptAddress"):
-        makeNewAddresses(accountNumber)
+        print("execute makeNewAddresses first\n")
+        return
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
+    count = 0
     with open("scriptAddUser", "wt") as fscript, open("signedAddUser", "w") as fsigned:
         for address in tqdm(rdr):
             sender_address = address[0]
@@ -196,15 +198,22 @@ def makeNewAccounts(accountNumber):
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
+            # fsigned.write(signedCommand)
             fsigned.write(signedCommand.hex())
             fsigned.write('\n')
+
+            count = count + 1
+            if count == accountNumber:
+                break
 
 # Script for generating deposit requests
 def getReadyForDeposit(accountNumber):
     if not os.path.exists("scriptAddress"):
-        makeNewAddresses(accountNumber)
+        print("execute makeNewAddresses first\n")
+        return
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
+    count = 0
     with open("scriptDepositReq", "wt") as fscript, open("signedDepositReq", "w") as fsigned:
         for address in tqdm(rdr):
             user_address = address[0]
@@ -213,8 +222,13 @@ def getReadyForDeposit(accountNumber):
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
+            # fsigned.write(signedCommand)
             fsigned.write(signedCommand.hex())
             fsigned.write('\n')
+
+            count = count + 1
+            if count == accountNumber:
+                break
 
 # Script for managing deposit transactions
 # Should be used only for testing
@@ -224,6 +238,7 @@ def dealWithDepositTxs(accountNumber):
         return
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
+    count = 0
     with open("scriptDepositTx", "wt") as fscript, open("signedDepositTx", "w") as fsigned:
         for address in tqdm(rdr):
             user_address = address[0]
@@ -232,11 +247,16 @@ def dealWithDepositTxs(accountNumber):
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
+            # fsigned.write(signedCommand)
             fsigned.write(signedCommand.hex())
             fsigned.write('\n')
 
+            count = count + 1
+            if count == accountNumber:
+                break
+
 # Script for payments among users
-def doMultihopPayments(paymentNumber):
+def doMultihopPayments(paymentNumber, batchSize):
     if not os.path.exists("scriptAddress"):
         print("execute makeNewAddresses first\n")
         return
@@ -249,21 +269,29 @@ def doMultihopPayments(paymentNumber):
     for address in rdr:
         address_list.append(address[0])
 
-    with open("scriptPayment", "wt") as fscript, open("signedPayment", "w") as fsigned:
+    with open("scriptPayment{}".format(batchSize), "wt") as fscript, open("signedPayment{}".format(batchSize), "w") as fsigned:
         for i in tqdm(range(paymentNumber)):
             sender_index = random.randint(0, len(address_list) - 1)
+            receiver_indexes = []
             while True:
                 receiver_index = random.randint(0, len(address_list) - 1)
-                if sender_index != receiver_index:
+                if (sender_index != receiver_index) and (receiver_index not in receiver_indexes):
+                    receiver_indexes.append(receiver_index)
+                if len(receiver_indexes) == batchSize:
                     break
 
             sender_address = address_list[sender_index]
-            receiver_address = address_list[receiver_index]
-            senderID = "user" + format(sender_index, '03')        
-            command = "t m {} {} 10 1 {}".format(sender_address, receiver_address, senderID)
+            # receiver_address = address_list[receiver_index]
+            senderID = "user" + format(sender_index, '03')
+            command = "t m {} {} ".format(sender_address, batchSize)  
+            for i in range(batchSize):
+                receiver_address = address_list[receiver_indexes[i]]
+                command += "{} 100 ".format(receiver_address)
+            command += "10 {}".format(senderID)
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
+            # fsigned.write(signedCommand)
             fsigned.write(signedCommand.hex())
             fsigned.write('\n')
 
@@ -275,23 +303,32 @@ def settleBalanceRequest(settleTxNumber):
 
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
-
-    address_list = []
-    for address in rdr:
-        address_list.append(address[0])
+    count = 0
+    # address_list = []
+    # for address in rdr:
+    #     address_list.append(address[0])
 
     with open("scriptSettleReq", "wt") as fscript, open("signedSettleReq", "w") as fsigned:
-        for i in tqdm(range(settleTxNumber)):
-            user_index = random.randint(0, len(address_list) - 1)
+        # for i in tqdm(range(settleTxNumber)):
+        #     user_index = random.randint(0, len(address_list) - 1)
 
-            user_address = address_list[user_index]
-            userID = "user" + format(user_index, '03')
+        #     user_address = address_list[user_index]
+        #     userID = "user" + format(user_index, '03')
+        for address in tqdm(rdr):
+            user_address = address[0]
+            userID = "user" + format(rdr.line_num - 1, '03') 
+
             command = "t l {} 100000 {}".format(user_address, userID)
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
+            # fsigned.write(signedCommand)
             fsigned.write(signedCommand.hex())
             fsigned.write('\n')
+
+            count = count + 1
+            if count == settleTxNumber:
+                break
 
 # Script for updating boundary block number
 def updateLatestSPV(updateSPVNumber):
@@ -302,43 +339,27 @@ def updateLatestSPV(updateSPVNumber):
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
 
-    address_list = []
-    for address in rdr:
-        address_list.append(address[0])
+    # address_list = []
+    # for address in rdr:
+    #     address_list.append(address[0])
 
     with open("scriptUpdateSPV", "wt") as fscript, open("signedUpdateSPV", "w") as fsigned:
-        for i in tqdm(range(updateSPVNumber)):
-            user_index = random.randint(0, len(address_list) - 1)
+        # for i in tqdm(range(updateSPVNumber)):
+            # user_index = random.randint(0, len(address_list) - 1)
 
-            user_address = address_list[user_index]
-            userID = "user" + format(user_index, '03')
+            # user_address = address_list[user_index]
+            # userID = "user" + format(user_index, '03')
+        for address in tqdm(rdr):
+            user_address = address[0]
+            userID = "user" + format(rdr.line_num - 1, '03') 
+
             command = "t q {} 3000 {}".format(user_address, userID)
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
+            # fsigned.write(signedCommand)
             fsigned.write(signedCommand.hex())
             fsigned.write('\n')
-
-def createChannels(channelNumber, scriptName):
-
-    with open(scriptName, "w+") as f:
-        for i in range(channelNumber):
-            f.write("j user " + str(i+1) + "\n")
-
-def doRandomPayments(paymentNumber, maxUserNumber, scriptName):
-    
-    with open(scriptName, "w+") as f:
-        for i in range(paymentNumber):
-            # select distinct random sender / receiver
-            randomSenderAddr = random.randint(1, maxUserNumber)
-            randomReceiverAddr = randomSenderAddr
-            while (randomReceiverAddr == randomSenderAddr):
-                randomReceiverAddr = random.randint(1, maxUserNumber)
-
-            # cmd: sender receiver sendAmount routingFee
-            f.write("m user_" + str(randomSenderAddr) + " user_" + str(randomReceiverAddr) + " " + str(1) + " " + str(2) + "\n")
-
-
 
 if __name__ == '__main__':
 
@@ -346,29 +367,9 @@ if __name__ == '__main__':
     if len(sys.argv) >= 2:
         command = int(sys.argv[1])
     else:
-        command = eval(input("which script do you want to make (0: default / 1: createChannels / 2: doRandomPayments / 3: makeNewAddresses / 4: makeNewAccounts / 5: doMultihopPayments / 6: settleBalanceRequest / 7: updateLatestSPV)): "))
+        command = eval(input("which script do you want to make (0: default / 1: makeNewAddresses / 2: makeNewAccounts / 3: getReadyForDeposit & dealWithDepositTxs / 4: doMultihopPayments / 5: settleBalanceRequest / 6: updateLatestSPV)): "))
     
     if command == 1:
-        if len(sys.argv) >= 2:
-            channelNumber = int(sys.argv[2])
-            scriptName = sys.argv[3]
-        else:
-            channelNumber = eval(input("how many channels: "))
-            scriptName = input("script name: ")
-        createChannels(channelNumber, scriptName)
-
-    elif command == 2:
-        if len(sys.argv) >= 2:
-            paymentNumber = int(sys.argv[2])
-            maxUserNumber = int(sys.argv[3])
-            scriptName = sys.argv[4]
-        else:
-            paymentNumber = eval(input("how many payments: "))
-            maxUserNumber = eval(input("what is max user index number: "))
-            scriptName = input("script name: ")
-        doRandomPayments(paymentNumber, maxUserNumber, scriptName)
-
-    elif command == 3:
         if len(sys.argv) >= 2:
             addressNumber = int(sys.argv[2])
             scriptName = sys.argv[3]
@@ -377,7 +378,7 @@ if __name__ == '__main__':
             scriptName = "scriptAddress"
         makeNewAddresses(addressNumber)
 
-    elif command == 4:
+    elif command == 2:
         if len(sys.argv) >= 2:
             accountNumber = int(sys.argv[2])
             scriptName = sys.argv[3]
@@ -386,16 +387,28 @@ if __name__ == '__main__':
             scriptName = "scriptAccount"
         makeNewAccounts(accountNumber)
 
-    elif command == 5:
+    elif command == 3:
         if len(sys.argv) >= 2:
-            paymentNumber = int(sys.argv[2])
+            depositNumber = int(sys.argv[2])
             scriptName = sys.argv[3]
         else:
-            paymentNumber = eval(input("how many rouTEE payments to generate: "))
-            scriptName = "scriptPayment"
-        doMultihopPayments(paymentNumber)
+            depositNumber = eval(input("how many routee deposits to generate: "))
+            scriptName = "scriptDeposit"
+        getReadyForDeposit(depositNumber)
+        dealWithDepositTxs(depositNumber)
 
-    elif command == 6:
+    elif command == 4:
+        if len(sys.argv) >= 2:
+            paymentNumber = int(sys.argv[2])
+            batchSize = int(sys.argv[3])
+            scriptName = sys.argv[4]
+        else:
+            paymentNumber = eval(input("how many rouTEE payments to generate: "))
+            batchSize = eval(input("how many transactions per payment request (batch size): "))
+            scriptName = "scriptPayment"
+        doMultihopPayments(paymentNumber, batchSize)
+
+    elif command == 5:
         if len(sys.argv) >= 2:
             settleRequestNumber = int(sys.argv[2])
             scriptName = sys.argv[3]
@@ -404,27 +417,28 @@ if __name__ == '__main__':
             scriptName = "scriptSettle"
         settleBalanceRequest(settleRequestNumber)
 
-    elif command == 7:
+    elif command == 6:
         if len(sys.argv) >= 2:
             updateSPVNumber = int(sys.argv[2])
             scriptName = sys.argv[3]
         else:
-            updateSPVNumber = eval(input("how many rouTEE SPV block update: "))
+            updateSPVNumber = eval(input("how many rouTEE SPV block updates to generate: "))
             scriptName = "scriptUpdateSPV"
         updateLatestSPV(updateSPVNumber)
 
     elif command == 0:
-        accountNumber = eval(input("how many routee accounts to generate: "))
-        makeNewAddresses(accountNumber)
-        makeNewAccounts(accountNumber)
-        getReadyForDeposit(accountNumber)
-        dealWithDepositTxs(accountNumber)
-        settleBalanceRequest(accountNumber)
-        updateLatestSPV(accountNumber)
+        # accountNumber = eval(input("how many routee accounts to generate: "))
+        # makeNewAddresses(accountNumber)
+        # makeNewAccounts(accountNumber)
+        depositNumber = eval(input("how many routee deposits to generate: "))
         paymentNumber = eval(input("how many rouTEE payments to generate: "))
-        doMultihopPayments(paymentNumber)
-        # settleRequestNumber = eval(input("how many rouTEE settle balance requests to generate: "))
-        # settleBalanceRequest(settleRequestNumber)
+        batchSize = eval(input("how many transactions per payment request (batch size): "))
+        settleRequestNumber = eval(input("how many rouTEE settle balance requests to generate: "))
+        getReadyForDeposit(depositNumber)
+        dealWithDepositTxs(depositNumber)
+        doMultihopPayments(paymentNumber, batchSize)
+        settleBalanceRequest(settleRequestNumber)
+
         # updateSPVNumber = eval(input("how many rouTEE SPV block updates to generate: "))
         # updateLatestSPV(updateSPVNumber)
 
