@@ -997,7 +997,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
 
     // sgx_thread_mutex_lock(&state_mutex);
 
-    for (int i = 0; i < queue.size(); i++) {
+    for (int i = 0; i < batch_size; i++) {
         PaymentInfo payment_info = queue.front();
         receiver_acc = payment_info.receiver_account;
         amount = payment_info.amount;
