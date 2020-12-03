@@ -31,6 +31,9 @@ int state_save_counter = 0;
 #define SERVER_IP   "127.0.0.1"
 #define SERVER_PORT 7327
 
+#define NEGLECT_COUNT   0
+#define PRINT_EPOCH     1000
+
 extern sgx_enclave_id_t global_eid; // global enclave id (from routee.cpp)
 
 class TxOut {
