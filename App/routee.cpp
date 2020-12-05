@@ -71,9 +71,6 @@ ThreadPool::ThreadPool(size_t num_threads)
 }
 
 void ThreadPool::WorkerThread() {
-    if (workCount - NEGLECT_COUNT >= 0) {
-        start_time = std::chrono::system_clock::now();
-    }
     while (true) {
         std::unique_lock<std::mutex> lock(m_job_q_);
         cv_job_q_.wait(lock, [this]() { return !this->jobs_.empty() || stop_all; });
@@ -83,15 +80,19 @@ void ThreadPool::WorkerThread() {
         jobs_.pop();
         lock.unlock();
 
-        job();  // Run
+        if (workCount - NEGLECT_COUNT == 0) {
+            start_time = std::chrono::system_clock::now();
+        }
 
-        workCount++;
+        job();  // Run
 
         if (workCount % PRINT_EPOCH == 0) {
             end_time = std::chrono::system_clock::now();
             std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
             std::cout << workCount << "\t" << milli.count() << std::endl;
         }
+
+        workCount++;
     }
 }
 
