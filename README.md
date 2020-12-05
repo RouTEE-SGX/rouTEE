@@ -1,6 +1,4 @@
-<!--
 # rouTEE
--->
 
 ## How to set
 
@@ -40,57 +38,3 @@ $ ./rouTEE
 ```
 
 You can see the msg `Waiting for connections ...` .
-
-## How to run `client.py`
-
-```
-$ cd client
-$ mkdir key
-$ mkdir experiment
-$ pip3 install -r requirements.txt
-```
-
-### Make scripts
-```
-$ cd scripts
-$ python3 makeScript.py
-$ cd ..
-```
-
-### Run `client.py` console
-```
-$ python3 client.py
-```
-
-### Run `client.py` with script
-```
-$ python3 client.py script*
-```
-
-<!--
-### Run `client.py` with pre-signed script
-```
-$ python3 client.py signed*
-```
--->
-
-### Run `client.py` with script line by line
-```
-$ python3 client.py < script*
-```
-
-The second way, running with line by line, is more prefered.
-
-
-### Run `client.py` with pre-signed script line by line
-```
-$ python3 client.py < signed* signed
-```
-
-<!--
-### Run `client.py` parallel
-```
-$ sh runScripts.sh <rounds>
-```
-* MUST set <rounds> .
--->
