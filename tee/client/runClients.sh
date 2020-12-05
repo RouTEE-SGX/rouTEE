@@ -1,17 +1,11 @@
-# AddUser
-# DepositReq
-# DepositTx
-# Payment <- loop
-# SettleReq <- Optional
+# $1: name
+# $2: start
+# $3: end
 
-python3 client.py < scripts/signedAddUser signed
-python3 client.py < scripts/signedDepositReq signed
-python3 client.py < scripts/signedDepositTx signed
-
-round=`expr $1 - 1`
-for i in `seq 1 1 $round`; do
-	python3 client.py < scripts/signedPayment signed &
+start=`expr $2 + 1`
+round=`expr $3 - 1`
+for i in `seq $start 1 $round`; do
+	# echo $i
+	python3 client.py < scripts/$1$i signed &
 done
-python3 client.py < scripts/signedPayment signed
-
-# python3 client.py < scripts/signedSettleReq signed
+python3 client.py < scripts/$1$2 signed

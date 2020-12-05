@@ -83,7 +83,6 @@ void ThreadPool::WorkerThread() {
         jobs_.pop();
         lock.unlock();
 
-
         job();  // Run
 
         workCount++;
