@@ -67,14 +67,6 @@ $ python3 client.py
 $ python3 client.py script*
 ```
 
-or
-
-```
-$ python3 client.py < scripts/<something>
-```
-
-The second way is more prefered.
-
 <!--
 ### Run `client.py` with pre-signed script
 ```
@@ -86,6 +78,9 @@ $ python3 client.py signed*
 ```
 $ python3 client.py < script*
 ```
+
+The second way, running with line by line, is more prefered.
+
 
 ### Run `client.py` with pre-signed script line by line
 ```
