@@ -2,7 +2,7 @@
 # rouTEE
 -->
 
-# How to set
+## How to set
 
 Using docker whose version is `sgx v2.1.3` .
 
@@ -10,7 +10,7 @@ Using docker whose version is `sgx v2.1.3` .
 $ docker run -d --device /dev/isgx --device /dev/mei0 -p [port_num]:[port_num] --name [container_name] tozd/sgx:ubuntu-xenial
 ```
 
-# How to run `rouTEE`
+## How to run `rouTEE`
 
 ```
 $ docker exec -t -i [container_name] bash
@@ -18,7 +18,7 @@ $ docker exec -t -i [container_name] bash
 
 ### SGX env. setting:
 ```
-(in docker) $ source /opt/intel/sgxsdk/environment
+(in docker)$ source /opt/intel/sgxsdk/environment
 ```
 
 ### git clone rouTEE & env. setting
@@ -41,7 +41,7 @@ $ ./rouTEE
 
 You can see the msg `Waiting for connections ...` .
 
-# How to run `client.py`
+## How to run `client.py`
 
 ```
 $ cd tee/client
@@ -67,6 +67,14 @@ $ python3 client.py
 $ python3 client.py script*
 ```
 
+or
+
+```
+$ python3 client.py < scripts/<something>
+```
+
+The second way is more prefered.
+
 <!--
 ### Run `client.py` with pre-signed script
 ```
@@ -84,9 +92,10 @@ $ python3 client.py < script*
 $ python3 client.py < signed* signed
 ```
 
+<!--
 ### Run `client.py` parallel
 ```
 $ sh runScripts.sh <rounds>
 ```
-
 * MUST set <rounds> .
+-->
