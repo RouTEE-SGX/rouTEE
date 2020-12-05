@@ -1,3 +1,21 @@
+#include <arpa/inet.h>
+#include <errno.h>
+#include <unistd.h>
+#include <pwd.h>
+#include <string>
+#include <sstream>
+// #include <vector>
+#include <sys/stat.h>
+#include <iostream>
+#include <fstream>
+#include <time.h>
+
+#include "sgx_urts.h"
+#include "routee.h"
+#include "routee_u.h"
+#include "../Enclave/network.h"
+#include "../Enclave/errors.h"
+
 // @ Luke Park
 // Ref. https://modoocode.com/285
 #include <future>
@@ -53,6 +71,9 @@ ThreadPool::ThreadPool(size_t num_threads)
 }
 
 void ThreadPool::WorkerThread() {
+    if (workCount - NEGLECT_COUNT >= 0) {
+        start_time = std::chrono::system_clock::now();
+    }
     while (true) {
         std::unique_lock<std::mutex> lock(m_job_q_);
         cv_job_q_.wait(lock, [this]() { return !this->jobs_.empty() || stop_all; });
@@ -62,12 +83,16 @@ void ThreadPool::WorkerThread() {
         jobs_.pop();
         lock.unlock();
 
-        if (workCount == 0) {
-            start_time = std::chrono::system_clock::now();
-        }
+
         job();  // Run
-        end_time = std::chrono::system_clock::now();
+
         workCount++;
+
+        if (workCount % PRINT_EPOCH == 0) {
+            end_time = std::chrono::system_clock::now();
+            std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+            std::cout << workCount << "\t" << milli.count() << std::endl;
+        }
     }
 }
 
@@ -100,24 +125,6 @@ std::future<typename std::result_of<F(Args...)>::type> ThreadPool::EnqueueJob(
 
 }
 // namespace ThreadPool
-
-#include <arpa/inet.h>
-#include <errno.h>
-#include <unistd.h>
-#include <pwd.h>
-#include <string>
-#include <sstream>
-// #include <vector>
-#include <sys/stat.h>
-#include <iostream>
-#include <fstream>
-#include <time.h>
-
-#include "sgx_urts.h"
-#include "routee.h"
-#include "routee_u.h"
-#include "../Enclave/network.h"
-#include "../Enclave/errors.h"
 
 using std::string;
 using std::vector;
@@ -971,18 +978,6 @@ int SGX_CDECL main(int argc, char* argv[]){
 //     int SETTLE_NUM = atoi(argv[3]);
 
 //     {
-//         char tmp = 'a';
-//         std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
-//         for (int count = 0; count < PAYMENT_NUM; count++) {
-//             execute_command(&tmp, 1);
-//         }
-//         std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
-//         std::chrono::duration<double> sec = end - start;
-//         std::cout << "Elapsed time for payment with " << PAYMENT_NUM << " times: "  << sec.count() << " seconds" << std::endl;
-//     }
-
-
-//     {
 //         std::ifstream is("client/scripts/signedAddUser", std::ios::in | std::ios::binary);
 //         is.seekg(0, is.end);
 //         int length = (int)is.tellg();
@@ -999,7 +994,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 //             ptr += length / ACCOUNT_NUM;
 //         }
 //     }
-// printf("aa\n");
+// printf("add user finished\n");
 //     {
 //         std::ifstream is("client/scripts/signedDepositReq", std::ios::in | std::ios::binary);
 //         is.seekg(0, is.end);
@@ -1017,7 +1012,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 //             ptr += length / ACCOUNT_NUM;
 //         }
 //     }
-// printf("bb\n");
+// printf("deposit request finished\n");
 //     {
 //         std::ifstream is("client/scripts/signedDepositTx", std::ios::in | std::ios::binary);
 //         is.seekg(0, is.end);
@@ -1035,7 +1030,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 //             ptr += length / ACCOUNT_NUM;
 //         }
 //     }
-// printf("cc\n");
+// printf("deal with deposit transaction finished\n");
 //     {
 //         std::ifstream is("client/scripts/signedPayment10", std::ios::in | std::ios::binary);
 //         is.seekg(0, is.end);
@@ -1058,7 +1053,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 //         std::chrono::duration<double> sec = end - start;
 //         std::cout << "Elapsed time for payment with " << PAYMENT_NUM << " times: "  << sec.count() << " seconds" << std::endl;
 //     }
-// printf("dd\n");
+// printf("multihop payment finished\n");
 //         // string make_settle_tx = "k user000";
 //         // execute_command((char*) make_settle_tx.c_str(), make_settle_tx.length());
 //     {
@@ -1079,7 +1074,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 //             ptr += length / ACCOUNT_NUM;
 //         }
 //     }
-// printf("ee\n");
+// printf("settlement request finished\n");
 //     {
 //         std::chrono::system_clock::time_point start = std::chrono::system_clock::now();        
 //         string make_settle_tx = "n user000";
@@ -1088,6 +1083,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 //         std::chrono::duration<double> sec = end - start;
 //         std::cout << "Elapsed time for make_settle_tx with " << DEPOSIT_NUM << " deposits + " << SETTLE_NUM << " settles: " << sec.count() << " seconds" << std::endl;
 //     }
+//  printf("deal with settlement transaction finished\n");
 
 
 /******************************************************/
@@ -1096,7 +1092,6 @@ int SGX_CDECL main(int argc, char* argv[]){
     int master_socket, addrlen, new_socket, client_socket[MAX_CLIENTS], activity, read_len, sd;
     int max_sd;
     struct sockaddr_in address;
-    char request[MAX_MSG_SIZE+1];  // data buffer of 1K
     const char* response;
 
     // set of socket descriptors
@@ -1144,8 +1139,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 
     // @ Luke Park
     // num of threads
-    ThreadPool::ThreadPool pool(1);
-    int works = 0;
+    ThreadPool::ThreadPool pool(4);
 
     while(TRUE) {
         // clear the socket set
@@ -1201,13 +1195,16 @@ int SGX_CDECL main(int argc, char* argv[]){
 
         }
 
+        char requests[MAX_CLIENTS][MAX_MSG_SIZE+1];  // data buffer of 1K
+
+
         // else its some IO operation on some other socket
         for (int i = 0; i < MAX_CLIENTS; i++) {
             sd = client_socket[i];
             
             if (FD_ISSET(sd , &readfds)) {
                 // Check if it was for closing, and also read the incoming message
-                if ((read_len = read(sd, request, MAX_MSG_SIZE)) == 0) {
+                if ((read_len = read(sd, requests[i], MAX_MSG_SIZE)) == 0) {
                     // Somebody disconnected, get his details and print
                     getpeername(sd , (struct sockaddr*)&address, (socklen_t*)&addrlen);
                     // printf("Host disconnected, ip %s, port %d \n", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
@@ -1219,11 +1216,11 @@ int SGX_CDECL main(int argc, char* argv[]){
                 // Echo back the message that came in
                 else {
                     // set the string terminating NULL byte on the end of the data read
-                    request[read_len] = '\0';
+                    requests[i][read_len] = '\0';
                     // printf("client %d says: %s, (len: %d)\n", sd, request, read_len);
 
                     // execute client's command
-                    char operation = request[0];
+                    char operation = requests[i][0];
                     if (operation == OP_SECURE_COMMAND) {
                         // @ Luke Park
                         // execute client's command      
@@ -1232,7 +1229,7 @@ int SGX_CDECL main(int argc, char* argv[]){
                         // // std::async(std::launch::async, secure_command, request, read_len, sd);
 
                         /* ThreadPool */
-                        pool.EnqueueJob(secure_command, request, read_len, sd);
+                        pool.EnqueueJob(secure_command, requests[i], read_len, sd);
 
                         /* Sync */
                         // secure_command(request, read_len, sd);
@@ -1240,17 +1237,12 @@ int SGX_CDECL main(int argc, char* argv[]){
                     }
                     else {
                         // execute client's command
-                        response = execute_command(request, read_len);
+                        response = execute_command(requests[i], read_len);
                         
                         // send result to the client
                         send(sd, response, strlen(response), 0);
                     }
                     // printf("execution result: %s\n\n", response);
-
-                    works++;
-                    if ((pool.workCount + 1) % 1000 == 0) {
-                        std::cout << works << "\t" << std::chrono::duration<double>(pool.end_time - pool.start_time).count() << " (s)" << std::endl;
-                    }
                 }
             }
         }
