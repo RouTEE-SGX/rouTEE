@@ -14,13 +14,6 @@ using std::vector;
 using std::string;
 using std::map;
 
-class TxOut {
-    public:
-        unsigned long long amount;
-        std::string txid;
-        int tx_index;
-};
-
 // user account infos
 class Account {
 

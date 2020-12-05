@@ -71,6 +71,9 @@ ThreadPool::ThreadPool(size_t num_threads)
 }
 
 void ThreadPool::WorkerThread() {
+    if (workCount - NEGLECT_COUNT >= 0) {
+        start_time = std::chrono::system_clock::now();
+    }
     while (true) {
         std::unique_lock<std::mutex> lock(m_job_q_);
         cv_job_q_.wait(lock, [this]() { return !this->jobs_.empty() || stop_all; });
@@ -80,15 +83,14 @@ void ThreadPool::WorkerThread() {
         jobs_.pop();
         lock.unlock();
 
-        if (workCount - NEGLECT_COUNT >= 0) {
-            start_time = std::chrono::system_clock::now();
-        }
+
         job();  // Run
-        end_time = std::chrono::system_clock::now();
+
         workCount++;
 
-        std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
         if (workCount % PRINT_EPOCH == 0) {
+            end_time = std::chrono::system_clock::now();
+            std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
             std::cout << workCount << "\t" << milli.count() << std::endl;
         }
     }
@@ -976,18 +978,6 @@ int SGX_CDECL main(int argc, char* argv[]){
 //     int SETTLE_NUM = atoi(argv[3]);
 
 //     {
-//         char tmp = 'a';
-//         std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
-//         for (int count = 0; count < PAYMENT_NUM; count++) {
-//             execute_command(&tmp, 1);
-//         }
-//         std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
-//         std::chrono::duration<double> sec = end - start;
-//         std::cout << "Elapsed time for payment with " << PAYMENT_NUM << " times: "  << sec.count() << " seconds" << std::endl;
-//     }
-
-
-//     {
 //         std::ifstream is("client/scripts/signedAddUser", std::ios::in | std::ios::binary);
 //         is.seekg(0, is.end);
 //         int length = (int)is.tellg();
@@ -1004,7 +994,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 //             ptr += length / ACCOUNT_NUM;
 //         }
 //     }
-// printf("aa\n");
+// printf("add user finished\n");
 //     {
 //         std::ifstream is("client/scripts/signedDepositReq", std::ios::in | std::ios::binary);
 //         is.seekg(0, is.end);
@@ -1022,7 +1012,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 //             ptr += length / ACCOUNT_NUM;
 //         }
 //     }
-// printf("bb\n");
+// printf("deposit request finished\n");
 //     {
 //         std::ifstream is("client/scripts/signedDepositTx", std::ios::in | std::ios::binary);
 //         is.seekg(0, is.end);
@@ -1040,7 +1030,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 //             ptr += length / ACCOUNT_NUM;
 //         }
 //     }
-// printf("cc\n");
+// printf("deal with deposit transaction finished\n");
 //     {
 //         std::ifstream is("client/scripts/signedPayment10", std::ios::in | std::ios::binary);
 //         is.seekg(0, is.end);
@@ -1063,7 +1053,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 //         std::chrono::duration<double> sec = end - start;
 //         std::cout << "Elapsed time for payment with " << PAYMENT_NUM << " times: "  << sec.count() << " seconds" << std::endl;
 //     }
-// printf("dd\n");
+// printf("multihop payment finished\n");
 //         // string make_settle_tx = "k user000";
 //         // execute_command((char*) make_settle_tx.c_str(), make_settle_tx.length());
 //     {
@@ -1084,7 +1074,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 //             ptr += length / ACCOUNT_NUM;
 //         }
 //     }
-// printf("ee\n");
+// printf("settlement request finished\n");
 //     {
 //         std::chrono::system_clock::time_point start = std::chrono::system_clock::now();        
 //         string make_settle_tx = "n user000";
@@ -1093,6 +1083,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 //         std::chrono::duration<double> sec = end - start;
 //         std::cout << "Elapsed time for make_settle_tx with " << DEPOSIT_NUM << " deposits + " << SETTLE_NUM << " settles: " << sec.count() << " seconds" << std::endl;
 //     }
+//  printf("deal with settlement transaction finished\n");
 
 
 /******************************************************/

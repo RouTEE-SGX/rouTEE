@@ -878,6 +878,20 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
 
     string sender_address(_sender_address, BITCOIN_ADDRESS_LEN);
 
+    // check the sender exists & has more than amount + fee to send
+    map<string, Account*>::iterator iter = state.users.find(sender_address);
+    if (iter == state.users.end()) {
+        printf("No sender account exist in rouTEE\n");
+        return ERR_NO_USER_ACCOUNT;
+    }
+    
+    if (state.verify_keys.find(sender_address) == state.verify_keys.end()) {
+        printf("No verification public key for this address exists\n");
+        return ERR_NO_USER_ACCOUNT;
+    }
+
+    Account* sender_acc = iter->second;
+
     char* _batch_size = strtok(NULL, " ");
     if (_batch_size == NULL) {
         printf("No batch size for multihop payment\n");
@@ -887,7 +901,6 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
     int batch_size = atoi(_batch_size);
 
     queue<PaymentInfo> queue;
-    map<string, Account*>::iterator iter;
     Account* receiver_acc;
     string receiver_address;
     unsigned long long amount;
@@ -926,10 +939,10 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
 
         receiver_acc = iter->second;
 
-        // check the receiver is ready to get paid (temporarily deprecated for easy tests) (for debugging) (sjkim)
-        // if (sender_acc->min_requested_block_number > receiver_acc->latest_SPV_block_number) {
-        //     return ERR_RECEIVER_NOT_READY;
-        // }
+        // check the receiver is ready to get paid (temporarily deprecated for easy tests) (for debugging)
+        if (sender_acc->min_requested_block_number > receiver_acc->latest_SPV_block_number) {
+            return ERR_RECEIVER_NOT_READY;
+        }
 
         queue.push(PaymentInfo(receiver_acc, amount));
     }
@@ -958,18 +971,9 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         return ERR_INVALID_PARAMS;
     }
 
-    // check the sender exists & has more than amount + fee to send
-    iter = state.users.find(sender_address);
-    if (iter == state.users.end() || iter->second->balance < total_amount + batch_size * fee) {
+    if (sender_acc->balance < total_amount + batch_size * fee) {
         // sender is not in the state || has not enough balance
         return ERR_NOT_ENOUGH_BALANCE;
-    }
-
-    Account* sender_acc = iter->second;
-
-    if (state.verify_keys.find(sender_address) == state.verify_keys.end()) {
-        printf("No verification public key for this address exists\n");
-        return ERR_NO_USER_ACCOUNT;
     }
 
     string public_key = state.verify_keys[sender_address];
@@ -1083,7 +1087,8 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
 
     // sender is not in the state, create new account
     Account* acc = new Account;
-    acc->balance = 100000000; // for debugging (sjkim)
+    // acc->balance = 100000000; // initial balance for debugging
+    acc->balance = 0;
     acc->nonce = 0;
     acc->min_requested_block_number = 0;
     acc->latest_SPV_block_number = 0;
@@ -1348,7 +1353,7 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
 
     // add deposit
     Deposit* deposit = new Deposit;
-    // Use hard-coded tx hash for debugging (sjkim)
+    // Use hard-coded tx hash for debugging
     deposit->tx_hash = (tx_hash_len == SGX_RSA3072_KEY_SIZE)? "dbc95751f2a57e0ffde6b288162a72ae8e0d45dc87cf00d0ba909bbdde31d700" : string(tx_hash, tx_hash_len);
     deposit->tx_index = tx_index;
     deposit->script = string(script, script_len);

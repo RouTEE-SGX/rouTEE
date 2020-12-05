@@ -26,22 +26,15 @@
 #define STATE_SAVE_EPOCH    0 // 0 means do not save state
 int state_save_counter = 0;
 
-#define MAX_MSG_SIZE    1024
-#define MAX_CLIENTS 30
-#define SERVER_IP   "127.0.0.1"
-#define SERVER_PORT 7327
+#define MAX_MSG_SIZE    4096
+#define MAX_CLIENTS 100
+#define SERVER_IP   "172.17.0.4" // docker IP address
+#define SERVER_PORT 8202
 
 #define NEGLECT_COUNT   0
 #define PRINT_EPOCH     1000
 
 extern sgx_enclave_id_t global_eid; // global enclave id (from routee.cpp)
-
-class TxOut {
-    public:
-        unsigned long long amount;
-        std::string txid;
-        int tx_index;
-};
 
 // tell C++ compiler that use C style linkage method for below functions
 #if defined(__cplusplus)

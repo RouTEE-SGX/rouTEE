@@ -10,11 +10,11 @@
 
   <!-- StackMaxSize: The maximum stack size per thread, must be 4KB aligned (default: 0x40000 = about 262 KB (https://decdream.tistory.com/156)) -->
   <!-- <StackMaxSize>0x400000</StackMaxSize> -->
-  <StackMaxSize>0xC8000000</StackMaxSize>
+  <StackMaxSize>0x8000000</StackMaxSize>
 
   <!-- HeapMaxSize: The maximum heap size for the process, must be 4KB aligned (default: 0x100000 = about 1 MB) -->
   <!-- <HeapMaxSize>0x10000000</HeapMaxSize> -->
-  <HeapMaxSize>0xC8000000</HeapMaxSize>
+  <HeapMaxSize>0x8000000</HeapMaxSize>
 
   <!-- TCSNum: The number of Thread Control Structure (TCS), must be greater than 0 (TCSNum = # of thread) (default: 1) -->
   <TCSNum>4</TCSNum>

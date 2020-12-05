@@ -10,7 +10,7 @@
 #include <time.h>
 
 #define SERVER_IP "127.0.0.1"
-#define SERVER_PORT 7223
+#define SERVER_PORT 8202
 
 #define SCRIPTS_PATH  "./scripts/"
 
