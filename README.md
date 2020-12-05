@@ -27,7 +27,7 @@ $ docker exec -t -i [container_name] bash
 $ git clone https://github.com/ElectricPanda/rouTEE.git [--branch alpha]
 $ cd rouTEE
 $ sudo apt-get install libcurl4-openssl-dev libssl-dev
-$ cd tee/Enclave/libs/bitcoin/secp256k1
+$ cd Enclave/libs/bitcoin/secp256k1
 $ chmod +x autogen.sh && ./autogen.sh && ./configure
 $ cd ../../../..
 $ make
@@ -44,7 +44,7 @@ You can see the msg `Waiting for connections ...` .
 ## How to run `client.py`
 
 ```
-$ cd tee/client
+$ cd client
 $ mkdir key
 $ mkdir experiment
 $ pip3 install -r requirements.txt
