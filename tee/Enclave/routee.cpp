@@ -68,7 +68,7 @@ sgx_thread_mutex_t state_mutex = SGX_THREAD_MUTEX_INITIALIZER;
 // global state
 State state;
 
-// Globals for teechain enclave
+// Globals for rouTEE enclave
 bool testnet = false;
 bool regtest = true;
 bool debug = false;
@@ -1087,7 +1087,6 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
 
     // sender is not in the state, create new account
     Account* acc = new Account;
-    // acc->balance = 100000000; // initial balance for debugging
     acc->balance = 0;
     acc->nonce = 0;
     acc->min_requested_block_number = 0;
@@ -1370,6 +1369,21 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
         delete dr;
         state.deposit_requests.erase(string(manager_address, manager_addr_len));
     }
+
+
+    // // add deposit
+    // Deposit* deposit = new Deposit;
+    // deposit->tx_hash = string(tx_hash, tx_hash_len);
+    // deposit->tx_index = tx_index;
+    // deposit->script = string(script, script_len);
+    // deposit->manager_private_key = dr->manager_private_key;
+    
+    // state.deposits.push(deposit);
+
+    // // delete deposit request
+    // delete dr;
+    // state.deposit_requests.erase(string(manager_address, manager_addr_len));
+
     // increase state id
     state.stateID++;
 
@@ -1406,6 +1420,7 @@ void deal_with_settlement_tx() {
     // print result
     if (doPrint) {
         // printf("deal with settle tx -> rouTEE owner got paid pending routing fee: %llu satoshi\n", psti->pending_routing_fees);
+    }
 
         // dequeue pending settle requests for this settle tx (print for debugging, can delete this later)
         int queue_size = psti->pending_settle_requests.size();
@@ -1425,7 +1440,6 @@ void deal_with_settlement_tx() {
             delete deposit;
         }
 
-    }
     delete psti;
 
     return;
@@ -1527,7 +1541,7 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
         pending_settle_tx_hash = state.pending_settle_tx_infos.front()->tx_hash;
 
         if (state.deposit_requests.find(keyID) != state.deposit_requests.end()) {
-            printf("deal_with_deposit_tx called\n");
+            // printf("deal_with_deposit_tx called\n");
             deal_with_deposit_tx(keyID.c_str(), keyID.length(), txid.c_str(), txid.length(), tx_index, script.c_str(), script.length(), amount, block_number);
         }
         else if (txid.compare(pending_settle_tx_hash) == 0) {

@@ -353,7 +353,7 @@ def updateLatestSPV(updateSPVNumber):
             user_address = address[0]
             userID = "user" + format(rdr.line_num - 1, '03') 
 
-            command = "t q {} 3000 {}".format(user_address, userID)
+            command = "t q {} 100 {}".format(user_address, userID)
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
@@ -427,20 +427,19 @@ if __name__ == '__main__':
         updateLatestSPV(updateSPVNumber)
 
     elif command == 0:
-        # accountNumber = eval(input("how many routee accounts to generate: "))
-        # makeNewAddresses(accountNumber)
-        # makeNewAccounts(accountNumber)
+        accountNumber = eval(input("how many routee accounts to generate: "))
         depositNumber = eval(input("how many routee deposits to generate: "))
         paymentNumber = eval(input("how many rouTEE payments to generate: "))
         batchSize = eval(input("how many transactions per payment request (batch size): "))
         settleRequestNumber = eval(input("how many rouTEE settle balance requests to generate: "))
+        updateSPVNumber = eval(input("how many rouTEE SPV block updates to generate: "))
+        # makeNewAddresses(accountNumber)
+        makeNewAccounts(accountNumber)
         getReadyForDeposit(depositNumber)
         dealWithDepositTxs(depositNumber)
         doMultihopPayments(paymentNumber, batchSize)
         settleBalanceRequest(settleRequestNumber)
-
-        # updateSPVNumber = eval(input("how many rouTEE SPV block updates to generate: "))
-        # updateLatestSPV(updateSPVNumber)
+        updateLatestSPV(updateSPVNumber)
 
         scriptName = "scriptForAll"
 

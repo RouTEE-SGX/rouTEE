@@ -340,6 +340,7 @@ if __name__ == "__main__":
     #     runScript(scriptName)
     #     sys.exit()
 
+    SEND_SIGNED = False
     if len(sys.argv) == 2:
         if sys.argv[1] == 'signed':
             SEND_SIGNED = True
