@@ -1122,7 +1122,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 
     // bind the socket to SERVER_IP:SERVER_PORT
     if (bind(master_socket, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("bind failed");
+        perror("bind failed (set SERVER_IP or SERVER_PORT in App/routee.h correctly)");
         exit(EXIT_FAILURE);
     }
     // printf("Listener on port %d \n", SERVER_PORT);

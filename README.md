@@ -33,6 +33,8 @@ $ cd ../../../..
 $ make
 ```
 
+You need to set SERVER_IP & SERVER_PORT in App/routee.h correctly before build
+
 ### Run rouTEE
 
 ```
