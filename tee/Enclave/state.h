@@ -18,11 +18,16 @@ using std::map;
 class Account {
 
     public:
+        // user balance amount
         unsigned long long balance;
+
+        // prevent replay attack
         unsigned long long nonce;
 
-        // if sender's min_requested_block_number <= receiver's latest_SPV_block_number, payment success
+        // max source block number
         unsigned long long min_requested_block_number;
+        
+        // boundary block number
         unsigned long long latest_SPV_block_number;
 
         // when user requests settlement, rouTEE sends balance to this address
