@@ -1,4 +1,4 @@
-tqdm
-bitcoinaddress
+tqdm==4.62.3
+bitcoinaddress==0.1.5
 pycryptodome; sys_platform == "darwin"
-pycryptodomex; sys_platform == "linux"
+pycryptodomex==3.11.0; sys_platform == "linux"
