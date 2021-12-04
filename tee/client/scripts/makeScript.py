@@ -1,7 +1,7 @@
 from tqdm import tqdm
 import random
 import sys
-from bitcoinaddress import Address, Key
+from bitcoinaddress import Address, Key, Wallet
 import os.path
 import csv
 import codecs
@@ -165,6 +165,7 @@ def makeNewAddresses(addressNumber):
 
             userID = "user" + format(i, '03')
 
+            # generate key pair to make signature for operation message to RouTEE
             private_key = RSA.generate(3072)
             public_key = private_key.publickey()
 
@@ -173,13 +174,10 @@ def makeNewAddresses(addressNumber):
             with open("../key/public_key_{}.pem".format(userID), "wb") as f2:
                 f2.write(public_key.export_key('PEM'))
 
-            key = Key()
-            key.generate()
-
-            address = Address(key)
-            address._generate_publicaddress1_testnet()
-            
-            f.write("{}\n".format(address.pubaddr1_testnet))
+            # generate bitcoin address as a user address in RouTEE
+            wallet = Wallet(testnet=True)
+            # print("user address:", wallet.address.__dict__['testnet'].pubaddr1)
+            f.write("{}\n".format(wallet.address.__dict__['testnet'].pubaddr1))
 
 # Script for generating rouTEE accounts
 def makeNewAccounts(accountNumber):
