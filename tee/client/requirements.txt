@@ -1,3 +1,4 @@
 tqdm
 bitcoinaddress
-pycryptodomex
+pycryptodome; sys_platform == "darwin"
+pycryptodomex; sys_platform == "linux"
