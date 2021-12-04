@@ -323,12 +323,27 @@ def executeCommand(command):
     # print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
 
 
+# send signed & encrypted operation messages to RouTEE
 def send_line(command):
     # if FILE_NAME[:6] != 'signed':
     #     return
-    client_socket.sendall(bytes.fromhex(command))
-    data_ = client_socket.recv(1024)
 
+    try:
+        f = open(SCRIPTSPATH+command, 'r')
+        rdr = csv.reader(f)
+    except:
+        print("there are no proper script; try again")
+        cmd = input("input command: ")
+        send_line(cmd)
+        return
+
+    for command in rdr:
+        # ignore '\n'
+        if len(command) == 0:
+            continue
+        # print("command:", command)
+        client_socket.sendall(bytes.fromhex(command[0]))
+    data_ = client_socket.recv(1024)
 
 if __name__ == "__main__":
     print("start")
