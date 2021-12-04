@@ -456,20 +456,15 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
         return ERR_INVALID_PARAMS;
     }
 
-    if (state.verify_keys.find(sender_address) == state.verify_keys.end()) {
-        printf("No verification public key for this address exists.\n");
+    if (state.users.find(sender_address) == state.users.end()) {
+        printf("No sender account exist in rouTEE\n");
         return ERR_NO_USER_ACCOUNT;
     }
 
-    string public_key = state.verify_keys[sender_address];
-
-    // if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
-    //     return ERR_NO_AUTHORITY;
-    // }
-
+    // verify signature
     sgx_rsa3072_public_key_t rsa_pubkey;
     memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
-    memcpy(rsa_pubkey.mod, public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, state.users[sender_address]->public_key.c_str(), SGX_RSA3072_KEY_SIZE);
     rsa_pubkey.exp[0] = 1;
     rsa_pubkey.exp[1] = 0;
     rsa_pubkey.exp[2] = 1;
@@ -487,7 +482,6 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
 
     // sgx_thread_mutex_lock(&state_mutex);
 
-    Account* account = state.users[sender_address];
     // printf("secure_get_ready_for_deposit: %s, %s\n\n", sender_address.c_str(), settle_address.c_str());
 
     // initialize ECC State for Bitcoin Library
@@ -582,20 +576,17 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
         return ERR_INVALID_PARAMS;
     }
 
-    if (state.verify_keys.find(user_address) == state.verify_keys.end()) {
-        printf("No verification public key for this address exists.\n");
+    map<string, Account*>::iterator iter = state.users.find(user_address);
+    if (iter == state.users.end()) {
+        printf("No user account exist in rouTEE\n");
         return ERR_NO_USER_ACCOUNT;
-    }    
+    }
+    Account* user_acc = iter->second;
 
-    string public_key = state.verify_keys[user_address];
-
-    // if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
-    //     return ERR_NO_AUTHORITY;
-    // }
-
+    // verify signature
     sgx_rsa3072_public_key_t rsa_pubkey;
     memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
-    memcpy(rsa_pubkey.mod, public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, user_acc->public_key.c_str(), SGX_RSA3072_KEY_SIZE);
     rsa_pubkey.exp[0] = 1;
     rsa_pubkey.exp[1] = 0;
     rsa_pubkey.exp[2] = 1;
@@ -619,15 +610,11 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
     }
 
     // check the user has enough balance
-    map<string, Account*>::iterator iter = state.users.find(user_address);
-    if (iter == state.users.end() || iter->second->balance < amount) {
-        // user is not in the state || has not enough balance
+    if (user_acc->balance < amount) {
         return ERR_NOT_ENOUGH_BALANCE;
     }
 
     // sgx_thread_mutex_lock(&state_mutex);
-
-    Account* user_acc = iter->second;
 
     // push new waiting settle request
     SettleRequest* sr = new SettleRequest;
@@ -884,11 +871,6 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         printf("No sender account exist in rouTEE\n");
         return ERR_NO_USER_ACCOUNT;
     }
-    
-    if (state.verify_keys.find(sender_address) == state.verify_keys.end()) {
-        printf("No verification public key for this address exists\n");
-        return ERR_NO_USER_ACCOUNT;
-    }
 
     Account* sender_acc = iter->second;
 
@@ -976,15 +958,9 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         return ERR_NOT_ENOUGH_BALANCE;
     }
 
-    string public_key = state.verify_keys[sender_address];
-
-    // if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, public_key) != 0) {
-    //     return ERR_NO_AUTHORITY;
-    // }
-
     sgx_rsa3072_public_key_t rsa_pubkey;
     memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
-    memcpy(rsa_pubkey.mod, public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, sender_acc->public_key.c_str(), SGX_RSA3072_KEY_SIZE);
     rsa_pubkey.exp[0] = 1;
     rsa_pubkey.exp[1] = 0;
     rsa_pubkey.exp[2] = 1;
@@ -1092,11 +1068,9 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
     acc->min_requested_block_number = 0;
     acc->latest_SPV_block_number = 0;
     acc->settle_address = settle_address;
+    acc->public_key = string(signature, SGX_RSA3072_KEY_SIZE);
     state.users[sender_address] = acc;
     
-    // store the user's RSA public key for signature verification 
-    state.verify_keys[sender_address] = string(signature, SGX_RSA3072_KEY_SIZE);
-
     // print result
     if (doPrint) {
         printf("ADD_USER success: sender address: %s / settle address: %s\n", sender_address.c_str(), settle_address.c_str());
@@ -1166,16 +1140,18 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     //     return ERR_INVALID_PARAMS;
     // }
 
-    if (state.verify_keys.find(user_address) == state.verify_keys.end()) {
-        printf("No verification public key for this address exists.\n");
+    // check the user exists
+    map<string, Account*>::iterator iter = state.users.find(user_address);
+    if (iter == state.users.end()) {
+        printf("No user account exist in rouTEE\n");
         return ERR_NO_USER_ACCOUNT;
     }
+    Account* user_acc = iter->second;
 
-    string public_key = state.verify_keys[user_address];
-
+    // verify signature
     sgx_rsa3072_public_key_t rsa_pubkey;
     memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
-    memcpy(rsa_pubkey.mod, public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, user_acc->public_key.c_str(), SGX_RSA3072_KEY_SIZE);
     rsa_pubkey.exp[0] = 1;
     rsa_pubkey.exp[1] = 0;
     rsa_pubkey.exp[2] = 1;
@@ -1190,17 +1166,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
         return ERR_VERIFY_SIG_FAILED;
     }
 
-    // check the user exists
-    map<string, Account*>::iterator iter = state.users.find(user_address);
-    if (iter == state.users.end()) {
-        // the user not exist
-        // printf("address %s is not in the state\n", user_address);
-        return ERR_ADDRESS_NOT_EXIST;
-    }
-
     // sgx_thread_mutex_lock(&state_mutex);
-
-    Account* user_acc = iter->second;
 
     // check the block number is larger than user's previous latest block number
     if (user_acc->latest_SPV_block_number <= block_number) {
@@ -1871,7 +1837,7 @@ int ecall_load_owner_key(const char* sealed_owner_private_key, int sealed_key_le
     printf("ecall_load_owner_key.generated_address: %s\n", generated_address.c_str());
 
     // rouTEE host's public key for verification
-    // state.verify_keys["host"] = ;
+    // state.users["host"] = ;
     // char byteArray[] = {}
     // std::string s(byteArray, sizeof(byteArray));
 
