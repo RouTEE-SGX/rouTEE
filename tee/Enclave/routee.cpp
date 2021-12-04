@@ -850,7 +850,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         iter = state.users.find(receiver_address);
         if (iter == state.users.end()) {
             // receiver is not in the state
-            printf("No receiver account for paymenn");
+            printf("No receiver account for payment");
             return ERR_NO_RECEIVER;
         }
         receiver_acc = iter->second;
@@ -882,8 +882,8 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
         return ERR_NOT_ENOUGH_FEE;
     }
 
+    // check if the sender can afford this payments
     if (sender_acc->balance < total_amount + batch_size * fee) {
-        // sender is not in the state || has not enough balance
         return ERR_NOT_ENOUGH_BALANCE;
     }
 
@@ -1695,7 +1695,6 @@ int ecall_load_owner_key(const char* sealed_owner_private_key, int sealed_key_le
 
     // ret = mbedtls_base64_decode( pubkey, 88, &pubkeylen, input, strlen(_input) );
 
-
     return NO_ERROR;
 }
 
@@ -1744,13 +1743,4 @@ int ecall_load_state(const char* sealed_state, int sealed_state_len) {
     // printf("success loading state!\n");
 
     return NO_ERROR;
-}
-
-void ecall_seal_channels() {
-    // https://github.com/intel/linux-sgx/blob/master/SampleCode/SealUnseal/Enclave_Seal/Enclave_Seal.cpp
-    // https://github.com/intel/linux-sgx/blob/master/SampleCode/SealUnseal/App/App.cpp
-}
-
-void ecall_unseal_channels() {
-    
 }

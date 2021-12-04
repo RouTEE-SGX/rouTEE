@@ -56,9 +56,6 @@ class DepositRequest {
         // when find deposit tx, balance goes to this address
         string sender_address;
 
-        // when the user requests settlement, balances goes to this address
-        // string settle_address;
-
         // kind of timestamp: when the user requested deposit
         unsigned long long block_number;
 };
