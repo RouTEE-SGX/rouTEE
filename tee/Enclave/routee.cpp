@@ -263,7 +263,7 @@ int ecall_settle_routing_fee(const char* command, int cmd_len, const char* signa
     sr->amount = amount;
     state.settle_requests_waiting.push(sr);
 
-    // set user's account
+    // update host's routing fees
     state.routing_fee_confirmed -= amount;
     state.routing_fee_settled += amount;
 
@@ -272,7 +272,7 @@ int ecall_settle_routing_fee(const char* command, int cmd_len, const char* signa
 
     // print result
     if (doPrint) {
-        printf("user %s requests settlement: %llu satoshi\n", state.fee_address.c_str(), amount);
+        printf("host %s requests settlement: %llu satoshi\n", state.fee_address.c_str(), amount);
     }
 
     return NO_ERROR;
@@ -537,8 +537,8 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
     
     // print result
     if (doPrint) {
-        printf("manager private key: %s\n", generated_private_key.c_str());
-        printf("random manager address: %s / block number: %llu\n", generated_address.c_str(), latest_block_number);
+        // printf("manager private key: %s\n", generated_private_key.c_str());
+        printf("ADD_DEPOSIT success: random manager address: %s / block number: %llu\n", generated_address.c_str(), latest_block_number);
     }
 
     // send random address & block info to the sender
@@ -656,7 +656,7 @@ int secure_settle_balance(const char* command, int cmd_len, const char* sessionI
 
     // print result
     if (doPrint) {
-        printf("user %s requested settlement: %llu satoshi\n", user_address.c_str(), amount);
+        printf("SETTLEMENT success: user %s requested settlement: %llu satoshi\n", user_address.c_str(), amount);
     }
 
     // sgx_thread_mutex_unlock(&state_mutex);
@@ -1037,7 +1037,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
 
     // print result
     if (doPrint) {
-        // printf("user %s send %llu satoshi to user %s (routing fee: %llu)\n", sender_address.c_str(), amount, receiver_address.c_str(), fee);
+        printf("PAYMENT success: user %s send %llu satoshi to user %s (routing fee: %llu)\n", sender_address.c_str(), amount, receiver_address.c_str(), fee);
     }
 
     // sgx_thread_mutex_unlock(&state_mutex);
@@ -1099,7 +1099,7 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
 
     // print result
     if (doPrint) {
-        printf("sender address: %s / settle address: %s\n", sender_address.c_str(), settle_address.c_str());
+        printf("ADD_USER success: sender address: %s / settle address: %s\n", sender_address.c_str(), settle_address.c_str());
     }
 
     // send random address & block info to the sender
@@ -1214,7 +1214,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
 
     // print result
     if (doPrint) {
-        // printf("user %s update SPV block number to %llu\n", user_address.c_str(), block_number);
+        printf("UPDATE_BOUNDARY_BLOCK success: user %s update boundary block number to %llu\n", user_address.c_str(), block_number);
     }
     
     // sgx_thread_mutex_unlock(&state_mutex);
