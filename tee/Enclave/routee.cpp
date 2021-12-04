@@ -908,8 +908,6 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
 
 // ADD_USER operation: 
 int secure_add_user(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
-    // initialize ECC State for Bitcoin Library
-    initializeECCState();
 
     // get params from command
     char* _cmd = strtok((char*) command, " ");
@@ -974,6 +972,7 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
 // UPDATE_BOUNDARY_BLOCK operation: 
 int secure_update_latest_SPV_block(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
 
+    // temply save before getting params for verifying signature later
     char cmd_tmp[cmd_len];
     memcpy(cmd_tmp, command, cmd_len);
 
