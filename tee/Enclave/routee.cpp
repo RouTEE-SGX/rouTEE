@@ -6,7 +6,6 @@
 #include "sgx_trts.h"
 #include "sgx_tseal.h"
 
-#include "channel.h"
 #include "errors.h"
 #include "state.h"
 #include "utils.h"
