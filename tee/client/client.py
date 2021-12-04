@@ -17,13 +17,12 @@ import hashlib
 # rouTEE IP address
 # SERVER_IP = "127.0.0.1"
 SERVER_IP = "satoshi.snu.ac.kr"
-# PORT = 7223
-PORT = 7327
+SERVER_PORT = 8202
 
 # open socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # connect to the server
-client_socket.connect((SERVER_IP, PORT))
+client_socket.connect((SERVER_IP, SERVER_PORT))
 
 # command scripts for rouTEE
 SCRIPTSPATH = "scripts/"
