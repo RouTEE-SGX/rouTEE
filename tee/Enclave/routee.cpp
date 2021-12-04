@@ -87,84 +87,29 @@ void printf(const char* fmt, ...) {
     ocall_print_string(buf); // OCall
 }
 
-/************ Deprecated *************/
-int verify_user(const unsigned char* command_hash, int cmd_hash_len, const char* signature, int sig_len, string public_key) {
-
-    if (public_key.compare("host") == 0) {
-        return 0;
-    }
-
-    unsigned char* pubkey = (unsigned char*) public_key.c_str();
-    size_t pubkey_len = public_key.length();
-
-    //unsigned char hash[SHA256_HASH_LEN];
-    int ret = 1;
-
-    mbedtls_ecdsa_context ctx_verify;
-    mbedtls_mpi r, s;
-
-    mbedtls_ecdsa_init( &ctx_verify );
-    mbedtls_mpi_init( &r );
-    mbedtls_mpi_init( &s );
-
-    if ((ret = mbedtls_ecp_group_load( &ctx_verify.grp, MBEDTLS_ECP_DP_SECP256K1 )) != 0) {
-        printf("ecp_group_load ret: %d\n\n", ret);
-        goto exit;
-    }
-
-    if ((ret = mbedtls_ecp_point_read_binary( &ctx_verify.grp, &ctx_verify.Q,
-                           pubkey, pubkey_len )) != 0) {
-        printf("ecp_point_read_binary ret: %x\n\n", ret);
-        goto exit;               
-    }
-
-    if ((ret = mbedtls_ecp_check_pubkey( &ctx_verify.grp, &ctx_verify.Q )) != 0) {
-        printf("ecp_check_pubkey ret: %x\n\n", ret);
-        goto exit;
-    }
-
-    /*
-     * Verify signature
-     */
-    if ((ret = mbedtls_mpi_read_binary( &r, (unsigned char*) signature, ECDSA_SIGNATURE_LEN / 2 )) != 0) {
-        printf("mpi_read_binary r ret: %x\n", ret);
-        goto exit;
-    }
-    if ((ret = mbedtls_mpi_read_binary( &s, (unsigned char*) signature + ECDSA_SIGNATURE_LEN / 2, ECDSA_SIGNATURE_LEN / 2 )) != 0) {
-        printf("mpi_read_binary s ret: %x\n", ret);
-        goto exit;
-    }
-
-    if ((ret = mbedtls_ecdsa_verify( &ctx_verify.grp,
-                  command_hash, SHA256_HASH_LEN,
-                  &ctx_verify.Q, &r, &s)) != 0) {
-        printf("ecdsa_verify ret: %x\n\n", ret);
-        goto exit;
-    }
-
-exit:
-    mbedtls_mpi_free(&r);
-    mbedtls_mpi_free(&s);
-    mbedtls_ecdsa_free( &ctx_verify );
-
-    return ret;
-}
-
 int ecall_set_routing_fee(const char* command, int cmd_len, const char* signature, int sig_len){
-    //
-    // TODO: BITCOIN
-    // check authority to set new routing fee (ex. rouTEE host's signature)
-    
-    unsigned char hash[SHA256_HASH_LEN];
-    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
-    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, "host") != 0) {
-        return ERR_NO_AUTHORITY;
+    // verify host's signature
+    char cmd_tmp[cmd_len];
+    memcpy(cmd_tmp, command, cmd_len);
+    sgx_rsa3072_public_key_t rsa_pubkey;
+    memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, state.host_public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    rsa_pubkey.exp[0] = 1;
+    rsa_pubkey.exp[1] = 0;
+    rsa_pubkey.exp[2] = 1;
+    rsa_pubkey.exp[3] = 0;
+    sgx_rsa_result_t result;
+    sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
+    if (result != SGX_RSA_VALID) {
+        printf("Signature verification failed\n");
+        return ERR_VERIFY_SIG_FAILED;
     }
 
+    // get params from command
     char* _cmd = strtok((char*) command, " ");
+    
     char* routing_fee = strtok(NULL, " ");
-
     if (routing_fee == NULL) {
         printf("No parameter for routing fee\n");
         return ERR_INVALID_PARAMS;
@@ -182,29 +127,36 @@ int ecall_set_routing_fee(const char* command, int cmd_len, const char* signatur
 }
 
 int ecall_set_routing_fee_address(const char* command, int cmd_len, const char* signature, int sig_len){
-    //
-    // TODO: BITCOIN
-    // check authority to set new routing fee (ex. rouTEE host's signature)
-
-    unsigned char hash[SHA256_HASH_LEN];
-    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
-
-    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, "host") != 0) {
-        return ERR_NO_AUTHORITY;
+    
+    // verify host's signature
+    char cmd_tmp[cmd_len];
+    memcpy(cmd_tmp, command, cmd_len);
+    sgx_rsa3072_public_key_t rsa_pubkey;
+    memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, state.host_public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    rsa_pubkey.exp[0] = 1;
+    rsa_pubkey.exp[1] = 0;
+    rsa_pubkey.exp[2] = 1;
+    rsa_pubkey.exp[3] = 0;
+    sgx_rsa_result_t result;
+    sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
+    if (result != SGX_RSA_VALID) {
+        printf("Signature verification failed\n");
+        return ERR_VERIFY_SIG_FAILED;
     }
 
+    // get params from command
     char* _cmd = strtok((char*) command, " ");
-    char* _fee_address = strtok(NULL, " ");
 
+    char* _fee_address = strtok(NULL, " ");
     if (_fee_address == NULL) {
         printf("No parameter for routing fee address\n");
         return ERR_INVALID_PARAMS;
     }
-
     string fee_address = string(_fee_address, BITCOIN_ADDRESS_LEN);
-    // SelectParams(CBaseChainParams::REGTEST);
-    if (!CBitcoinAddress(fee_address).IsValid()) {
 
+    // check if this is a valid bitcoin address
+    if (!CBitcoinAddress(fee_address).IsValid()) {
         return ERR_INVALID_PARAMS;
     }
 
@@ -220,25 +172,32 @@ int ecall_set_routing_fee_address(const char* command, int cmd_len, const char* 
 }
 
 int ecall_settle_routing_fee(const char* command, int cmd_len, const char* signature, int sig_len) {
-    //
-    // TODO: BITCOIN
-    // check authority to set new routing fee (ex. rouTEE host's signature)
-    unsigned char hash[SHA256_HASH_LEN];
-    mbedtls_sha256( (unsigned char*) command, cmd_len, hash, 0 );
 
-    if (verify_user(hash, SHA256_HASH_LEN, signature, sig_len, "host") != 0) {
-        return ERR_NO_AUTHORITY;
+    // verify host's signature
+    char cmd_tmp[cmd_len];
+    memcpy(cmd_tmp, command, cmd_len);
+    sgx_rsa3072_public_key_t rsa_pubkey;
+    memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, state.host_public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    rsa_pubkey.exp[0] = 1;
+    rsa_pubkey.exp[1] = 0;
+    rsa_pubkey.exp[2] = 1;
+    rsa_pubkey.exp[3] = 0;
+    sgx_rsa_result_t result;
+    sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
+    if (result != SGX_RSA_VALID) {
+        printf("Signature verification failed\n");
+        return ERR_VERIFY_SIG_FAILED;
     }
 
+    // get params from command
     char* _cmd = strtok((char*) command, " ");
+    
     char* _amount = strtok(NULL, " ");
-
     if (_amount == NULL) {
         printf("No parameter for settle amount\n");
         return ERR_INVALID_PARAMS;
     }
-
-    // get settle amount
     unsigned long long amount = strtoull(_amount, NULL, 10);
     
     // amount should be bigger than minimum settle amount
@@ -249,7 +208,7 @@ int ecall_settle_routing_fee(const char* command, int cmd_len, const char* signa
         return ERR_TOO_LOW_AMOUNT_TO_SETTLE;
     }
 
-    // check there is enough routing fee to settle
+    // check there is enough confirmed routing fee to settle
     if (amount > state.routing_fee_confirmed) {
         return ERR_NOT_ENOUGH_BALANCE;
     }
