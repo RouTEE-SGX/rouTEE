@@ -253,7 +253,7 @@ void ecall_print_state() {
     printf("\n\n\n\n\n***** deposit requests *****\n\n");
     for (map<string, DepositRequest*>::iterator iter = state.deposit_requests.begin(); iter != state.deposit_requests.end(); iter++){
         printf("manager key id: %s -> sender address: %s / manager address: %s / block number:%llu\n", 
-            (iter->first).c_str(), iter->second->sender_address.c_str(), iter->second->manager_address.c_str(), iter->second->block_number);
+            (iter->first).c_str(), iter->second->beneficiary_address.c_str(), iter->second->manager_address.c_str(), iter->second->block_number);
     }
 
     printf("\n\n\n\n\n***** deposits *****\n\n");
@@ -357,7 +357,7 @@ void ecall_print_state() {
     return;
 }
 
-// ADD_USER(public_key, user_address, settle_address) operation
+// ADD_USER(user_address, settle_address, public_key) operation
 int secure_add_user(const char* command, int cmd_len, const char* public_key, const char* response_msg) {
 
     // get params from command
@@ -417,46 +417,25 @@ int secure_add_user(const char* command, int cmd_len, const char* public_key, co
     return NO_ERROR;
 }
 
-// ADD_DEPOSIT operation
-int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* signature, const char* response_msg) {
+// ADD_DEPOSIT(beneficiary_address) operation
+int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* response_msg) {
 
     char cmd_tmp[cmd_len];
     memcpy(cmd_tmp, command, cmd_len);
 
     // get params from command
     char* _cmd = strtok((char*) command, " ");
-    char* _sender_address = strtok(NULL, " ");
-    if (_sender_address == NULL) {
+    char* _beneficiary_address = strtok(NULL, " ");
+    if (_beneficiary_address == NULL) {
         printf("No sender address\n");
         return ERR_INVALID_PARAMS;
     }
 
-    // check if this is a valid bitcoin address
-    string sender_address(_sender_address, BITCOIN_ADDRESS_LEN);
-    if (!CBitcoinAddress(sender_address).IsValid()) {
-        printf("Invalid sender address\n");
-        return ERR_INVALID_PARAMS;
-    }
-
     // check if the user exists
-    if (state.users.find(sender_address) == state.users.end()) {
+    string beneficiary_address(_beneficiary_address, BITCOIN_ADDRESS_LEN);
+    if (state.users.find(beneficiary_address) == state.users.end()) {
         printf("No sender account exist in rouTEE\n");
         return ERR_NO_USER_ACCOUNT;
-    }
-
-    // verify signature
-    sgx_rsa3072_public_key_t rsa_pubkey;
-    memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
-    memcpy(rsa_pubkey.mod, state.users[sender_address]->public_key.c_str(), SGX_RSA3072_KEY_SIZE);
-    rsa_pubkey.exp[0] = 1;
-    rsa_pubkey.exp[1] = 0;
-    rsa_pubkey.exp[2] = 1;
-    rsa_pubkey.exp[3] = 0;
-    sgx_rsa_result_t result;
-    sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
-    if (result != SGX_RSA_VALID) {
-        printf("Signature verification failed\n");
-        return ERR_VERIFY_SIG_FAILED;
     }
 
     // sgx_thread_mutex_lock(&state_mutex);
@@ -501,7 +480,7 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
     DepositRequest *deposit_request = new DepositRequest;
     deposit_request->manager_private_key = manager_private_key;
     deposit_request->manager_address = manager_address;
-    deposit_request->sender_address = sender_address;
+    deposit_request->beneficiary_address = beneficiary_address;
     deposit_request->block_number = latest_block_number;
     state.deposit_requests[keyid.ToString()] = deposit_request;
     
@@ -518,7 +497,7 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
     return NO_ERROR;
 }
 
-// UPDATE_BOUNDARY_BLOCK operation
+// UPDATE_BOUNDARY_BLOCK(user_address block_number (block_hash) signature) operation
 int secure_update_latest_SPV_block(const char* command, int cmd_len, const char* signature, const char* response_msg) {
 
     // temply save before getting params for verifying signature later
@@ -615,7 +594,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     return NO_ERROR;
 }
 
-// MULTI-HOP_PAYMENT operation: make payment & pay routing fee
+// MULTI-HOP_PAYMENT(sender_address batch_size [receiver_address amount]*batch_size fee signature) operation
 int secure_do_multihop_payment(const char* command, int cmd_len, const char* signature, const char* response_msg) {
 
     char cmd_tmp[cmd_len];
@@ -773,7 +752,8 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
     return NO_ERROR;
 }
 
-// SETTLEMENT operation: make settle request for user balance
+// TODO: add "fee" param in command & refactoring ecall_make_settle_transaction() function
+// SETTLEMENT(user_address amount (fee) signature) operation: make settle request for user balance
 int secure_settle_balance(const char* command, int cmd_len, const char* signature, const char* response_msg) {
 
     char cmd_tmp[cmd_len];
@@ -902,10 +882,8 @@ std::string sign_raw_transaction_rpc() {
 // generate an on-chain settlement transaction
 int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settle_tx_len) {
 
-    // 
-    // TODO: check rouTEE is ready to settle
+    // check rouTEE is ready to settle
     // ex. check there is no pending settle tx || at least 1 user requested settlement
-    //
     if (state.pending_settle_tx_infos.size() != 0 || state.settle_requests_waiting.size() == 0) {
         return ERR_SETTLE_NOT_READY;
     }
@@ -1089,7 +1067,7 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
         dr = state.deposit_requests[string(manager_address, manager_addr_len)];
 
         // check the user exists
-        sender_addr = dr->sender_address;        
+        sender_addr = dr->beneficiary_address;        
     }
 
     map<string, Account*>::iterator iter = state.users.find(sender_addr);
@@ -1163,7 +1141,7 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
     // print result
     if (doPrint) {
         if (tx_hash_len != SGX_RSA3072_KEY_SIZE) {
-            printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", dr->sender_address.c_str(), balance_for_user, balance_for_tx_fee);
+            printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", dr->beneficiary_address.c_str(), balance_for_user, balance_for_tx_fee);
         }
         else {
             printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", manager_address, balance_for_user, balance_for_tx_fee);
@@ -1494,7 +1472,6 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     // find appropriate operation
     char operation = params[0][0];
     int operation_result;
-    // const char* response_msg;
     char response_msg[64];
     switch(operation) {
         // ADD_USER operation
@@ -1504,7 +1481,8 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
             break;
         // ADD_DEPOSIT operation
         case OP_GET_READY_FOR_DEPOSIT:
-            operation_result = secure_get_ready_for_deposit(decCommand, decCommandLen, decSignature, response_msg);
+            // in this case: this operation do not require signature
+            operation_result = secure_get_ready_for_deposit(decCommand, decCommandLen, response_msg);
             break;
         // UPDATE_BOUNDARY_BLOCK operation
         case OP_UPDATE_LATEST_SPV_BLOCK:
