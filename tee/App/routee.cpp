@@ -366,7 +366,7 @@ void load_state() {
         error("ecall_load_state");
     }
     if (ecall_return != 0) {
-        error(error_to_msg(ecall_return));
+        error(error_to_msg(ecall_return).c_str());
     }
 
     // printf("load state from a file\n");
@@ -429,7 +429,7 @@ void set_owner() {
         error("ecall_load_owner_key");
     }
     if (ecall_return != 0) {
-        error(error_to_msg(ecall_return));
+        error(error_to_msg(ecall_return).c_str());
     }
 
     // printf("set_owner() finished\n");
@@ -946,7 +946,7 @@ const char* execute_command(char* request, int request_len) {
     }
     state_save_counter++;
 
-    return error_to_msg(ecall_return);
+    return error_to_msg(ecall_return).c_str();
 }
 
 // application entry point
