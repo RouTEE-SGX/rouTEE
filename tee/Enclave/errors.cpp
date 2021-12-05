@@ -30,8 +30,8 @@ string error_to_msg(int err) {
             return "ERROR: not ready for settlement yet";
         case ERR_CANNOT_CHANGE_TO_LOWER_BLOCK:
             return "ERROR: cannot change to lower block";
-        case ERR_TOO_LOW_AMOUNT_TO_SETTLE:
-            return "ERROR: too low amount to settle";
+        case ERR_TOO_LOW_SETTLE_FEE:
+            return "ERROR: too low settle fee";
         case ERR_TOO_LOW_DEPOSIT:
             return "ERROR: too low amount of deposit";
         case ERR_NO_AUTHORITY:
