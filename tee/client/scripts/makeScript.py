@@ -12,6 +12,9 @@ from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import pkcs1_15
 
+# ex. USER_ID_LEN = '03' -> user000, user001, ...
+USER_ID_LEN = '03'
+
 def base58(address_hex):
     alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
     b58_string = ''
@@ -163,7 +166,7 @@ def makeNewAddresses(addressNumber):
     with open("scriptAddress", "wt") as f:
         for i in tqdm(range(addressNumber)):
 
-            userID = "user" + format(i, '03')
+            userID = "user" + format(i, USER_ID_LEN)
 
             # generate key pair to make signature for operation message to RouTEE
             private_key = RSA.generate(3072)
@@ -191,7 +194,7 @@ def makeNewAccounts(accountNumber):
         for address in tqdm(rdr):
             sender_address = address[0]
             settle_address = sender_address
-            userID = "user" + format(rdr.line_num - 1, '03')
+            userID = "user" + format(rdr.line_num - 1, USER_ID_LEN)
             command = "t v {} {} {}".format(sender_address, settle_address, userID)
             fscript.write(command + "\n")
 
@@ -215,7 +218,7 @@ def getReadyForDeposit(accountNumber):
     with open("scriptDepositReq", "wt") as fscript, open("signedDepositReq", "w") as fsigned:
         for address in tqdm(rdr):
             user_address = address[0]
-            userID = "user" + format(rdr.line_num - 1, '03')        
+            userID = "user" + format(rdr.line_num - 1, USER_ID_LEN)        
             command = "t j {} {}".format(user_address, userID)
             fscript.write(command + "\n")
 
@@ -240,7 +243,7 @@ def dealWithDepositTxs(accountNumber):
     with open("scriptDepositTx", "wt") as fscript, open("signedDepositTx", "w") as fsigned:
         for address in tqdm(rdr):
             user_address = address[0]
-            userID = "user" + format(rdr.line_num - 1, '03')         
+            userID = "user" + format(rdr.line_num - 1, USER_ID_LEN)         
             command = "r {} 0 100000000 100 {}".format(user_address, userID)
             fscript.write(command + "\n")
 
@@ -280,7 +283,7 @@ def doMultihopPayments(paymentNumber, batchSize):
 
             sender_address = address_list[sender_index]
             # receiver_address = address_list[receiver_index]
-            senderID = "user" + format(sender_index, '03')
+            senderID = "user" + format(sender_index, USER_ID_LEN)
             command = "t m {} {} ".format(sender_address, batchSize)  
             for i in range(batchSize):
                 receiver_address = address_list[receiver_indexes[i]]
@@ -311,10 +314,10 @@ def settleBalanceRequest(settleTxNumber):
         #     user_index = random.randint(0, len(address_list) - 1)
 
         #     user_address = address_list[user_index]
-        #     userID = "user" + format(user_index, '03')
+        #     userID = "user" + format(user_index, USER_ID_LEN)
         for address in tqdm(rdr):
             user_address = address[0]
-            userID = "user" + format(rdr.line_num - 1, '03') 
+            userID = "user" + format(rdr.line_num - 1, USER_ID_LEN) 
 
             command = "t l {} 100000 {}".format(user_address, userID)
             fscript.write(command + "\n")
@@ -346,10 +349,10 @@ def updateLatestSPV(updateSPVNumber):
             # user_index = random.randint(0, len(address_list) - 1)
 
             # user_address = address_list[user_index]
-            # userID = "user" + format(user_index, '03')
+            # userID = "user" + format(user_index, USER_ID_LEN)
         for address in tqdm(rdr):
             user_address = address[0]
-            userID = "user" + format(rdr.line_num - 1, '03') 
+            userID = "user" + format(rdr.line_num - 1, USER_ID_LEN) 
 
             command = "t q {} 100 {}".format(user_address, userID)
             fscript.write(command + "\n")
