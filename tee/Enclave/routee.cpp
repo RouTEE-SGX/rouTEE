@@ -358,7 +358,7 @@ void ecall_print_state() {
 }
 
 // ADD_USER operation
-int secure_add_user(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
+int secure_add_user(const char* command, int cmd_len, const char* public_key, const char* response_msg) {
 
     // get params from command
     char* _cmd = strtok((char*) command, " ");
@@ -404,7 +404,7 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
     acc->min_requested_block_number = 0;
     acc->latest_SPV_block_number = 0;
     acc->settle_address = settle_address;
-    acc->public_key = string(signature, SGX_RSA3072_KEY_SIZE);
+    acc->public_key = string(public_key, SGX_RSA3072_KEY_SIZE);
     state.users[user_address] = acc;
     
     // print result
@@ -421,7 +421,7 @@ int secure_add_user(const char* command, int cmd_len, const char* sessionID, int
 }
 
 // ADD_DEPOSIT operation
-int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
+int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* signature, const char* response_msg) {
 
     char cmd_tmp[cmd_len];
     memcpy(cmd_tmp, command, cmd_len);
@@ -523,7 +523,7 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
 }
 
 // UPDATE_BOUNDARY_BLOCK operation
-int secure_update_latest_SPV_block(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
+int secure_update_latest_SPV_block(const char* command, int cmd_len, const char* signature, const char* response_msg) {
 
     // temply save before getting params for verifying signature later
     char cmd_tmp[cmd_len];
@@ -620,7 +620,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
 }
 
 // MULTI-HOP_PAYMENT operation: make payment & pay routing fee
-int secure_do_multihop_payment(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
+int secure_do_multihop_payment(const char* command, int cmd_len, const char* signature, const char* response_msg) {
 
     char cmd_tmp[cmd_len];
     memcpy(cmd_tmp, command, cmd_len);
@@ -778,7 +778,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* ses
 }
 
 // SETTLEMENT operation: make settle request for user balance
-int secure_settle_balance(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
+int secure_settle_balance(const char* command, int cmd_len, const char* signature, const char* response_msg) {
 
     char cmd_tmp[cmd_len];
     memcpy(cmd_tmp, command, cmd_len);
@@ -1499,24 +1499,32 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     char operation = params[0][0];
     int operation_result;
     const char* response_msg;
-    if (operation == OP_GET_READY_FOR_DEPOSIT) {
-        operation_result = secure_get_ready_for_deposit(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, SGX_RSA3072_KEY_SIZE, response_msg);
-    }
-    else if (operation == OP_SETTLE_BALANCE) {
-        operation_result = secure_settle_balance(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, SGX_RSA3072_KEY_SIZE, response_msg);
-    }
-    else if (operation == OP_DO_MULTIHOP_PAYMENT) {
-        operation_result = secure_do_multihop_payment(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, SGX_RSA3072_KEY_SIZE, response_msg);
-    }
-    else if (operation == OP_ADD_USER) {
-        operation_result = secure_add_user(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, SGX_RSA3072_KEY_SIZE, response_msg);
-    }
-    else if (operation == OP_UPDATE_LATEST_SPV_BLOCK) {
-        operation_result = secure_update_latest_SPV_block(decCommand, decCommandLen, sessionID, sessionID_len, decSignature, SGX_RSA3072_KEY_SIZE, response_msg);
-    }
-    else {
+    switch(operation) {
+        // ADD_USER operation
+        case OP_ADD_USER:
+            // in this case: decSignature is a public key (sigLen = keyLen = SGX_RSA3072_KEY_SIZE)
+            operation_result = secure_add_user(decCommand, decCommandLen, decSignature, response_msg);
+            break;
+        // ADD_DEPOSIT operation
+        case OP_GET_READY_FOR_DEPOSIT:
+            operation_result = secure_get_ready_for_deposit(decCommand, decCommandLen, decSignature, response_msg);
+            break;
+        // UPDATE_BOUNDARY_BLOCK operation
+        case OP_UPDATE_LATEST_SPV_BLOCK:
+            operation_result = secure_update_latest_SPV_block(decCommand, decCommandLen, decSignature, response_msg);
+            break;
+        // MULTI-HOP_PAYMENT operation
+        case OP_DO_MULTIHOP_PAYMENT:
+            operation_result = secure_do_multihop_payment(decCommand, decCommandLen, decSignature, response_msg);
+            break;
+        // SETTLEMENT operation
+        case OP_SETTLE_BALANCE:
+            operation_result = secure_settle_balance(decCommand, decCommandLen, decSignature, response_msg);
+            break;
         // invalid opcode
-        operation_result = ERR_INVALID_OP_CODE;
+        default:
+            operation_result = ERR_INVALID_OP_CODE;
+            break;
     }
 
     //
