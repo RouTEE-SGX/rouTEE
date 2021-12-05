@@ -1,6 +1,9 @@
 #ifndef _ERRORS_H_
 #define _ERRORS_H_
 
+#include <string>
+using std::string;
+
 // ecall return values to the App
 enum ERROR
 {
@@ -28,6 +31,6 @@ enum ERROR
 #define MAX_UNSIGNED_LONG_LONG 9223372036854775807
 
 // get the error message for the error index
-const char* error_to_msg(int err);
+string error_to_msg(int err);
 
 #endif  // _ERRORS_H_

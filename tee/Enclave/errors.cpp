@@ -1,6 +1,6 @@
 #include "errors.h"
 
-const char* error_to_msg(int err) {
+string error_to_msg(int err) {
     switch(err) {
         case NO_ERROR:
             return "SUCCESS";

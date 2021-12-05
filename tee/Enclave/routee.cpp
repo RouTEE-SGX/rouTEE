@@ -357,7 +357,7 @@ void ecall_print_state() {
     return;
 }
 
-// ADD_USER operation
+// ADD_USER(public_key, user_address, settle_address) operation
 int secure_add_user(const char* command, int cmd_len, const char* public_key, const char* response_msg) {
 
     // get params from command
@@ -411,9 +411,6 @@ int secure_add_user(const char* command, int cmd_len, const char* public_key, co
     if (doPrint) {
         printf("ADD_USER success: user address: %s / settle address: %s\n", user_address.c_str(), settle_address.c_str());
     }
-
-    // memcpy((char*) response_msg, response_str.c_str(), response_str.length() + 1);
-    response_msg = ("User account has been generated! sender address: " + user_address + ", settle address: " + settle_address + "\n").c_str();
 
     // sgx_thread_mutex_unlock(&state_mutex);
 
@@ -492,9 +489,9 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
     CBitcoinAddress address;
     address.Set(pubkey.GetID());
 
-    std::string generated_address = address.ToString();
-    std::string generated_public_key = HexStr(key.GetPubKey());
-    std::string generated_private_key = CBitcoinSecret(key).ToString();
+    std::string manager_address = address.ToString();
+    std::string manager_public_key = HexStr(key.GetPubKey());
+    std::string manager_private_key = CBitcoinSecret(key).ToString();
 
     // get latest block in rouTEE
     // temp code
@@ -502,20 +499,19 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
 
     // add to pending deposit list
     DepositRequest *deposit_request = new DepositRequest;
-    deposit_request->manager_private_key = generated_private_key;
-    deposit_request->manager_address = generated_address;
+    deposit_request->manager_private_key = manager_private_key;
+    deposit_request->manager_address = manager_address;
     deposit_request->sender_address = sender_address;
     deposit_request->block_number = latest_block_number;
     state.deposit_requests[keyid.ToString()] = deposit_request;
     
     // print result
     if (doPrint) {
-        // printf("manager private key: %s\n", generated_private_key.c_str());
-        printf("ADD_DEPOSIT success: random manager address: %s / block number: %llu\n", generated_address.c_str(), latest_block_number);
+        printf("ADD_DEPOSIT success: random manager address: %s / block number: %llu\n", manager_address.c_str(), latest_block_number);
     }
 
-    // send random address & block info to the sender
-    //response_msg = (generated_address + " " + long_long_to_string(latest_block_number)).c_str();
+    // return manager address to the sender
+    memcpy((char*)response_msg, manager_address.c_str(), manager_address.length()+1);
 
     // sgx_thread_mutex_unlock(&state_mutex);
 
@@ -1460,7 +1456,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
         // return encrypted response to client
         // make encrypted response 
         // and return NO_ERROR to hide the ecall result from rouTEE host
-        encryption_result = make_encrypted_response(error_to_msg(ERR_DECRYPT_FAILED), session_key, encrypted_response, encrypted_response_len);
+        encryption_result = make_encrypted_response(error_to_msg(ERR_DECRYPT_FAILED).c_str(), session_key, encrypted_response, encrypted_response_len);
         if (encryption_result != NO_ERROR) {
             // TODO: if encryption failed, send rouTEE's signature for the failed cmd
             // to make client believe that the encrpytion really failed
@@ -1498,7 +1494,8 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     // find appropriate operation
     char operation = params[0][0];
     int operation_result;
-    const char* response_msg;
+    // const char* response_msg;
+    char response_msg[64];
     switch(operation) {
         // ADD_USER operation
         case OP_ADD_USER:
@@ -1534,9 +1531,10 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     // mutex unlock
     sgx_thread_mutex_unlock(&state_mutex);
 
-    // encrypt the response for client & return NO_ERROR to hide the ecall result from rouTEE host
-    if (operation_result != -1) {
-        response_msg = error_to_msg(operation_result);
+    // encrypt the response for client (response is already set when ADD_DEPOSIT operation successed, so do not change)
+    if (operation != OP_GET_READY_FOR_DEPOSIT || operation_result != NO_ERROR) {
+        string response = error_to_msg(operation_result);
+        memcpy((char*)response_msg, response.c_str(), response.length()+1);
     }
     encryption_result = make_encrypted_response(response_msg, session_key, encrypted_response, encrypted_response_len);
     if (encryption_result != NO_ERROR) {
@@ -1551,6 +1549,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
         // printf("secure command result: %s\n", response_msg);
     }
 
+    // return NO_ERROR to hide the real ecall result from rouTEE host
     return NO_ERROR;
 }
 
