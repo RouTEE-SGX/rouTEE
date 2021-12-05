@@ -90,6 +90,7 @@ def dec(key, aad, nonce, cipher_data, mac):
 def executeCommand(command):
     # print(command)
     isForDeposit = False
+    isAddDeposit = False
 
     # secure command option
     if command[0] == 't':
@@ -97,6 +98,8 @@ def executeCommand(command):
         # OP_GET_READY_FOR_DEPOSIT
         if command[2] == 'v':
             isForDeposit = True
+        if command[2] == 'j':
+            isAddDeposit = True
     else:
         isSecure = False
         if command[0] == 'r':
@@ -132,6 +135,9 @@ def executeCommand(command):
         pubkey_hex = pubkey.hex()
         # print(pubkey_hex)
         message = command + b" " + pubkey
+    elif isAddDeposit:
+        # ADD_DEPOSIT do not require signature
+        message = command
     else:
         hash = SHA256.new(command)
         # print(hash.digest().hex())
@@ -217,9 +223,9 @@ def getReadyForDeposit(accountNumber):
     count = 0
     with open("scriptDepositReq", "wt") as fscript, open("signedDepositReq", "w") as fsigned:
         for address in tqdm(rdr):
-            user_address = address[0]
+            beneficiary_address = address[0]
             userID = "user" + format(rdr.line_num - 1, USER_ID_LEN)        
-            command = "t j {} {}".format(user_address, userID)
+            command = "t j {} {}".format(beneficiary_address, userID)
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
@@ -305,21 +311,13 @@ def settleBalanceRequest(settleTxNumber):
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
     count = 0
-    # address_list = []
-    # for address in rdr:
-    #     address_list.append(address[0])
 
     with open("scriptSettleReq", "wt") as fscript, open("signedSettleReq", "w") as fsigned:
-        # for i in tqdm(range(settleTxNumber)):
-        #     user_index = random.randint(0, len(address_list) - 1)
-
-        #     user_address = address_list[user_index]
-        #     userID = "user" + format(user_index, USER_ID_LEN)
         for address in tqdm(rdr):
             user_address = address[0]
             userID = "user" + format(rdr.line_num - 1, USER_ID_LEN) 
 
-            command = "t l {} 100000 {}".format(user_address, userID)
+            command = "t l {} 100 10 {}".format(user_address, userID)
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
