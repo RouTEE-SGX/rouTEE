@@ -242,9 +242,11 @@ void ecall_print_state() {
     printf("owner address: %s\n", state.owner_address.c_str());
 
     printf("\n\n\n\n\n***** user account info *****\n\n");
-    for (map<string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
-        printf("address: %s -> balance: %llu / nonce: %llu / min_requested_block_number: %llu / latest_SPV_block_number: %llu\n", 
-            (iter->first).c_str(), iter->second->balance, iter->second->nonce, iter->second->min_requested_block_number, iter->second->latest_SPV_block_number);
+    if (state.users.size() <=  10){
+        for (map<string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
+            printf("address: %s -> balance: %llu / nonce: %llu / min_requested_block_number: %llu / latest_SPV_block_number: %llu\n", 
+                (iter->first).c_str(), iter->second->balance, iter->second->nonce, iter->second->min_requested_block_number, iter->second->latest_SPV_block_number);
+        }
     }
     printf("\n=> total %d accounts / total %llu satoshi\n", state.users.size(), state.total_balances);
 
@@ -355,6 +357,69 @@ void ecall_print_state() {
     return;
 }
 
+// ADD_USER operation
+int secure_add_user(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
+
+    // get params from command
+    char* _cmd = strtok((char*) command, " ");
+
+    char* _user_address = strtok(NULL, " ");
+    if (_user_address == NULL) {
+        printf("No sender address\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    char* _settle_address = strtok(NULL, " ");
+    if (_settle_address == NULL) {
+        printf("No settle address\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    // check if this is a valid bitcoin address
+    string user_address(_user_address, BITCOIN_ADDRESS_LEN);
+    if (!CBitcoinAddress(user_address).IsValid()) {
+        printf("Invalid sender address\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    // check if this is a valid bitcoin address
+    string settle_address(_settle_address, BITCOIN_ADDRESS_LEN);
+    if (!CBitcoinAddress(settle_address).IsValid()) {
+        printf("Invalid settle address\n");
+        return ERR_INVALID_PARAMS;
+    }    
+
+    // check if the user already exists
+    if (state.users.find(user_address) != state.users.end()) {
+        printf("rouTEE account already exists for this public key\n");
+        return ERR_NO_AUTHORITY;
+    }
+
+    // sgx_thread_mutex_lock(&state_mutex);
+
+    // create new account for the user
+    Account* acc = new Account;
+    acc->balance = 0;
+    acc->nonce = 0;
+    acc->min_requested_block_number = 0;
+    acc->latest_SPV_block_number = 0;
+    acc->settle_address = settle_address;
+    acc->public_key = string(signature, SGX_RSA3072_KEY_SIZE);
+    state.users[user_address] = acc;
+    
+    // print result
+    if (doPrint) {
+        printf("ADD_USER success: user address: %s / settle address: %s\n", user_address.c_str(), settle_address.c_str());
+    }
+
+    // memcpy((char*) response_msg, response_str.c_str(), response_str.length() + 1);
+    response_msg = ("User account has been generated! sender address: " + user_address + ", settle address: " + settle_address + "\n").c_str();
+
+    // sgx_thread_mutex_unlock(&state_mutex);
+
+    return NO_ERROR;
+}
+
 // ADD_DEPOSIT operation
 int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
 
@@ -457,7 +522,261 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* s
     return NO_ERROR;
 }
 
-// operation function for secure_command
+// UPDATE_BOUNDARY_BLOCK operation
+int secure_update_latest_SPV_block(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
+
+    // temply save before getting params for verifying signature later
+    char cmd_tmp[cmd_len];
+    memcpy(cmd_tmp, command, cmd_len);
+
+    // get params from command
+    char* _cmd = strtok((char*) command, " ");
+    char* _user_address = strtok(NULL, " ");
+    if (_user_address == NULL) {
+        printf("No user address for update last SPV block\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    char* _block_number = strtok(NULL, " ");
+    if (_block_number == NULL) {
+        printf("No block number for update last SPV block\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    // TODO: fix
+    // char* _block_hash = strtok(NULL, " ");
+    // if (_block_hash == NULL) {
+    //     printf("No block hash for update last SPV block\n");
+    //     return ERR_INVALID_PARAMS;
+    // }  
+
+    string user_address(_user_address, BITCOIN_ADDRESS_LEN);
+    unsigned long long block_number = strtoull(_block_number, NULL, 10);
+
+    // TODO: fix
+    // uint256 block_hash;
+    // block_hash.SetHex(string(_block_hash, BITCOIN_HEADER_HASH_LEN));
+
+    // check if this is a valid bitcoin address
+    if (!CBitcoinAddress(user_address).IsValid()) {
+        printf("Invalid user address for update last SPV block\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    if (block_number > state.block_number) {
+        printf("Given block number is higher than rouTEE has\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    // check user has same block with rouTEE
+    // TODO: fix
+    // if (state.block_hash[block_number] != block_hash) {
+    //     printf("Given block hash is different from rouTEE has\n");
+    //     return ERR_INVALID_PARAMS;
+    // }
+
+    // check if the user exists
+    map<string, Account*>::iterator iter = state.users.find(user_address);
+    if (iter == state.users.end()) {
+        printf("No user account exist in rouTEE\n");
+        return ERR_NO_USER_ACCOUNT;
+    }
+    Account* user_acc = iter->second;
+
+    // verify signature
+    sgx_rsa3072_public_key_t rsa_pubkey;
+    memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, user_acc->public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    rsa_pubkey.exp[0] = 1;
+    rsa_pubkey.exp[1] = 0;
+    rsa_pubkey.exp[2] = 1;
+    rsa_pubkey.exp[3] = 0;
+    sgx_rsa_result_t result;
+    sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
+    if (result != SGX_RSA_VALID) {
+        printf("Signature verification failed\n");
+        return ERR_VERIFY_SIG_FAILED;
+    }
+
+    // sgx_thread_mutex_lock(&state_mutex);
+
+    // update boundary block to newer one
+    if (user_acc->latest_SPV_block_number < block_number) {
+        user_acc->latest_SPV_block_number = block_number;
+    }
+    else {
+        // cannot change boundary block to lower block
+        return ERR_CANNOT_CHANGE_TO_LOWER_BLOCK;
+    }
+
+    // print result
+    if (doPrint) {
+        printf("UPDATE_BOUNDARY_BLOCK success: user %s update boundary block number to %llu\n", user_address.c_str(), block_number);
+    }
+    
+    // sgx_thread_mutex_unlock(&state_mutex);
+
+    return NO_ERROR;
+}
+
+// MULTI-HOP_PAYMENT operation: make payment & pay routing fee
+int secure_do_multihop_payment(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
+
+    char cmd_tmp[cmd_len];
+    memcpy(cmd_tmp, command, cmd_len);
+
+    // get params from command
+    char* _cmd = strtok((char*) command, " ");
+
+    char* _sender_address = strtok(NULL, " ");
+    if (_sender_address == NULL) {
+        printf("No sender address for multihop payment\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    char* _batch_size = strtok(NULL, " ");
+    if (_batch_size == NULL) {
+        printf("No batch size for multihop payment\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    string sender_address(_sender_address, BITCOIN_ADDRESS_LEN);
+    int batch_size = atoi(_batch_size);
+
+    // check the sender exists & has more than amount + fee to send
+    map<string, Account*>::iterator iter = state.users.find(sender_address);
+    if (iter == state.users.end()) {
+        printf("No sender account exist in rouTEE\n");
+        return ERR_NO_USER_ACCOUNT;
+    }
+    Account* sender_acc = iter->second;
+
+    queue<PaymentInfo> queue;
+    Account* receiver_acc;
+    string receiver_address;
+    unsigned long long amount;
+    unsigned long long total_amount;
+
+    for (int i = 0; i < batch_size; i++) {
+
+        // get params from command
+        char* _receiver_address = strtok(NULL, " ");
+        if (_receiver_address == NULL) {
+            printf("No receiver address for multihop payment\n");
+            return ERR_INVALID_PARAMS;
+        }
+
+        char* _amount = strtok(NULL, " ");
+        if (_amount == NULL) {
+            printf("No amount parameter for multihop payment\n");
+            return ERR_INVALID_PARAMS;
+        }
+
+        receiver_address = string(_receiver_address, BITCOIN_ADDRESS_LEN);
+        amount = strtoull(_amount, NULL, 10);
+
+        // check the receiver exists
+        iter = state.users.find(receiver_address);
+        if (iter == state.users.end()) {
+            // receiver is not in the state
+            printf("No receiver account for payment");
+            return ERR_NO_RECEIVER;
+        }
+        receiver_acc = iter->second;
+
+        // check if the receiver is ready to get paid (temporarily deprecated for easy tests) (for debugging)
+        if (sender_acc->min_requested_block_number > receiver_acc->latest_SPV_block_number) {
+            return ERR_RECEIVER_NOT_READY;
+        }
+
+        total_amount += amount;
+        queue.push(PaymentInfo(receiver_acc, amount));
+    }
+
+    if (batch_size != queue.size()) {
+        printf("Batch size is different from queue size\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    // get params from command
+    char* _fee = strtok(NULL, " ");
+    if (_fee == NULL) {
+        printf("No routing fee parameter for multihop payment\n");
+        return ERR_INVALID_PARAMS;
+    }
+    unsigned long long fee = strtoull(_fee, NULL, 10);
+
+    // check if routing fee is enough
+    if (fee < state.routing_fee) {
+        return ERR_NOT_ENOUGH_FEE;
+    }
+
+    // check if the sender can afford this payments
+    if (sender_acc->balance < total_amount + batch_size * fee) {
+        return ERR_NOT_ENOUGH_BALANCE;
+    }
+
+    // verify signature
+    sgx_rsa3072_public_key_t rsa_pubkey;
+    memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, sender_acc->public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    rsa_pubkey.exp[0] = 1;
+    rsa_pubkey.exp[1] = 0;
+    rsa_pubkey.exp[2] = 1;
+    rsa_pubkey.exp[3] = 0;
+    sgx_rsa_result_t result;
+    sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
+    if (result != SGX_RSA_VALID) {
+        printf("Signature verification failed\n");
+        return ERR_VERIFY_SIG_FAILED;
+    }
+
+    // sgx_thread_mutex_lock(&state_mutex);
+
+    // execute multi-hop payments
+    for (int i = 0; i < batch_size; i++) {
+        PaymentInfo payment_info = queue.front();
+        receiver_acc = payment_info.receiver_account;
+        amount = payment_info.amount;
+
+        // move balance
+        sender_acc->balance -= (amount + fee);
+        receiver_acc->balance += amount;
+
+        // add routing fee for this payment
+        state.routing_fee_waiting += fee;
+        // update total balances
+        state.total_balances -= fee;
+
+        // increase sender's nonce
+        sender_acc->nonce++;
+
+        // update receiver's requested_block_number
+        if (receiver_acc->min_requested_block_number < sender_acc->min_requested_block_number) {
+            receiver_acc->min_requested_block_number = sender_acc->min_requested_block_number;
+        }
+
+        // reset sender's max source block number if balances becomes 0
+        if (sender_acc->balance == 0) {
+            sender_acc->min_requested_block_number = 0;
+        }
+
+        queue.pop();
+    }
+
+    // increase state id
+    state.stateID++;
+
+    // print result
+    if (doPrint) {
+        printf("PAYMENT success: user %s send %llu satoshi to user %s (routing fee: %llu)\n", sender_address.c_str(), amount, receiver_address.c_str(), fee);
+    }
+
+    // sgx_thread_mutex_unlock(&state_mutex);
+
+    return NO_ERROR;
+}
+
 // SETTLEMENT operation: make settle request for user balance
 int secure_settle_balance(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
 
@@ -744,324 +1063,6 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
 
     *settle_tx_len = signed_settle_transaction_string.length();
     memcpy((char*) settle_transaction_ret, signed_settle_transaction_string.c_str(), signed_settle_transaction_string.length());
-
-    return NO_ERROR;
-}
-
-// MULTI-HOP_PAYMENT operation: make payment & pay routing fee
-int secure_do_multihop_payment(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
-
-    char cmd_tmp[cmd_len];
-    memcpy(cmd_tmp, command, cmd_len);
-
-    // get params from command
-    char* _cmd = strtok((char*) command, " ");
-
-    char* _sender_address = strtok(NULL, " ");
-    if (_sender_address == NULL) {
-        printf("No sender address for multihop payment\n");
-        return ERR_INVALID_PARAMS;
-    }
-
-    char* _batch_size = strtok(NULL, " ");
-    if (_batch_size == NULL) {
-        printf("No batch size for multihop payment\n");
-        return ERR_INVALID_PARAMS;
-    }
-
-    string sender_address(_sender_address, BITCOIN_ADDRESS_LEN);
-    int batch_size = atoi(_batch_size);
-
-    // check the sender exists & has more than amount + fee to send
-    map<string, Account*>::iterator iter = state.users.find(sender_address);
-    if (iter == state.users.end()) {
-        printf("No sender account exist in rouTEE\n");
-        return ERR_NO_USER_ACCOUNT;
-    }
-    Account* sender_acc = iter->second;
-
-    queue<PaymentInfo> queue;
-    Account* receiver_acc;
-    string receiver_address;
-    unsigned long long amount;
-    unsigned long long total_amount;
-
-    for (int i = 0; i < batch_size; i++) {
-
-        // get params from command
-        char* _receiver_address = strtok(NULL, " ");
-        if (_receiver_address == NULL) {
-            printf("No receiver address for multihop payment\n");
-            return ERR_INVALID_PARAMS;
-        }
-
-        char* _amount = strtok(NULL, " ");
-        if (_amount == NULL) {
-            printf("No amount parameter for multihop payment\n");
-            return ERR_INVALID_PARAMS;
-        }
-
-        receiver_address = string(_receiver_address, BITCOIN_ADDRESS_LEN);
-        amount = strtoull(_amount, NULL, 10);
-
-        // check the receiver exists
-        iter = state.users.find(receiver_address);
-        if (iter == state.users.end()) {
-            // receiver is not in the state
-            printf("No receiver account for payment");
-            return ERR_NO_RECEIVER;
-        }
-        receiver_acc = iter->second;
-
-        // check if the receiver is ready to get paid (temporarily deprecated for easy tests) (for debugging)
-        if (sender_acc->min_requested_block_number > receiver_acc->latest_SPV_block_number) {
-            return ERR_RECEIVER_NOT_READY;
-        }
-
-        total_amount += amount;
-        queue.push(PaymentInfo(receiver_acc, amount));
-    }
-
-    if (batch_size != queue.size()) {
-        printf("Batch size is different from queue size\n");
-        return ERR_INVALID_PARAMS;
-    }
-
-    // get params from command
-    char* _fee = strtok(NULL, " ");
-    if (_fee == NULL) {
-        printf("No routing fee parameter for multihop payment\n");
-        return ERR_INVALID_PARAMS;
-    }
-    unsigned long long fee = strtoull(_fee, NULL, 10);
-
-    // check if routing fee is enough
-    if (fee < state.routing_fee) {
-        return ERR_NOT_ENOUGH_FEE;
-    }
-
-    // check if the sender can afford this payments
-    if (sender_acc->balance < total_amount + batch_size * fee) {
-        return ERR_NOT_ENOUGH_BALANCE;
-    }
-
-    // verify signature
-    sgx_rsa3072_public_key_t rsa_pubkey;
-    memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
-    memcpy(rsa_pubkey.mod, sender_acc->public_key.c_str(), SGX_RSA3072_KEY_SIZE);
-    rsa_pubkey.exp[0] = 1;
-    rsa_pubkey.exp[1] = 0;
-    rsa_pubkey.exp[2] = 1;
-    rsa_pubkey.exp[3] = 0;
-    sgx_rsa_result_t result;
-    sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
-    if (result != SGX_RSA_VALID) {
-        printf("Signature verification failed\n");
-        return ERR_VERIFY_SIG_FAILED;
-    }
-
-    // sgx_thread_mutex_lock(&state_mutex);
-
-    // execute multi-hop payments
-    for (int i = 0; i < batch_size; i++) {
-        PaymentInfo payment_info = queue.front();
-        receiver_acc = payment_info.receiver_account;
-        amount = payment_info.amount;
-
-        // move balance
-        sender_acc->balance -= (amount + fee);
-        receiver_acc->balance += amount;
-
-        // add routing fee for this payment
-        state.routing_fee_waiting += fee;
-        // update total balances
-        state.total_balances -= fee;
-
-        // increase sender's nonce
-        sender_acc->nonce++;
-
-        // update receiver's requested_block_number
-        if (receiver_acc->min_requested_block_number < sender_acc->min_requested_block_number) {
-            receiver_acc->min_requested_block_number = sender_acc->min_requested_block_number;
-        }
-
-        // reset sender's max source block number if balances becomes 0
-        if (sender_acc->balance == 0) {
-            sender_acc->min_requested_block_number = 0;
-        }
-
-        queue.pop();
-    }
-
-    // increase state id
-    state.stateID++;
-
-    // print result
-    if (doPrint) {
-        printf("PAYMENT success: user %s send %llu satoshi to user %s (routing fee: %llu)\n", sender_address.c_str(), amount, receiver_address.c_str(), fee);
-    }
-
-    // sgx_thread_mutex_unlock(&state_mutex);
-
-    return NO_ERROR;
-}
-
-// ADD_USER operation: 
-int secure_add_user(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
-
-    // get params from command
-    char* _cmd = strtok((char*) command, " ");
-
-    char* _user_address = strtok(NULL, " ");
-    if (_user_address == NULL) {
-        printf("No sender address\n");
-        return ERR_INVALID_PARAMS;
-    }
-
-    char* _settle_address = strtok(NULL, " ");
-    if (_settle_address == NULL) {
-        printf("No settle address\n");
-        return ERR_INVALID_PARAMS;
-    }
-
-    // check if this is a valid bitcoin address
-    string user_address(_user_address, BITCOIN_ADDRESS_LEN);
-    if (!CBitcoinAddress(user_address).IsValid()) {
-        printf("Invalid sender address\n");
-        return ERR_INVALID_PARAMS;
-    }
-
-    // check if this is a valid bitcoin address
-    string settle_address(_settle_address, BITCOIN_ADDRESS_LEN);
-    if (!CBitcoinAddress(settle_address).IsValid()) {
-        printf("Invalid settle address\n");
-        return ERR_INVALID_PARAMS;
-    }    
-
-    // check if the user already exists
-    if (state.users.find(user_address) != state.users.end()) {
-        printf("rouTEE account already exists for this public key\n");
-        return ERR_NO_AUTHORITY;
-    }
-
-    // sgx_thread_mutex_lock(&state_mutex);
-
-    // create new account for the user
-    Account* acc = new Account;
-    acc->balance = 0;
-    acc->nonce = 0;
-    acc->min_requested_block_number = 0;
-    acc->latest_SPV_block_number = 0;
-    acc->settle_address = settle_address;
-    acc->public_key = string(signature, SGX_RSA3072_KEY_SIZE);
-    state.users[user_address] = acc;
-    
-    // print result
-    if (doPrint) {
-        printf("ADD_USER success: user address: %s / settle address: %s\n", user_address.c_str(), settle_address.c_str());
-    }
-
-    // memcpy((char*) response_msg, response_str.c_str(), response_str.length() + 1);
-    response_msg = ("User account has been generated! sender address: " + user_address + ", settle address: " + settle_address + "\n").c_str();
-
-    // sgx_thread_mutex_unlock(&state_mutex);
-
-    return NO_ERROR;
-}
-
-// UPDATE_BOUNDARY_BLOCK operation: 
-int secure_update_latest_SPV_block(const char* command, int cmd_len, const char* sessionID, int sessionID_len, const char* signature, int sig_len, const char* response_msg) {
-
-    // temply save before getting params for verifying signature later
-    char cmd_tmp[cmd_len];
-    memcpy(cmd_tmp, command, cmd_len);
-
-    // get params from command
-    char* _cmd = strtok((char*) command, " ");
-    char* _user_address = strtok(NULL, " ");
-    if (_user_address == NULL) {
-        printf("No user address for update last SPV block\n");
-        return ERR_INVALID_PARAMS;
-    }
-
-    char* _block_number = strtok(NULL, " ");
-    if (_block_number == NULL) {
-        printf("No block number for update last SPV block\n");
-        return ERR_INVALID_PARAMS;
-    }
-
-    // TODO: fix
-    // char* _block_hash = strtok(NULL, " ");
-    // if (_block_hash == NULL) {
-    //     printf("No block hash for update last SPV block\n");
-    //     return ERR_INVALID_PARAMS;
-    // }  
-
-    string user_address(_user_address, BITCOIN_ADDRESS_LEN);
-    unsigned long long block_number = strtoull(_block_number, NULL, 10);
-
-    // TODO: fix
-    // uint256 block_hash;
-    // block_hash.SetHex(string(_block_hash, BITCOIN_HEADER_HASH_LEN));
-
-    // check if this is a valid bitcoin address
-    if (!CBitcoinAddress(user_address).IsValid()) {
-        printf("Invalid user address for update last SPV block\n");
-        return ERR_INVALID_PARAMS;
-    }
-
-    if (block_number > state.block_number) {
-        printf("Given block number is higher than rouTEE has\n");
-        return ERR_INVALID_PARAMS;
-    }
-
-    // check user has same block with rouTEE
-    // TODO: fix
-    // if (state.block_hash[block_number] != block_hash) {
-    //     printf("Given block hash is different from rouTEE has\n");
-    //     return ERR_INVALID_PARAMS;
-    // }
-
-    // check if the user exists
-    map<string, Account*>::iterator iter = state.users.find(user_address);
-    if (iter == state.users.end()) {
-        printf("No user account exist in rouTEE\n");
-        return ERR_NO_USER_ACCOUNT;
-    }
-    Account* user_acc = iter->second;
-
-    // verify signature
-    sgx_rsa3072_public_key_t rsa_pubkey;
-    memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
-    memcpy(rsa_pubkey.mod, user_acc->public_key.c_str(), SGX_RSA3072_KEY_SIZE);
-    rsa_pubkey.exp[0] = 1;
-    rsa_pubkey.exp[1] = 0;
-    rsa_pubkey.exp[2] = 1;
-    rsa_pubkey.exp[3] = 0;
-    sgx_rsa_result_t result;
-    sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
-    if (result != SGX_RSA_VALID) {
-        printf("Signature verification failed\n");
-        return ERR_VERIFY_SIG_FAILED;
-    }
-
-    // sgx_thread_mutex_lock(&state_mutex);
-
-    // update boundary block to newer one
-    if (user_acc->latest_SPV_block_number < block_number) {
-        user_acc->latest_SPV_block_number = block_number;
-    }
-    else {
-        // cannot change boundary block to lower block
-        return ERR_CANNOT_CHANGE_TO_LOWER_BLOCK;
-    }
-
-    // print result
-    if (doPrint) {
-        printf("UPDATE_BOUNDARY_BLOCK success: user %s update boundary block number to %llu\n", user_address.c_str(), block_number);
-    }
-    
-    // sgx_thread_mutex_unlock(&state_mutex);
 
     return NO_ERROR;
 }
