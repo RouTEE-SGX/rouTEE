@@ -54,7 +54,7 @@ class DepositRequest {
         string manager_address;
 
         // when find deposit tx, balance goes to this address
-        string sender_address;
+        string beneficiary_address;
 
         // kind of timestamp: when the user requested deposit
         unsigned long long block_number;
