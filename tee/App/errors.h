@@ -1,6 +1,9 @@
 #ifndef _ERRORS_H_
 #define _ERRORS_H_
 
+#include <string>
+using std::string;
+
 // ecall return values to the App
 enum ERROR
 {
@@ -18,7 +21,7 @@ enum ERROR
     ERR_RECEIVER_NOT_READY,
     ERR_SETTLE_NOT_READY,
     ERR_CANNOT_CHANGE_TO_LOWER_BLOCK,
-    ERR_TOO_LOW_AMOUNT_TO_SETTLE,
+    ERR_TOO_LOW_SETTLE_FEE,
     ERR_TOO_LOW_DEPOSIT,
     ERR_NO_AUTHORITY,
     ERR_NO_USER_ACCOUNT,
@@ -28,6 +31,6 @@ enum ERROR
 #define MAX_UNSIGNED_LONG_LONG 9223372036854775807
 
 // get the error message for the error index
-const char* error_to_msg(int err);
+string error_to_msg(int err);
 
 #endif  // _ERRORS_H_
