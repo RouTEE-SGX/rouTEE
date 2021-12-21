@@ -1517,6 +1517,9 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
             operation_result = ERR_INVALID_OP_CODE;
             break;
     }
+    // free memory
+    free(decMessage);
+    free(decCommand);
 
     //
     // encrypt response
