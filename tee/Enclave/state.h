@@ -31,10 +31,10 @@ class Account {
         unsigned long long latest_SPV_block_number;
 
         // when user requests settlement, rouTEE sends balance to this address
-        string settle_address;
+        string settle_address; // 34 bytes
         
         // verify signature to authenticate
-        string public_key;
+        string public_key; // 384 bytes
 };
 
 // deposit sent by users to rouTEE

@@ -91,7 +91,7 @@ void ThreadPool::WorkerThread() {
         if (workCount % PRINT_EPOCH == 0) {
             end_time = std::chrono::system_clock::now();
             std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-            std::cout << workCount << "\t" << milli.count() << std::endl;
+            std::cout << "work count: " << workCount << "\t" << milli.count() << " ms" << std::endl;
         }
     }
 }
@@ -869,9 +869,10 @@ void secure_command(char* request, int request_len, int sd) {
     state_save_counter++;
 
     // send response to client
-    int error_index = ecall_return;
-    if (error_index != NO_ERROR) {
+    // int error_index = ecall_return;
+    if (ecall_return != NO_ERROR) {
         // encryption faild in secure_command, just send plain response msg
+        printf("failed encryption!\n");
         const char* response = "failed encryption in secure_command()";
         send(sd, response, strlen(response), 0);
     }
