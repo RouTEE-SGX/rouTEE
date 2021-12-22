@@ -13,6 +13,8 @@ from Cryptodome.Hash import SHA256
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Signature import pkcs1_15
 import hashlib
+import multiprocessing
+from multiprocessing import Pool
 
 # rouTEE IP address
 # SERVER_IP = "127.0.0.1"
@@ -23,6 +25,13 @@ SERVER_PORT = 8202
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # connect to the server
 client_socket.connect((SERVER_IP, SERVER_PORT))
+
+# sockets for multiprocessing
+client_sockets = []
+for i in range(multiprocessing.cpu_count()):
+    s = socket.socket()
+    s.connect((SERVER_IP, SERVER_PORT))
+    client_sockets.append(s)
 
 # command scripts for rouTEE
 SCRIPTSPATH = "scripts/"
@@ -235,11 +244,10 @@ def secure_command(message, sessionID):
     cipher_data = bytes(data[MAC_SIZE+NONCE_SIZE:])
     result = dec(key, aad, nonce, cipher_data, mac)
 
-
     # check the result
     if result is not None:
-        #print("response decryption success")
-        #print("result:", result.decode())
+        # print("response decryption success")
+        # print("result:", result.decode())
         return result.decode(), elapsed
     else:
         #print("ERROR: decryption failed, (maybe) plain response msg:", data.decode())
@@ -253,7 +261,7 @@ def executeCommand(command):
     # secure command option
     if command[0] == 't':
         isSecure = True
-        # OP_GET_READY_FOR_DEPOSIT
+        # ADD_USER operation (OP_GET_READY_FOR_DEPOSIT)
         if command[2] == 'v':
             isForDeposit = True
     else:
@@ -322,9 +330,8 @@ def executeCommand(command):
     # elapsedSec = elapsedMillisec / 1000.0
     # print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
 
-
 # send signed & encrypted operation messages to RouTEE
-def send_line(command):
+def send_lines(command):
     # if FILE_NAME[:6] != 'signed':
     #     return
 
@@ -334,19 +341,56 @@ def send_line(command):
     except:
         print("there are no proper script; try again")
         cmd = input("input command: ")
-        send_line(cmd)
+        send_lines(cmd)
         return
 
     for command in rdr:
         # ignore '\n'
         if len(command) == 0:
             continue
-        # print("command:", command)
         client_socket.sendall(bytes.fromhex(command[0]))
     data_ = client_socket.recv(1024)
+        # see results
+        # mac = bytes(data_[:MAC_SIZE])
+        # nonce = bytes(data_[MAC_SIZE:MAC_SIZE+NONCE_SIZE])
+        # cipher_data = bytes(data_[MAC_SIZE+NONCE_SIZE:])
+        # key = bytes([0x0,0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xa,0xb,0xc,0xd,0xe,0xf])
+        # aad = bytes([0])
+        # result = dec(key, aad, nonce, cipher_data, mac)
+        # if result != b'SUCCESS':
+        #     print("data: ", result)
+        #     # return
+
+def send_line(line):
+    process_num = int(multiprocessing.current_process().name.split('-')[-1])
+    my_socket = client_sockets[process_num-1]
+    my_socket.sendall(bytes.fromhex(line))
+    data_ = my_socket.recv(1024)
+
+# send command lines parallelly
+def send_line_parallel(script):
+    try:
+        commands = open(SCRIPTSPATH+script, 'r')
+        rdr = csv.reader(commands)
+    except:
+        print("there are no proper script; try again")
+        cmd = input("input command: ")
+        send_line_parallel(cmd)
+        return
+
+    # send commands parallelly
+    startTime = datetime.now()
+    pool.map(send_line, commands, 1)
+    elapsed = datetime.now() - startTime
+    print(elapsed)
 
 if __name__ == "__main__":
     print("start")
+    THREAD_COUNT = multiprocessing.cpu_count()
+    pool = Pool(THREAD_COUNT)
+    print("thread count:", pool._processes)
+    # send_line_parallel("signedAddUser_5")
+    # send_line_parallel("signedPayment_5_100000_1")
 
     # if there is sys.argv input from command line, run a single script
     # if len(sys.argv) == 2:
@@ -366,8 +410,13 @@ if __name__ == "__main__":
         except EOFError:
             break
 
+        if command[:6] == 'signed':
+            SEND_SIGNED = True
+        else:
+            SEND_SIGNED = False
+
         if SEND_SIGNED:
-            send_line(command)
+            send_lines(command)
             continue
 
         if len(command) == 0:
@@ -386,7 +435,7 @@ if __name__ == "__main__":
             print("something went wrong! try again\n")
             
         else:
-            # print(data)
+            # print("result:", data)
             elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
             elapsedMillisec = elapsedMicrosec / 1000.0
             elapsedSec = elapsedMillisec / 1000.0
