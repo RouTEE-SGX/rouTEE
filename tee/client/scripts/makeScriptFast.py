@@ -6,11 +6,11 @@ import os.path
 import csv
 import codecs
 import hashlib
-from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
-from Crypto.Hash import SHA256
-from Crypto.PublicKey import RSA
-from Crypto.Signature import pkcs1_15
+from Cryptodome.Cipher import AES
+from Cryptodome.Random import get_random_bytes
+from Cryptodome.Hash import SHA256
+from Cryptodome.PublicKey import RSA
+from Cryptodome.Signature import pkcs1_15
 import multiprocessing
 from multiprocessing import Pool
 
