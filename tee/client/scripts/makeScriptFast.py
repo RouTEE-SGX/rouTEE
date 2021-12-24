@@ -6,7 +6,6 @@ import os.path
 import csv
 import codecs
 import hashlib
-from datetime import datetime
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Hash import SHA256
@@ -417,7 +416,7 @@ def updateLatestSPV(updateSPVNumber):
             fsigned.write('\n')
 
 if __name__ == '__main__':
-
+    #makeNewUsers(1)
     # set multithreading pool
     THREAD_COUNT = multiprocessing.cpu_count()
     pool = Pool(THREAD_COUNT)
