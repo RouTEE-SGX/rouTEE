@@ -349,7 +349,7 @@ def send_lines(command):
         if len(command) == 0:
             continue
         client_socket.sendall(bytes.fromhex(command[0]))
-    data_ = client_socket.recv(1024)
+        data_ = client_socket.recv(1024)
         # see results
         # mac = bytes(data_[:MAC_SIZE])
         # nonce = bytes(data_[MAC_SIZE:MAC_SIZE+NONCE_SIZE])
