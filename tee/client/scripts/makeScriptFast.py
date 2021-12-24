@@ -6,6 +6,7 @@ import os.path
 import csv
 import codecs
 import hashlib
+from datetime import datetime
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Hash import SHA256
@@ -16,6 +17,8 @@ from multiprocessing import Pool
 
 # ex. USER_ID_LEN = '03' -> user000, user001, ...
 USER_ID_LEN = '07'
+# print epoch to show script generation progress
+PRINT_EPOCH = 1000
 
 def base58(address_hex):
     alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -185,17 +188,22 @@ def makeNewUsers(keyNumber):
             with open("../key/public_key_{}.pem".format(userID), "wb") as f2:
                 f2.write(public_key.export_key('PEM'))
 
+def makeNewAddresses_thread(num):
+    if (num) % PRINT_EPOCH == 0:
+        print("generate", num, "addresses")
+    # generate bitcoin address as a user address in RouTEE
+    wallet = Wallet(testnet=True)
+    # print("user address:", wallet.address.__dict__['testnet'].pubaddr1)
+    return "{}".format(wallet.address.__dict__['testnet'].pubaddr1)
+
 # Generate bitcoin address
 def makeNewAddresses(addressNumber):
-    with open("scriptAddress", "wt") as f:
-        for i in tqdm(range(addressNumber)):
+    addresses = pool.map(makeNewAddresses_thread, range(addressNumber+1)[1:], 1)
 
-            userID = "user" + format(i, USER_ID_LEN)
-
-            # generate bitcoin address as a user address in RouTEE
-            wallet = Wallet(testnet=True)
-            # print("user address:", wallet.address.__dict__['testnet'].pubaddr1)
-            f.write("{}\n".format(wallet.address.__dict__['testnet'].pubaddr1))
+    # write addresses to the file
+    with open("scriptAddress_{}".format(addressNumber), "wt") as fscript:
+        for address in addresses:
+            fscript.write(address+"\n")
 
 # generate AddUser commands
 def makeNewAccounts_thread(address):
@@ -291,6 +299,9 @@ def doMultihopPayments_thread(addresses):
     # print("addresses:", addresses)
     sender_address = addresses[0]
     receiver_addresses = addresses[1]
+    num = addresses[2]
+    if num % PRINT_EPOCH == 0:
+        print("generate", num, "payments")
     batchSize = len(receiver_addresses)
     senderID = "user" + format(0, USER_ID_LEN) # for easy experiment
     command = "t m {} {} ".format(sender_address, batchSize)  
@@ -336,7 +347,7 @@ def doMultihopPayments(addressNumber, paymentNumber, batchSize):
             if len(receiver_indexes) == batchSize:
                 break
         sender_address = address_list[sender_index]
-        params.append((sender_address, receiver_addresses))
+        params.append((sender_address, receiver_addresses, i+1))
 
     # parallelly generate plain & signed command
     commands = pool.map(doMultihopPayments_thread, params, 1)
@@ -416,9 +427,16 @@ if __name__ == '__main__':
     if len(sys.argv) >= 2:
         command = int(sys.argv[1])
     else:
-        command = eval(input("which script do you want to make (0: default / 1: makeNewAddresses / 2: makeNewAccounts / 3: getReadyForDeposit & dealWithDepositTxs / 4: doMultihopPayments / 5: settleBalanceRequest / 6: updateLatestSPV)): "))
+        command = eval(input("which script do you want to make (0: makeNewUsers / 1: makeNewAddresses / 2: makeNewAccounts / 3: getReadyForDeposit & dealWithDepositTxs / 4: doMultihopPayments / 5: settleBalanceRequest / 6: updateLatestSPV / 7: default)): "))
     
-    if command == 1:
+    startTime = datetime.now()
+    if command == 0:
+        if len(sys.argv) >= 2:
+            userNumber = int(sys.argv[2])
+        else:
+            userNumber = eval(input("how many users to generate: "))
+        makeNewUsers(userNumber)
+    elif command == 1:
         if len(sys.argv) >= 2:
             addressNumber = int(sys.argv[2])
             scriptName = sys.argv[3]
@@ -476,7 +494,7 @@ if __name__ == '__main__':
             scriptName = "scriptUpdateSPV"
         updateLatestSPV(updateSPVNumber)
 
-    elif command == 0:
+    elif command == 7:
         accountNumber = eval(input("how many routee accounts to generate: "))
         depositNumber = eval(input("how many routee deposits to generate: "))
         paymentNumber = eval(input("how many rouTEE payments to generate: "))
@@ -494,3 +512,5 @@ if __name__ == '__main__':
         scriptName = "scriptForAll"
 
     print("make script [", scriptName, "] Done")
+    elapsed = datetime.now() - startTime
+    print("elapsed time:", elapsed)
