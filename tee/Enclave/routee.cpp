@@ -1690,6 +1690,7 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
     // copy sealed state to the app buffer
     memcpy(sealed_state, sealed_state_buffer, sealed_data_size);
     free(sealed_state_buffer);
+    delete[] state_bytes;
     return NO_ERROR;
 }
 
