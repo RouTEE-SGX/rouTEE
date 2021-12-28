@@ -7,6 +7,7 @@ import csv
 import codecs
 import hashlib
 from datetime import datetime
+from pathlib import Path
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Hash import SHA256
@@ -174,10 +175,14 @@ def secure_command(message, sessionID):
 
 # Generate ECC private key
 def makeNewUsers(keyNumber):
+    Path("../key").mkdir(parents=True, exist_ok=True)
     with open("scriptAddress", "wt") as f:
         for i in tqdm(range(keyNumber)):
-
+            
             userID = "user" + format(i, USER_ID_LEN)
+            if os.path.exists("../key/private_key_{}.pem".format(userID)):
+                # print("this user already exist, just skip")
+                continue
 
             # generate key pair to make signature for operation message to RouTEE
             private_key = RSA.generate(3072)
@@ -190,7 +195,7 @@ def makeNewUsers(keyNumber):
 
 def makeNewAddresses_thread(num):
     if (num) % PRINT_EPOCH == 0:
-        print("generate", num, "addresses")
+        print("generate", num, "addresses", end="\r")
     # generate bitcoin address as a user address in RouTEE
     wallet = Wallet(testnet=True)
     # print("user address:", wallet.address.__dict__['testnet'].pubaddr1)
@@ -201,14 +206,16 @@ def makeNewAddresses(addressNumber):
     addresses = pool.map(makeNewAddresses_thread, range(addressNumber+1)[1:], 1)
 
     # write addresses to the file
-    with open("scriptAddress_{}".format(addressNumber), "wt") as fscript:
+    with open("scriptAddress", "wt") as fscript:
         for address in addresses:
             fscript.write(address+"\n")
 
 # generate AddUser commands
-def makeNewAccounts_thread(address):
-    # print("address:", address)
-    sender_address = address[0]
+def makeNewAccounts_thread(params):
+    sender_address = params[0]
+    num = params[1]
+    if (num) % PRINT_EPOCH == 0:
+        print("generate", num, "accounts", end="\r")
     settle_address = sender_address
     userID = "user" + format(0, USER_ID_LEN) # for easy experiment
     command = "t v {} {} {}".format(sender_address, settle_address, userID)
@@ -218,26 +225,30 @@ def makeNewAccounts_thread(address):
 # Script for generating rouTEE accounts
 def makeNewAccounts(accountNumber):
     if not os.path.exists("scriptAddress"):
-        print("execute makeNewAddresses first\n")
+        print("ERROR: execute makeNewAddresses first\n")
         return
     
     if not os.path.exists("../key/private_key_{}.pem".format("user" + format(0, USER_ID_LEN))):
-        print("execute makeNewUsers first\n")
+        print("ERROR: execute makeNewUsers first\n")
         return
 
     # get addresses from the file
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
-    address_list = []
+    params = []
     cnt = 0
     for address in rdr:
-        address_list.append(address)
         cnt += 1
+        params.append((address[0], cnt))
         if cnt == accountNumber:
             break
+    
+    if len(params) != accountNumber:
+        print("ERROR: there is not enough addresses, execute makeNewAddresses first")
+        return
 
     # parallelly generate plain & signed command
-    commands = pool.map(makeNewAccounts_thread, address_list, 1)
+    commands = pool.map(makeNewAccounts_thread, params, 1)
 
     # write commands to files
     with open("scriptAddUser_{}".format(accountNumber), "wt") as fscript, open("signedAddUser_{}".format(accountNumber), "w") as fsigned:
@@ -248,7 +259,7 @@ def makeNewAccounts(accountNumber):
 # Script for generating deposit requests
 def getReadyForDeposit(accountNumber):
     if not os.path.exists("scriptAddress"):
-        print("execute makeNewAddresses first\n")
+        print("ERROR: execute makeNewAddresses first\n")
         return
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
@@ -273,7 +284,7 @@ def getReadyForDeposit(accountNumber):
 # Should be used only for testing
 def dealWithDepositTxs(accountNumber):
     if not os.path.exists("scriptAddress"):
-        print("execute makeNewAddresses first\n")
+        print("ERROR: execute makeNewAddresses first\n")
         return
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
@@ -296,12 +307,12 @@ def dealWithDepositTxs(accountNumber):
 
 # generate Payment commands
 def doMultihopPayments_thread(addresses):
-    # print("addresses:", addresses)
+    # print("params:", addresses)
     sender_address = addresses[0]
     receiver_addresses = addresses[1]
     num = addresses[2]
     if num % PRINT_EPOCH == 0:
-        print("generate", num, "payments")
+        print("generate", num, "payments", end="\r")
     batchSize = len(receiver_addresses)
     senderID = "user" + format(0, USER_ID_LEN) # for easy experiment
     command = "t m {} {} ".format(sender_address, batchSize)  
@@ -316,10 +327,13 @@ def doMultihopPayments_thread(addresses):
 # Script for payments among users
 def doMultihopPayments(addressNumber, paymentNumber, batchSize):
     if not os.path.exists("scriptAddress"):
-        print("execute makeNewAddresses first\n")
+        print("ERROR: execute makeNewAddresses first\n")
         return
     if not os.path.exists("../key/private_key_{}.pem".format("user" + format(0, USER_ID_LEN))):
-        print("execute makeNewUsers first\n")
+        print("ERROR: execute makeNewUsers first\n")
+        return
+    if addressNumber < 2:
+        print("ERROR: you need at least 2 addresses to appear")
         return
 
     addressFile = open("scriptAddress", 'r')
@@ -333,6 +347,10 @@ def doMultihopPayments(addressNumber, paymentNumber, batchSize):
         cnt += 1
         if cnt == addressNumber:
             break
+    
+    if len(address_list) != addressNumber:
+        print("ERROR: there is not enough addresses, execute makeNewAddresses first")
+        return
 
     params = []
     for i in range(paymentNumber):
@@ -361,7 +379,7 @@ def doMultihopPayments(addressNumber, paymentNumber, batchSize):
 # Script for generating settle requests
 def settleBalanceRequest(settleTxNumber):
     if not os.path.exists("scriptAddress"):
-        print("execute makeNewAddresses first\n")
+        print("ERROR: execute makeNewAddresses first\n")
         return
 
     addressFile = open("scriptAddress", 'r')
@@ -388,7 +406,7 @@ def settleBalanceRequest(settleTxNumber):
 # Script for updating boundary block number
 def updateLatestSPV(updateSPVNumber):
     if not os.path.exists("scriptAddress"):
-        print("execute makeNewAddresses first\n")
+        print("ERROR: execute makeNewAddresses first\n")
         return
 
     addressFile = open("scriptAddress", 'r')
@@ -417,7 +435,6 @@ def updateLatestSPV(updateSPVNumber):
             fsigned.write('\n')
 
 if __name__ == '__main__':
-
     # set multithreading pool
     THREAD_COUNT = multiprocessing.cpu_count()
     pool = Pool(THREAD_COUNT)
@@ -433,8 +450,10 @@ if __name__ == '__main__':
     if command == 0:
         if len(sys.argv) >= 2:
             userNumber = int(sys.argv[2])
+            scriptName = sys.argv[3]
         else:
             userNumber = eval(input("how many users to generate: "))
+            scriptName = "scriptUser"
         makeNewUsers(userNumber)
     elif command == 1:
         if len(sys.argv) >= 2:
