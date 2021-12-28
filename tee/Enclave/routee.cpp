@@ -409,13 +409,13 @@ int secure_add_user(const char* command, int cmd_len, const char* public_key, co
     acc->nonce = 0;
     acc->min_requested_block_number = 0;
     acc->latest_SPV_block_number = 0;
-    acc->settle_address = settle_address;
-    acc->public_key = string(public_key, SGX_RSA3072_KEY_SIZE);
+    memcpy(acc->settle_address, settle_address.c_str(), BITCOIN_ADDRESS_LEN);
+    memcpy(acc->public_key, public_key, RSA_PUBLIC_KEY_LEN);
     state.users[user_address] = acc;
     
     // print result
     if (doPrint) {
-        printf("ADD_USER success: user address: %s / settle address: %s\n", user_address.c_str(), settle_address.c_str());
+        printf("ADD_USER success: user address: %s\n", user_address.c_str());
     }
 
     // sgx_thread_mutex_unlock(&state_mutex);
@@ -566,7 +566,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     // verify signature
     sgx_rsa3072_public_key_t rsa_pubkey;
     memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
-    memcpy(rsa_pubkey.mod, user_acc->public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, user_acc->public_key, SGX_RSA3072_KEY_SIZE);
     rsa_pubkey.exp[0] = 1;
     rsa_pubkey.exp[1] = 0;
     rsa_pubkey.exp[2] = 1;
@@ -699,7 +699,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
     // verify signature
     sgx_rsa3072_public_key_t rsa_pubkey;
     memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
-    memcpy(rsa_pubkey.mod, sender_acc->public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, sender_acc->public_key, SGX_RSA3072_KEY_SIZE);
     rsa_pubkey.exp[0] = 1;
     rsa_pubkey.exp[1] = 0;
     rsa_pubkey.exp[2] = 1;
@@ -800,7 +800,7 @@ int secure_settle_balance(const char* command, int cmd_len, const char* signatur
     // verify signature
     sgx_rsa3072_public_key_t rsa_pubkey;
     memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
-    memcpy(rsa_pubkey.mod, user_acc->public_key.c_str(), SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, user_acc->public_key, SGX_RSA3072_KEY_SIZE);
     rsa_pubkey.exp[0] = 1;
     rsa_pubkey.exp[1] = 0;
     rsa_pubkey.exp[2] = 1;
@@ -829,7 +829,7 @@ int secure_settle_balance(const char* command, int cmd_len, const char* signatur
     // push new waiting settle request
     SettleRequest* sr = new SettleRequest;
     sr->user_address = user_address;
-    sr->settle_address = user_acc->settle_address;
+    sr->settle_address = string(user_acc->settle_address, BITCOIN_ADDRESS_LEN);
     sr->amount = amount;
     sr->fee = fee;
     state.collected_settle_fees += fee;

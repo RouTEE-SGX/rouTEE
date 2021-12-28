@@ -4,6 +4,8 @@
 #include "sgx_tcrypto.h"
 #include "base58.h"
 
+#include "routee.h"
+
 #include <map>
 #include <string>
 #include <vector>
@@ -30,11 +32,11 @@ class Account {
         // boundary block number
         unsigned long long latest_SPV_block_number;
 
-        // when user requests settlement, rouTEE sends balance to this address
-        string settle_address; // 34 bytes
+        // when user requests settlement, rouTEE sends balance to this address (34 bytes)
+        char settle_address[BITCOIN_ADDRESS_LEN];
         
-        // verify signature to authenticate
-        string public_key; // 384 bytes
+        // verify signature to authenticate (384 bytes)
+        char public_key[RSA_PUBLIC_KEY_LEN];
 };
 
 // deposit sent by users to rouTEE
