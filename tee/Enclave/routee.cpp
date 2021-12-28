@@ -1660,19 +1660,29 @@ int ecall_load_owner_key(const char* sealed_owner_private_key, int sealed_key_le
     return NO_ERROR;
 }
 
+// TODO: need to be tested
 int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
 
-    // make state as a string
-    string state_str = state.to_string();
+    // serialize state
+    int userNum = state.users.size();
+    int sizePerAccount = 32 + BITCOIN_ADDRESS_LEN + RSA_PUBLIC_KEY_LEN;
+    int state_bytes_len = userNum*sizePerAccount;
+    char *state_bytes = new char[state_bytes_len];
+    int offset = 0;
+    for (map<string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
+        const unsigned char* cptr = (const unsigned char*)iter->second;
+        memcpy(state_bytes+offset, cptr, sizePerAccount);
+        offset += sizePerAccount;
+    }
 
     // seal the state
-    uint32_t sealed_data_size = sgx_calc_sealed_data_size(0, (uint32_t)state_str.length());
+    uint32_t sealed_data_size = sgx_calc_sealed_data_size(0, (uint32_t)state_bytes_len);
     *sealed_state_len = sealed_data_size;
     if (sealed_data_size == UINT32_MAX) {
         return ERR_SGX_ERROR_UNEXPECTED;
     }
     sgx_sealed_data_t *sealed_state_buffer = (sgx_sealed_data_t *) malloc(sealed_data_size);
-    sgx_status_t status = sgx_seal_data(0, NULL, (uint32_t)state_str.length(), (uint8_t *) state_str.c_str(), sealed_data_size, sealed_state_buffer);
+    sgx_status_t status = sgx_seal_data(0, NULL, (uint32_t)state_bytes_len, (uint8_t *) state_bytes, sealed_data_size, sealed_state_buffer);
     if (status != SGX_SUCCESS) {
         return ERR_SEAL_FAILED;
     }
