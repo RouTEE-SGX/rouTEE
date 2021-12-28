@@ -27,3 +27,6 @@ App/**/*.o
 routee.signed.so
 routee.so
 routee
+
+gitCache.sh
+client/test/*
