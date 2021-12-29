@@ -1665,15 +1665,73 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
 
     // serialize state
     int userNum = state.users.size();
-    int sizePerAccount = 32 + BITCOIN_ADDRESS_LEN + RSA_PUBLIC_KEY_LEN;
+    // int sizePerAccount = BITCOIN_ADDRESS_LEN + 32 + BITCOIN_ADDRESS_LEN + RSA_PUBLIC_KEY_LEN; // do serialize public key
+    int sizePerAccount = BITCOIN_ADDRESS_LEN + 32 + BITCOIN_ADDRESS_LEN; // do not serialize public key
     int state_bytes_len = userNum*sizePerAccount;
     char *state_bytes = new char[state_bytes_len];
     int offset = 0;
+    const unsigned char* cptr;
     for (map<string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
-        const unsigned char* cptr = (const unsigned char*)iter->second;
-        memcpy(state_bytes+offset, cptr, sizePerAccount);
+        cptr = (const unsigned char*)iter->second;
+        memcpy(state_bytes+offset, iter->first.c_str(), BITCOIN_ADDRESS_LEN); // user address
+        memcpy(state_bytes+offset+BITCOIN_ADDRESS_LEN, cptr, sizePerAccount-BITCOIN_ADDRESS_LEN); // Account fields
         offset += sizePerAccount;
     }
+    // printf("serialize success\n");
+
+    // check serialize result
+    // for (int i = 0; i < userNum*sizePerAccount;) {
+    //     printf("user addr: ");
+    //     for (int j = 0; j < BITCOIN_ADDRESS_LEN; j++) {
+    //         printf("%c", state_bytes[i+j]);
+    //     }
+    //     printf("\n");
+    //     i += BITCOIN_ADDRESS_LEN;
+
+    //     printf("balance: ");
+    //     for (int j = 0; j < 8; j++) {
+    //         printf("%02X ", state_bytes[i+j]);
+    //     }
+    //     printf("\n");
+    //     i += 8;
+
+    //     printf("nonce: ");
+    //     for (int j = 0; j < 8; j++) {
+    //         printf("%02X ", state_bytes[i+j]);
+    //     }
+    //     printf("\n");
+    //     i += 8;
+
+    //     printf("source block: ");
+    //     for (int j = 0; j < 8; j++) {
+    //         printf("%02X ", state_bytes[i+j]);
+    //     }
+    //     printf("\n");
+    //     i += 8;
+
+    //     printf("boundary block: ");
+    //     for (int j = 0; j < 8; j++) {
+    //         printf("%02X ", state_bytes[i+j]);
+    //     }
+    //     printf("\n");
+    //     i += 8;
+
+    //     printf("settle addr: ");
+    //     for (int j = 0; j < BITCOIN_ADDRESS_LEN; j++) {
+    //         printf("%c", state_bytes[i+j]);
+    //     }
+    //     printf("\n");
+    //     i += BITCOIN_ADDRESS_LEN;
+
+    //     // printf("pubkey: ");
+    //     // for (int j = 0; j < RSA_PUBLIC_KEY_LEN; j++) {
+    //     //     printf("%c", state_bytes[i+j]);
+    //     // }
+    //     // printf("\n");
+    //     // i += RSA_PUBLIC_KEY_LEN;
+
+    //     printf("\n");
+    // }
 
     // seal the state
     uint32_t sealed_data_size = sgx_calc_sealed_data_size(0, (uint32_t)state_bytes_len);
@@ -1686,11 +1744,13 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
     if (status != SGX_SUCCESS) {
         return ERR_SEAL_FAILED;
     }
+    // printf("sealing success: sealed data size: %d\n", sealed_data_size);
 
     // copy sealed state to the app buffer
     memcpy(sealed_state, sealed_state_buffer, sealed_data_size);
     free(sealed_state_buffer);
     delete[] state_bytes;
+    // printf("copy sealed data success\n");
     return NO_ERROR;
 }
 
