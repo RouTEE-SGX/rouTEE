@@ -346,22 +346,24 @@ void load_state() {
     // if there is no saved state, just terminate
     struct stat buffer;
     char* sealed_state;
+    int sealed_state_len;
     if (stat (STATE_FILENAME, &buffer) != 0) {
         // printf("there is no saved state. just start rouTEE\n");
         return;
     } else {
         // load sealed state from the file
         // printf("read sealed state from the file\n");
-        sealed_state = new char[MAX_SEALED_DATA_LENGTH];
         std::ifstream in(STATE_FILENAME);
         std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-        memcpy(sealed_state, contents.c_str(), contents.length());
+        sealed_state_len = contents.length();
+        sealed_state = new char[sealed_state_len];
+        memcpy(sealed_state, contents.c_str(), sealed_state_len);
     }
 
     // load state
     // printf("load state\n");
     int ecall_return;
-    int ecall_result = ecall_load_state(global_eid, &ecall_return, sealed_state, sizeof(sealed_state));
+    int ecall_result = ecall_load_state(global_eid, &ecall_return, sealed_state, sealed_state_len);
     // printf("ecall_load_state() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_load_state");
@@ -978,7 +980,13 @@ int SGX_CDECL main(int argc, char* argv[]){
     }
 
     // if there is a saved state, load it
+    printf("unseal state executed\n");
+    std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
     load_state();
+    std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+    std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    std::chrono::microseconds micro = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "Elapsed time for state unsealing: " << micro.count() << " us (" << milli.count() << " ms)" << std::endl;
 
     // set owner key
     // TODO: merge this function with load_state()

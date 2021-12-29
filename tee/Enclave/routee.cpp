@@ -1766,13 +1766,40 @@ int ecall_load_state(const char* sealed_state, int sealed_state_len) {
         return ERR_UNSEAL_FAILED;
     }
 
-    // load global state
-    // state.owner_private_key.assign(unsealed_private_key, unsealed_private_key + unsealed_key_length);
-    // // printf("owner private key: %s\n", state.owner_private_key.c_str());
-    string state_str;
-    state_str.assign(unsealed_state, unsealed_state + unsealed_state_length);
-    state.from_string(state_str);
+    // clear state.users map before load
+    if (state.users.size() != 0) {
+        printf("clear state.users map before load\n");
+        for (map<string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
+            delete iter->second;
+            state.users.erase(iter->first);
+        }
+    }
 
+    // load global state
+    const unsigned char* cptr;
+    int sizePerAccount = BITCOIN_ADDRESS_LEN + 32 + BITCOIN_ADDRESS_LEN;
+    for (int i = 0; i < unsealed_state_length;) {
+        
+        // get user address
+        string user_addr((const char*)unsealed_state+i, BITCOIN_ADDRESS_LEN);
+        i += BITCOIN_ADDRESS_LEN;
+
+        // get Account fields
+        Account* acc = new Account;
+        memcpy(acc, unsealed_state+i, sizePerAccount-BITCOIN_ADDRESS_LEN);
+        i += sizePerAccount-BITCOIN_ADDRESS_LEN;
+
+        state.users[user_addr] = acc;
+
+        // print load result
+        // printf("user addr: %s\n", user_addr.c_str());
+        // printf("balance: %llu\n", acc->balance);
+        // printf("nonce: %llu\n", acc->nonce);
+        // printf("source block: %llu\n", acc->min_requested_block_number);
+        // printf("boundary block: %llu\n", acc->latest_SPV_block_number);
+        // printf("settle address: %s\n", string(acc->settle_address, BITCOIN_ADDRESS_LEN).c_str());
+        // printf("\n");
+    }
     // printf("success loading state!\n");
 
     return NO_ERROR;
