@@ -1661,7 +1661,7 @@ int ecall_load_owner_key(const char* sealed_owner_private_key, int sealed_key_le
     return NO_ERROR;
 }
 
-// TODO: need to be tested
+// seal RouTEE state as an encrypted file
 int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
 
     // serialize state
@@ -1757,17 +1757,20 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
     return NO_ERROR;
 }
 
+// unseal RouTEE state from an encrypted file
 int ecall_load_state(const char* sealed_state, int sealed_state_len) {
     // for edge8r
     (void) sealed_state_len;
 
     // unseal the sealed private key
     uint32_t unsealed_state_length = sgx_get_encrypt_txt_len((const sgx_sealed_data_t *) sealed_state);
-    uint8_t unsealed_state[unsealed_state_length];
+    uint8_t* unsealed_state = new uint8_t[unsealed_state_length];
     sgx_status_t status = sgx_unseal_data((const sgx_sealed_data_t *) sealed_state, NULL, 0, unsealed_state, &unsealed_state_length);
     if (status != SGX_SUCCESS) {
+        // printf("decryption failed\n");
         return ERR_UNSEAL_FAILED;
     }
+    // printf("decryption success\n");
 
     // clear state.users map before load
     if (state.users.size() != 0) {
@@ -1806,6 +1809,7 @@ int ecall_load_state(const char* sealed_state, int sealed_state_len) {
         // printf("settle address: %s\n", string(acc->settle_address, BITCOIN_ADDRESS_LEN).c_str());
         // printf("\n");
     }
+    delete[] unsealed_state;
     // printf("success loading state!\n");
 
     return NO_ERROR;
