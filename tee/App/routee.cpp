@@ -345,13 +345,14 @@ void load_state() {
 
     // if there is no saved state, just terminate
     struct stat buffer;
-    char sealed_state[MAX_SEALED_DATA_LENGTH];
+    char* sealed_state;
     if (stat (STATE_FILENAME, &buffer) != 0) {
         // printf("there is no saved state. just start rouTEE\n");
         return;
     } else {
         // load sealed state from the file
         // printf("read sealed state from the file\n");
+        sealed_state = new char[MAX_SEALED_DATA_LENGTH];
         std::ifstream in(STATE_FILENAME);
         std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         memcpy(sealed_state, contents.c_str(), contents.length());
@@ -369,6 +370,7 @@ void load_state() {
         error(error_to_msg(ecall_return).c_str());
     }
 
+    delete[] sealed_state;
     // printf("load state from a file\n");
     return;
 }
@@ -378,7 +380,7 @@ void set_owner() {
     
     // if there is no owner key, create new one
     struct stat buffer;
-    char sealed_owner_private_key[MAX_SEALED_DATA_LENGTH];
+    char sealed_owner_private_key[MAX_SEALED_KEY_LENGTH];
     if (stat (OWNER_KEY_FILENAME, &buffer) != 0) {
         // make new private key
         // printf("generate new owner key\n");
@@ -742,7 +744,7 @@ int print_state() {
 // make on-chain settle tx
 int make_settle_transaction() {
     int ecall_return;
-    char settle_transaction[MAX_SEALED_DATA_LENGTH];
+    char settle_transaction[MAX_TX_SIZE];
     int settle_tx_len;
     int ecall_result = ecall_make_settle_transaction(global_eid, &ecall_return, settle_transaction, &settle_tx_len);
     // printf("ecall_make_settle_transaction() -> result:%d / return:%d\n", ecall_result, ecall_return);
@@ -757,8 +759,6 @@ int make_settle_transaction() {
 
     return ecall_return;
 }
-
-
 
 // insert deposit tx (for debugging)
 int insert_deposit_tx(char* request, int request_len) {
@@ -820,7 +820,7 @@ void seal_state() {
 
     // if there is no owner key, create new one
     struct stat buffer;
-    char sealed_state[MAX_SEALED_DATA_LENGTH];
+    char* sealed_state = new char[MAX_SEALED_DATA_LENGTH];
 
     // get sealed current state
     int ecall_return;
@@ -839,13 +839,14 @@ void seal_state() {
     out.write(sealed_state, sealed_state_len);
     out.close();
 
+    delete[] sealed_state;
     // printf("seal_state() success!\n");
 }
 
 // give encrypted cmd to rouTEE
 void secure_command(char* request, int request_len, int sd) {
     // buffer for encrypted response from ecall
-    char encrypted_response[MAX_SEALED_DATA_LENGTH];
+    char encrypted_response[MAX_ENCRYPTED_RESPONSE_LENGTH];
     int encrypted_response_len;
 
     // parse request as ecall function params
@@ -972,122 +973,6 @@ int SGX_CDECL main(int argc, char* argv[]){
     // TODO: merge this function with load_state()
     set_owner();
 
-/************************************************/
-//     int ACCOUNT_NUM = 1000;
-//     int DEPOSIT_NUM = atoi(argv[1]);
-//     int PAYMENT_NUM = atoi(argv[2]);
-//     int SETTLE_NUM = atoi(argv[3]);
-
-//     {
-//         std::ifstream is("client/scripts/signedAddUser", std::ios::in | std::ios::binary);
-//         is.seekg(0, is.end);
-//         int length = (int)is.tellg();
-//         std::cout << length << std::endl;
-//         is.seekg(0, is.beg);
-//         unsigned char * buffer = (unsigned char*)malloc(length);
-
-//         is.read((char*)buffer, length);
-//         is.close();
-//         unsigned char* ptr = buffer;
-
-//         for (int count = 0; count < ACCOUNT_NUM; count++) {
-//             secure_command((char*) ptr, length / ACCOUNT_NUM, count);
-//             ptr += length / ACCOUNT_NUM;
-//         }
-//     }
-// printf("add user finished\n");
-//     {
-//         std::ifstream is("client/scripts/signedDepositReq", std::ios::in | std::ios::binary);
-//         is.seekg(0, is.end);
-//         int length = (int)is.tellg();
-
-//         is.seekg(0, is.beg);
-//         unsigned char * buffer = (unsigned char*)malloc(length);
-
-//         is.read((char*)buffer, length);
-//         is.close();
-//         unsigned char* ptr = buffer;
-
-//         for (int count = 0; count < DEPOSIT_NUM; count++) {
-//             secure_command((char*) ptr, length / ACCOUNT_NUM, count);
-//             ptr += length / ACCOUNT_NUM;
-//         }
-//     }
-// printf("deposit request finished\n");
-//     {
-//         std::ifstream is("client/scripts/signedDepositTx", std::ios::in | std::ios::binary);
-//         is.seekg(0, is.end);
-//         int length = (int)is.tellg();
-
-//         is.seekg(0, is.beg);
-//         unsigned char * buffer = (unsigned char*)malloc(length);
-
-//         is.read((char*)buffer, length);
-//         is.close();
-//         unsigned char* ptr = buffer;
-
-//         for (int count = 0; count < DEPOSIT_NUM; count++) {
-//             execute_command((char*) ptr, length / ACCOUNT_NUM);
-//             ptr += length / ACCOUNT_NUM;
-//         }
-//     }
-// printf("deal with deposit transaction finished\n");
-//     {
-//         std::ifstream is("client/scripts/signedPayment10", std::ios::in | std::ios::binary);
-//         is.seekg(0, is.end);
-//         int length = (int)is.tellg();
-
-//         is.seekg(0, is.beg);
-//         unsigned char * buffer = (unsigned char*)malloc(length);
-
-//         is.read((char*)buffer, length);
-//         is.close();
-//         unsigned char* ptr = buffer;
-//         std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
-//         if (PAYMENT_NUM != 0) {
-//             for (int count = 0; count < PAYMENT_NUM; count++) {
-//                 secure_command((char*) ptr, length / PAYMENT_NUM, count);
-//                 ptr += length / PAYMENT_NUM;
-//             }
-//         }
-//         std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
-//         std::chrono::duration<double> sec = end - start;
-//         std::cout << "Elapsed time for payment with " << PAYMENT_NUM << " times: "  << sec.count() << " seconds" << std::endl;
-//     }
-// printf("multihop payment finished\n");
-//         // string make_settle_tx = "k user000";
-//         // execute_command((char*) make_settle_tx.c_str(), make_settle_tx.length());
-//     {
-//         std::ifstream is("client/scripts/signedSettleReq", std::ios::in | std::ios::binary);
-//         is.seekg(0, is.end);
-//         int length = (int)is.tellg();
-
-//         is.seekg(0, is.beg);
-//         unsigned char * buffer = (unsigned char*)malloc(length);
-
-//         is.read((char*)buffer, length);
-//         is.close();
-//         unsigned char* ptr = buffer;
-
-
-//         for (int count = 0; count < SETTLE_NUM; count++) {
-//             secure_command((char*) ptr, length / ACCOUNT_NUM, count);
-//             ptr += length / ACCOUNT_NUM;
-//         }
-//     }
-// printf("settlement request finished\n");
-//     {
-//         std::chrono::system_clock::time_point start = std::chrono::system_clock::now();        
-//         string make_settle_tx = "n user000";
-//         execute_command((char*) make_settle_tx.c_str(), make_settle_tx.length());
-//         std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
-//         std::chrono::duration<double> sec = end - start;
-//         std::cout << "Elapsed time for make_settle_tx with " << DEPOSIT_NUM << " deposits + " << SETTLE_NUM << " settles: " << sec.count() << " seconds" << std::endl;
-//     }
-//  printf("deal with settlement transaction finished\n");
-
-
-/******************************************************/
     // run socket server to get commands
     int opt = TRUE;
     int master_socket, addrlen, new_socket, client_socket[MAX_CLIENTS], activity, read_len, sd;

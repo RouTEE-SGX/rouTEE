@@ -21,7 +21,10 @@
 #define ENCLAVE_FILENAME    "routee.signed.so"
 #define OWNER_KEY_FILENAME "owner.key.encrypted"
 #define STATE_FILENAME  "state.encrypted"
-#define MAX_SEALED_DATA_LENGTH   1000000
+#define MAX_SEALED_DATA_LENGTH   30001000
+#define MAX_TX_SIZE 1000000
+#define MAX_ENCRYPTED_RESPONSE_LENGTH 200
+#define MAX_SEALED_KEY_LENGTH 1000
 
 #define STATE_SAVE_EPOCH    0 // 0 means do not save state
 int state_save_counter = 0;
@@ -32,7 +35,7 @@ int state_save_counter = 0;
 #define SERVER_PORT 8202
 
 #define NEGLECT_COUNT   0
-#define PRINT_EPOCH     1000
+#define PRINT_EPOCH     10000
 
 extern sgx_enclave_id_t global_eid; // global enclave id (from routee.cpp)
 
