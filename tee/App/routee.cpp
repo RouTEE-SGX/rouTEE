@@ -936,6 +936,17 @@ const char* execute_command(char* request, int request_len) {
         // printf("insert settle tx executed\n");
         ecall_return = insert_settle_tx(request, request_len);
     }
+    else if (operation == OP_SEAL_STATE) {
+        printf("seal state executed\n");
+        std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+        seal_state();
+        std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+        std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        std::chrono::microseconds micro = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        std::cout << "Elapsed time for state sealing: " << micro.count() << " us (" << milli.count() << " ms)" << std::endl;
+
+        ecall_return = NO_ERROR;
+    }
     else{
         // wrong op_code
         // printf("this op code doesn't exist\n");

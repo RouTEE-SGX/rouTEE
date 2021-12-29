@@ -29,5 +29,6 @@
 #define OP_PRINT_STATE  107             // k (cmd: k)
 #define OP_INSERT_DEPOSIT_TX 114        // r (cmd: r sender_address amount block_number)
 #define OP_INSERT_SETTLE_TX 117         // u (cmd: u)
+#define OP_SEAL_STATE 119               // w (cmd: w)
 
 #endif  // _NETWORK_H_
