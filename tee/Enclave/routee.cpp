@@ -636,7 +636,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
     Account* receiver_acc;
     string receiver_address;
     unsigned long long amount;
-    unsigned long long total_amount;
+    unsigned long long total_amount = 0;
 
     for (int i = 0; i < batch_size; i++) {
 
