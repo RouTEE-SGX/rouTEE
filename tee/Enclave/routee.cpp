@@ -42,6 +42,7 @@
 
 // print ecall results on screen or not
 const bool doPrint = true;
+const bool doSealPubkey = false;
 
 // for AES-GCM128 encription / decription
 #define SGX_AESGCM_MAC_SIZE 16 // bytes
@@ -1665,8 +1666,10 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
 
     // serialize state
     int userNum = state.users.size();
-    // int sizePerAccount = BITCOIN_ADDRESS_LEN + 32 + BITCOIN_ADDRESS_LEN + RSA_PUBLIC_KEY_LEN; // do serialize public key
-    int sizePerAccount = BITCOIN_ADDRESS_LEN + 32 + BITCOIN_ADDRESS_LEN; // do not serialize public key
+    int sizePerAccount = BITCOIN_ADDRESS_LEN + 32 + BITCOIN_ADDRESS_LEN;
+    if (doSealPubkey) {
+        sizePerAccount += RSA_PUBLIC_KEY_LEN;
+    }
     int state_bytes_len = userNum*sizePerAccount;
     char *state_bytes = new char[state_bytes_len];
     int offset = 0;
@@ -1778,6 +1781,9 @@ int ecall_load_state(const char* sealed_state, int sealed_state_len) {
     // load global state
     const unsigned char* cptr;
     int sizePerAccount = BITCOIN_ADDRESS_LEN + 32 + BITCOIN_ADDRESS_LEN;
+    if (doSealPubkey) {
+        sizePerAccount += RSA_PUBLIC_KEY_LEN;
+    }
     for (int i = 0; i < unsealed_state_length;) {
         
         // get user address
