@@ -206,7 +206,7 @@ class State {
 
         queue<TxFeeInfo> tx_fee_infos;
 
-        // deposit_requests[manager_address] = deposit_request
+        // deposit_requests[keyID] = deposit_request (keyID: hash of pubkey in Bitcoin)
         map<string, DepositRequest*> deposit_requests;
 
         // confirmed unused deposits, which rouTEE currently owns
