@@ -455,22 +455,6 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* r
     CPubKey pubkey = key.GetPubKey();
 
     CKeyID keyid = pubkey.GetID();
-    CTxDestination* dest = new CTxDestination;
-    dest->class_type = 2;
-    dest->keyID = &keyid;
-    CScript script = GetScriptForDestination(*dest);
-
-    // get redeem script
-    std::string script_asm = ScriptToAsmStr(script);
-
-    // TODO: clean up using the bitcoin core code! For now this works as we hardcode the redeem scripts...
-    std::string redeem_script;
-    if (debug) {
-        redeem_script = "76a914c0cbe7ba8f82ef38aed886fba742942a9893497788ac"; // hard coded for tests!
-    } else {
-        std::string hash_string = script_asm.substr(18, 40); // 18 is offset of hash in asm, 40 is length of RIPEMD160 in hex
-        redeem_script = "76a914" + hash_string + "88ac";  // the P2PKH script format
-    }
 
     CBitcoinAddress address;
     address.Set(pubkey.GetID());
