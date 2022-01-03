@@ -54,12 +54,6 @@ int ecall_insert_block(int block_num, const char* hex_block, int hex_block_len);
 // give encrypted command to rouTEE
 int ecall_secure_command(const char* sessionID, int sessionID_len, const char* encrypted_cmd, int encrypted_cmd_len, char* encrypted_response, int* encrypted_response_len);
 
-// save randomly created and encrypted owner key
-int ecall_make_owner_key(char* sealed_owner_private_key, int* sealed_key_len);
-
-// decrypt the encrypted owner key file & load it into the enclave
-int ecall_load_owner_key(const char* sealed_owner_private_key, int sealed_key_len);
-
 // seal current state
 int ecall_seal_state(char* sealed_state, int* sealed_state_len);
 

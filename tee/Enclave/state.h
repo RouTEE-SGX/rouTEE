@@ -150,11 +150,6 @@ class State {
         // state version number (monotonically increasing counter)
         unsigned long long stateID;
 
-        // key which is generated inside SGX (rouTEE's ID)
-        string owner_address;
-        string owner_public_key;
-        string owner_private_key;
-
         // public key for checking rouTEE host's authority
         string host_public_key;
 

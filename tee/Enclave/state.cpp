@@ -10,11 +10,6 @@ string State::to_string() {
     // stateID
     state_str += long_long_to_string(this->stateID) + delimitor;
 
-    // // owner
-    // state_str += this->owner_address + delimitor;
-    // state_str += this->owner_public_key + delimitor;
-    // state_str += this->owner_private_key + delimitor;
-
     // // fee
     // state_str += long_long_to_string(this->routing_fee) + delimitor;
     // state_str += this->fee_address + delimitor;
@@ -53,11 +48,6 @@ void State::from_string(string state_str) {
     // // stateID
     // int cnt = 0;
     // this->stateID = string_to_long_long(get_token(state_str));
-
-    // // owner
-    // this->owner_address = get_token(state_str);
-    // this->owner_public_key = get_token(state_str);
-    // this->owner_private_key = get_token(state_str);
 
     // // fee
     // this->routing_fee = string_to_long_long(get_token(state_str));

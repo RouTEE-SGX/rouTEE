@@ -377,68 +377,6 @@ void load_state() {
     return;
 }
 
-// set owner key inside the enclave
-void set_owner() {
-    
-    // if there is no owner key, create new one
-    struct stat buffer;
-    char sealed_owner_private_key[MAX_SEALED_KEY_LENGTH];
-    if (stat (OWNER_KEY_FILENAME, &buffer) != 0) {
-        // make new private key
-        // printf("generate new owner key\n");
-        int ecall_return;
-        int sealed_key_len;
-        int ecall_result = ecall_make_owner_key(global_eid, &ecall_return, sealed_owner_private_key, &sealed_key_len);
-        // printf("ecall_make_owner_key() -> result:%d / return:%d\n", ecall_result, ecall_return);
-        if (ecall_result != SGX_SUCCESS) {
-            error("ecall_make_owner_key");
-        }
-
-        // save sealed owner private key as a file
-        std::ofstream out(OWNER_KEY_FILENAME);
-        if (!out){
-            error("cannot open file");
-        }
-        // out.write(sealed_owner_private_key, strlen(sealed_owner_private_key));
-        out.write(sealed_owner_private_key, sealed_key_len);
-        out.close();
-    } else {
-        // load sealed private key from the file
-        // printf("read sealed owner key from the file");
-        std::ifstream in(OWNER_KEY_FILENAME);
-        std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-        memcpy(sealed_owner_private_key, contents.c_str(), contents.length());
-    }
-
-    // load host's public key for authentication
-    EVP_PKEY* pPubKey  = NULL;
-    FILE* pFile = NULL;
-
-    if((pFile = fopen("./client/key/public_key_host.pem","rt")) && 
-        (pPubKey = PEM_read_PUBKEY(pFile,NULL,NULL,NULL)))
-    {
-        printf("Public key read.\n");
-    }
-    else
-    {
-        printf("Cannot read \"pubkey.pem\".\n");
-    }
-    
-    // load owner key's address
-    // printf("load owner key\n");
-    int ecall_return;
-    int ecall_result = ecall_load_owner_key(global_eid, &ecall_return, sealed_owner_private_key, sizeof(sealed_owner_private_key));
-    // printf("ecall_load_owner_key() -> result:%d / return:%d\n", ecall_result, ecall_return);
-    if (ecall_result != SGX_SUCCESS) {
-        error("ecall_load_owner_key");
-    }
-    if (ecall_return != 0) {
-        error(error_to_msg(ecall_return).c_str());
-    }
-
-    // printf("set_owner() finished\n");
-}
-
 // parse request as ecall function params (delimiter: ' ')
 vector<string> parse_request(const char* request) {
     string req(request);
@@ -979,6 +917,12 @@ int SGX_CDECL main(int argc, char* argv[]){
         return -1;
     }
 
+    // initialize RouTEE
+    int ecall_result = ecall_initialize(global_eid);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_initialize");
+    }
+
     // if there is a saved state, load it
     printf("unseal state executed\n");
     std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
@@ -987,10 +931,6 @@ int SGX_CDECL main(int argc, char* argv[]){
     std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     std::chrono::microseconds micro = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     std::cout << "Elapsed time for state unsealing: " << micro.count() << " us (" << milli.count() << " ms)" << std::endl;
-
-    // set owner key
-    // TODO: merge this function with load_state()
-    set_owner();
 
     // run socket server to get commands
     int opt = TRUE;

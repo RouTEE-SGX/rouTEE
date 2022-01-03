@@ -19,7 +19,6 @@
 
 #define TOKEN_FILENAME  "enclave.token"
 #define ENCLAVE_FILENAME    "routee.signed.so"
-#define OWNER_KEY_FILENAME "owner.key.encrypted"
 #define STATE_FILENAME  "state.encrypted"
 #define MAX_SEALED_DATA_LENGTH   30001000
 #define MAX_TX_SIZE 1000000

@@ -241,9 +241,6 @@ void ecall_print_state() {
     // print all the state: all users' address and balance
     printf("\n\n\n\n\n\n\n\n\n\n******************** START PRINT STATE ********************\n");
 
-    printf("\n\n\n***** owner info *****\n\n");
-    printf("owner address: %s\n", state.owner_address.c_str());
-
     printf("\n\n\n\n\n***** user account info *****\n\n");
     if (state.users.size() <=  10){
         for (map<string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
@@ -981,15 +978,31 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
         total_settle_amount += sr.amount;
 
         if (state.settle_requests.empty()) {
-            // TODO: generate random manager address for leftover deposit (not send it to owner address)
-            Deposit* leftover_deposit = new Deposit;
+            // generate random manager address for leftover deposit
+            initializeECCState(); // initialize ECC State for Bitcoin Library
+            CKey key;
+            key.MakeNewKey(true /* compressed */);
+            CPubKey pubkey = key.GetPubKey();
 
+            CKeyID keyid = pubkey.GetID();
+
+            CBitcoinAddress address;
+            address.Set(pubkey.GetID());
+
+            std::string manager_address = address.ToString();
+            std::string manager_public_key = HexStr(key.GetPubKey());
+            std::string manager_private_key = CBitcoinSecret(key).ToString();
+
+            // generate leftover deposit
+            Deposit* leftover_deposit = new Deposit;
             leftover_deposit->tx_index = tx_output_num - 1;
-            leftover_deposit->manager_private_key = state.owner_private_key;
+            CScript scriptPubKey = GetScriptForDestination(address.Get());
+            leftover_deposit->script = HexStr(scriptPubKey); // TODO: is this right?
+            leftover_deposit->manager_private_key = manager_private_key;
 
             unsigned long long total_out = state.d_total_deposit - total_settle_amount - ((tx_output_num * TX_OUTPUT_SIZE) + TX_INPUT_SIZE) * state.avg_tx_fee_per_byte;
 
-            output_string += "\"" + state.owner_address + "\":" + satoshi_to_bitcoin(total_out) + "}";
+            output_string += "\"" + manager_address + "\":" + satoshi_to_bitcoin(total_out) + "}";
 
             state.deposits.push(leftover_deposit);
             psti->leftover_deposit = leftover_deposit;
@@ -1007,7 +1020,6 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
     state.fee_fund -= psti->on_chain_tx_fee;
 
     // save this on-chain settle tx information
-    psti->leftover_deposit->tx_hash = "0x_tx_hash"; // TODO fix (sjkim)
     state.pending_settle_tx_infos.push(psti);
     
     // for debugging
@@ -1021,6 +1033,7 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
         printf("routing fee waiting: %llu / psti->pending balances: %llu / state.total balance: %llu\n", state.pending_routing_fee, psti->pending_balances, state.total_balances);
     }
 
+    // generate on-chain transaction
     // printf("input string: %s\noutput string: %s\n", input_string.c_str(), output_string.c_str());
     std::string create_transaction_rpc = create_raw_transaction_rpc();
     create_transaction_rpc += input_string + " " + output_string;
@@ -1035,6 +1048,8 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
     UniValue signed_settle_transaction = executeCommand(sign_transaction_rpc);
     std::string signed_settle_transaction_string = signed_settle_transaction.write();
     // printf("signed_settle_transaction_string: %s\n", signed_settle_transaction_string.c_str());
+
+    psti->leftover_deposit->tx_hash = signed_settle_transaction["txid"].get_str(); // TODO: is it right?
 
     *settle_tx_len = signed_settle_transaction_string.length();
     memcpy((char*) settle_transaction_ret, signed_settle_transaction_string.c_str(), signed_settle_transaction_string.length());
@@ -1165,7 +1180,7 @@ void deal_with_settlement_tx() {
 
     // print result
     if (doPrint) {
-        // printf("deal with settle tx -> rouTEE owner got paid pending routing fee: %llu satoshi\n", psti->to_be_confirmed_routing_fee);
+        // printf("deal with settle tx -> rouTEE host got paid pending routing fee: %llu satoshi\n", psti->to_be_confirmed_routing_fee);
     }
 
         // dequeue pending settle requests for this settle tx (print for debugging, can delete this later)
@@ -1535,114 +1550,9 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     return NO_ERROR;
 }
 
-int ecall_make_owner_key(char* sealed_owner_private_key, int* sealed_key_len) {
-    //
-    // TODO: BITCOIN
-    // make random bitcoin private key
-    //
+void ecall_initialize() {
     // initialize ECC State for Bitcoin Library
     initializeECCState();
-    // generate and print bitcoin addresses to be paid into by the user
-    // generate new bitcoin pub/private key and address
-    CKey key;
-    key.MakeNewKey(true /* compressed */);
-    CPubKey pubkey = key.GetPubKey();
-
-    CKeyID keyid = pubkey.GetID();
-
-    CBitcoinAddress address;
-    address.Set(pubkey.GetID());
-
-    std::string generated_address = address.ToString();
-    std::string generated_public_key = HexStr(key.GetPubKey());
-    std::string generated_private_key = CBitcoinSecret(key).ToString();
-
-    printf("ecall_make_owner_key.generated_private_key: %s\n", generated_private_key.c_str());
-    printf("ecall_make_owner_key.generated_public_key: %s\n", generated_public_key.c_str());
-    printf("ecall_make_owner_key.generated_address: %s\n", generated_address.c_str());
-
-    const char *random_private_key = generated_private_key.c_str();
-    //char random_private_key[300] = "abcde"; // temp code
-    // printf("random private key: %s\n", random_private_key);
-
-    // seal the private key
-    uint32_t sealed_data_size = sgx_calc_sealed_data_size(0, (uint32_t)strlen(random_private_key));
-    // printf("sealed_data_size: %d\n", sealed_data_size);
-    *sealed_key_len = sealed_data_size;
-    if (sealed_data_size == UINT32_MAX) {
-        return ERR_SGX_ERROR_UNEXPECTED;
-    }
-    sgx_sealed_data_t *sealed_key_buffer = (sgx_sealed_data_t *) malloc(sealed_data_size);
-    sgx_status_t status = sgx_seal_data(0, NULL, (uint32_t)strlen(random_private_key), (uint8_t *) random_private_key, sealed_data_size, sealed_key_buffer);
-    if (status != SGX_SUCCESS) {
-        return ERR_SEAL_FAILED;
-    }
-
-    // copy sealed key to the app buffer
-    memcpy(sealed_owner_private_key, sealed_key_buffer, sealed_data_size);
-    free(sealed_key_buffer);
-    return NO_ERROR;
-}
-
-int ecall_load_owner_key(const char* sealed_owner_private_key, int sealed_key_len) {
-    // for edge8r
-    (void) sealed_key_len;
-
-    // unseal the sealed private key
-    uint32_t unsealed_key_length = sgx_get_encrypt_txt_len((const sgx_sealed_data_t *) sealed_owner_private_key);
-    uint8_t unsealed_private_key[unsealed_key_length];
-    sgx_status_t status = sgx_unseal_data((const sgx_sealed_data_t *) sealed_owner_private_key, NULL, 0, unsealed_private_key, &unsealed_key_length);
-    if (status != SGX_SUCCESS) {
-        return ERR_UNSEAL_FAILED;
-    }
-
-    // set owner_private_key
-    state.owner_private_key.assign(unsealed_private_key, unsealed_private_key + unsealed_key_length);
-    printf("owner private key: %s\n", state.owner_private_key.c_str());
-
-    //
-    // TODO: BITCOIN
-    // set owner_public_key & owner_address
-    // 
-    const unsigned char *owner_private_key = reinterpret_cast<const unsigned char *>(state.owner_private_key.c_str());
-    
-    // initialize ECC State for Bitcoin Library
-    initializeECCState();
-
-    CKey key;
-    key.Set(owner_private_key, owner_private_key + 32, true);
-    CPubKey pubkey = key.GetPubKey();
-
-    CBitcoinAddress address;
-    address.Set(pubkey.GetID());
-
-    std::string generated_address = address.ToString();
-    std::string generated_public_key = HexStr(pubkey);
-    printf("owner private key: %s\n", owner_private_key);
-    state.owner_public_key = generated_public_key;
-    state.owner_address = generated_address;
-
-    state.latest_block_number = 0;
-    state.accumulated_tx_fee = 0;
-    state.accumulated_tx_size = 0;
-
-    printf("ecall_load_owner_key.generated_private_key: %s\n", CBitcoinSecret(key).ToString().c_str());
-    printf("ecall_load_owner_key.generated_public_key: %s\n", generated_public_key.c_str());
-    printf("ecall_load_owner_key.generated_address: %s\n", generated_address.c_str());
-
-    // rouTEE host's public key for verification
-    // state.users["host"] = ;
-    // char byteArray[] = {}
-    // std::string s(byteArray, sizeof(byteArray));
-
-    // char *_input = "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEpDe2hkjA3LeG8sjcGrBSfAIWxCXlIHQya9Apb7xR8Xjpe0bDWrPkrjZ38Dcqx0T3INM9UB+adVWE3hzduzR9qA==";
-    // unsigned char *input = reinterpret_cast<unsigned char *>(_input);
-    // unsigned char pubkey[88];
-    // size_t pubkeylen;
-
-    // ret = mbedtls_base64_decode( pubkey, 88, &pubkeylen, input, strlen(_input) );
-
-    return NO_ERROR;
 }
 
 // seal RouTEE state as an encrypted file
