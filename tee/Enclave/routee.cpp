@@ -404,6 +404,8 @@ int secure_add_user(const char* command, int cmd_len, const char* public_key, co
     // create new account for the user
     Account* acc = new Account;
     acc->balance = 0;
+    // acc->balance = 1000000; // test code, delete this later
+    // state.total_balances += 1000000; // test code, delete this later
     acc->nonce = 0;
     acc->min_requested_block_number = 0;
     acc->latest_SPV_block_number = 0;
@@ -1058,6 +1060,7 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
 }
 
 // deals with the deposit tx in the newly inserted block
+// TODO: maybe need to change name: manager_address -> keyid (need to check)
 void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, const char* tx_hash, int tx_hash_len, int tx_index, const char* script, int script_len, unsigned long long amount, unsigned long long block_number) {
 
     // will take some of the deposit to pay tx fee later
@@ -1532,11 +1535,15 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     if (operation != OP_GET_READY_FOR_DEPOSIT || operation_result != NO_ERROR) {
         string response = error_to_msg(operation_result);
         memcpy((char*)response_msg, response.c_str(), response.length()+1);
+        if (operation_result != NO_ERROR) {
+            printf("ERROR: execution failed -> %s\n", response.c_str());
+        }
     }
     encryption_result = make_encrypted_response(response_msg, session_key, encrypted_response, encrypted_response_len);
     if (encryption_result != NO_ERROR) {
         // TODO: if encryption failed, send rouTEE's signature for the failed cmd
         // to make client believe that the encrpytion really failed
+        printf("ERROR: encryption failed");
         return ERR_ENCRYPT_FAILED;
     }
 
