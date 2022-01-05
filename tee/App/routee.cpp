@@ -700,6 +700,23 @@ int make_settle_transaction() {
     return ecall_return;
 }
 
+// process round
+int process_round() {
+    int ecall_return;
+    int ecall_result = ecall_process_round(global_eid, &ecall_return);
+    // printf("ecall_process_round() -> result:%d / return:%d\n", ecall_result, ecall_return);
+    if (ecall_result != SGX_SUCCESS) {
+        error("ecall_process_round");
+    }
+
+    // 
+    // TODO: BITCOIN
+    // if successed to make settle tx, broadcast it
+    // 
+
+    return ecall_return;
+}
+
 // insert deposit tx (for debugging)
 int insert_deposit_tx(char* request, int request_len) {
     int signature_len = SGX_RSA3072_KEY_SIZE;
@@ -886,6 +903,15 @@ const char* execute_command(char* request, int request_len) {
         std::cout << "Elapsed time for state sealing: " << micro.count() << " us (" << milli.count() << " ms)" << std::endl;
 
         ecall_return = NO_ERROR;
+    }
+    else if (operation == OP_PROCESS_ROUND) {
+        printf("process round executed\n");
+        std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+        ecall_return = process_round();
+        std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+        std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        std::chrono::microseconds micro = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        std::cout << "Elapsed time for processing round: " << micro.count() << " us (" << milli.count() << " ms)" << std::endl;
     }
     else{
         // wrong op_code

@@ -620,6 +620,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
     string receiver_address;
     unsigned long long amount;
     unsigned long long total_amount = 0;
+    unsigned long long sender_max_source_block_number = sender_acc->min_requested_block_number;
 
     for (int i = 0; i < batch_size; i++) {
 
@@ -654,7 +655,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
         }
 
         total_amount += amount;
-        queue.push(PaymentInfo(receiver_acc, amount));
+        queue.push(PaymentInfo(receiver_acc, amount, sender_max_source_block_number));
     }
 
     if (batch_size != queue.size()) {
@@ -697,36 +698,29 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
 
     // sgx_thread_mutex_lock(&state_mutex);
 
-    // execute multi-hop payments
+    // collect payment requests
     for (int i = 0; i < batch_size; i++) {
         PaymentInfo payment_info = queue.front();
-        receiver_acc = payment_info.receiver_account;
-        amount = payment_info.amount;
+        state.payments.push_back(payment_info);
+        queue.pop();
 
-        // move balance
-        sender_acc->balance -= (amount + fee);
-        receiver_acc->balance += amount;
+        // reduce sender's balance
+        sender_acc->balance -= (payment_info.amount + fee);
+    }
 
         // add routing fee for this payment
-        state.pending_routing_fee += fee;
+    state.pending_routing_fee_in_round += batch_size*fee;
+    
         // update total balances
-        state.total_balances -= fee;
+    state.total_balances -= batch_size*fee;
 
         // increase sender's nonce
         sender_acc->nonce++;
-
-        // update receiver's requested_block_number
-        if (receiver_acc->min_requested_block_number < sender_acc->min_requested_block_number) {
-            receiver_acc->min_requested_block_number = sender_acc->min_requested_block_number;
-        }
 
         // reset sender's max source block number if balances becomes 0
         if (sender_acc->balance == 0) {
             sender_acc->min_requested_block_number = 0;
         }
-
-        queue.pop();
-    }
 
     // increase state id
     state.stateID++;
@@ -1056,6 +1050,56 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
     *settle_tx_len = signed_settle_transaction_string.length();
     memcpy((char*) settle_transaction_ret, signed_settle_transaction_string.c_str(), signed_settle_transaction_string.length());
 
+    return NO_ERROR;
+}
+
+// TODO: deals with accumulated requests & backup important data
+int ecall_process_round() {
+    
+    //
+    // TODO: verify host's signature
+    //
+
+    // mutex lock
+    sgx_thread_mutex_lock(&state_mutex);
+
+    //
+    // 1. deals with payments
+    //
+
+    // deals with receivers
+    for (auto pi = state.payments.begin(); pi != state.payments.end(); ++pi) {
+        pi->receiver_account->balance += pi->amount;
+        if (pi->receiver_account->min_requested_block_number < pi->source_block_number) {
+            pi->receiver_account->min_requested_block_number = pi->source_block_number;
+        }
+        // printf("PAYMENT complete: get %llu satoshi\n", pi->amount);
+    }
+
+    // initialize vector
+    state.payments.clear(); // this is more efficient
+    // vector<PaymentInfo>(state.payments).swap(state.payments); // -> this causes performance degrade
+
+    // deals with routing fees for host
+    state.pending_routing_fee += state.pending_routing_fee_in_round;
+    state.pending_routing_fee_in_round = 0;
+
+    //
+    // 2. deals with settle requests
+    //
+
+
+
+    // 
+    // 3. backup data
+    //
+
+
+
+    // mutex unlock
+    sgx_thread_mutex_unlock(&state_mutex);
+
+    // printf("process round complete\n");
     return NO_ERROR;
 }
 

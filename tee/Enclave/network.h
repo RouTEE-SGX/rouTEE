@@ -16,6 +16,7 @@
 #define OP_INSERT_BLOCK_HEADER 100      // d (cmd: d block_number)
 #define OP_SETTLE_ROUTING_FEE 118       // v (cmd: v amount)
 #define OP_SYNC_WITH_BLOCKCHAIN 98      // b (cmd: b)
+#define OP_PROCESS_ROUND 120            // x (cmd: x)
 
 // opcodes for rouTEE users
 #define OP_SECURE_COMMAND 112           // p (cmd: p sessionID encrypted_command_data)

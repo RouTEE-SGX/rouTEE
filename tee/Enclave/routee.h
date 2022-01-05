@@ -60,7 +60,8 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len);
 // load state from sealed data
 int ecall_load_state(const char* sealed_state, int sealed_state_len);
 
-
+// process round
+int ecall_process_round();
 
 //
 // Ecalls functions for debugging

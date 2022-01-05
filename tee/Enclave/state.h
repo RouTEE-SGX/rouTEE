@@ -120,10 +120,12 @@ class PaymentInfo {
     public:
         Account* receiver_account;
         unsigned long long amount;
+        unsigned long long source_block_number; // sender's max source block number
 
-        PaymentInfo(Account* receiver_account, unsigned long long amount) {
+        PaymentInfo(Account* receiver_account, unsigned long long amount, unsigned long long source_block_number) {
             this->receiver_account = receiver_account;
             this->amount = amount;
+            this->source_block_number = source_block_number;
         }
 
         ~PaymentInfo() { }
@@ -168,10 +170,14 @@ class State {
         // latest block number among blocks inside RouTEE
         unsigned long long latest_block_number;
 
+        // accumulated payments in the current round
+        vector<PaymentInfo> payments;
+
         // about routing fee
         // (payment_count + deposit_count) * routing_fee = pending_routing_fee + routing_fee_pending + confirmed_routing_fee + d_settled_routing_fee
-        unsigned long long pending_routing_fee;         // amount of fee which will be included in settle tx
-        unsigned long long confirmed_routing_fee;       // amount of fee which is ready to be settled for rouTEE host
+        unsigned long long pending_routing_fee_in_round;// amount of pending routing fee which is accumulated in the current round
+        unsigned long long pending_routing_fee;         // amount of total pending routing fee which can be confirmed by settlements
+        unsigned long long confirmed_routing_fee;       // amount of routing fee which is ready to be settled for RouTEE host
         
         // several infos for pending settle txs
         queue<PendingSettleTxInfo*> pending_settle_tx_infos;
