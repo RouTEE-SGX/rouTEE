@@ -802,8 +802,7 @@ int insert_settle_tx(char* request, int request_len) {
 // save sealed current state as a file
 void seal_state() {
 
-    // if there is no owner key, create new one
-    struct stat buffer;
+    // create buffer for sealed data
     char* sealed_state = new char[MAX_SEALED_DATA_LENGTH];
 
     // get sealed current state
