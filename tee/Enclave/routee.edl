@@ -20,7 +20,7 @@ enclave {
         public int ecall_secure_command([in, size=sessionID_len] const char* sessionID, int sessionID_len, [in, size=encrypted_cmd_len] const char* encrypted_cmd, int encrypted_cmd_len, [user_check] char* encrypted_response, [in, out] int* encrypted_response_len);
         public int ecall_seal_state([user_check] char* sealed_state, [in, out] int* sealed_state_len);
         public int ecall_load_state([in, size=sealed_state_len] const char* sealed_state, int sealed_state_len);
-        public int ecall_process_round();
+        public int ecall_process_round([user_check] const char* settle_transaction, [in, out] int* settle_tx_len, [user_check] char* sealed_state, [in, out] int* sealed_state_len);
 
         // debugging functions (temp ecall functions)
         public void deal_with_deposit_tx([in, size=manager_addr_len] const char* manager_address, int manager_addr_len, [in, size=txid_len] const char* txid, int txid_len, int tx_index, [in, size=script_len] const char* script, int script_len, unsigned long long amount, unsigned long long block_number);

@@ -61,7 +61,7 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len);
 int ecall_load_state(const char* sealed_state, int sealed_state_len);
 
 // process round
-int ecall_process_round();
+int ecall_process_round(const char* settle_transaction, int* settle_tx_len, char* sealed_state, int* sealed_state_len);
 
 //
 // Ecalls functions for debugging

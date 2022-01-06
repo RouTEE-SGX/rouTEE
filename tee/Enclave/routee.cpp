@@ -1054,7 +1054,7 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
 }
 
 // TODO: deals with accumulated requests & backup important data
-int ecall_process_round() {
+int ecall_process_round(const char* settle_transaction_ret, int* settle_tx_len, char* sealed_state, int* sealed_state_len) {
     
     //
     // TODO: verify host's signature
@@ -1088,13 +1088,31 @@ int ecall_process_round() {
     // 2. deals with settle requests
     //
 
-
+    int settle_result = ecall_make_settle_transaction(settle_transaction_ret, settle_tx_len);
+    if (settle_result != NO_ERROR) {
+        // cannot make settlement tx yet (ERR_SETTLE_NOT_READY or ERR_TOO_LOW_SETTLE_FEE)
+        // printf("cannot make settlement tx yet\n");
+        settle_tx_len = 0;
+    }
 
     // 
     // 3. backup data
     //
 
+    int seal_return = ecall_seal_state(sealed_state, sealed_state_len);
+    if (seal_return != NO_ERROR) {
+        // sealing failed (rare & abnormal situation)
 
+    // 
+        // TODO: rollback all changes in this process_round()
+    //
+
+        // mutex unlock
+        sgx_thread_mutex_unlock(&state_mutex);
+
+        // printf("process round failed, rollback all changes\n");
+        return seal_return;
+    }
 
     // mutex unlock
     sgx_thread_mutex_unlock(&state_mutex);

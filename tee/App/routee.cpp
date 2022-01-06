@@ -702,17 +702,44 @@ int make_settle_transaction() {
 
 // process round
 int process_round() {
+
+    // create buffer for on-chain settle tx
+    char* settle_transaction = new char[MAX_TX_SIZE];
+    int settle_tx_len;
+
+    // create buffer for sealed data
+    char* sealed_state = new char[MAX_SEALED_DATA_LENGTH];
+    int sealed_state_len;
+
+    // do ecall
     int ecall_return;
-    int ecall_result = ecall_process_round(global_eid, &ecall_return);
+    int ecall_result = ecall_process_round(global_eid, &ecall_return, settle_transaction, &settle_tx_len, sealed_state, &sealed_state_len);
     // printf("ecall_process_round() -> result:%d / return:%d\n", ecall_result, ecall_return);
     if (ecall_result != SGX_SUCCESS) {
         error("ecall_process_round");
     }
+    if (ecall_return != NO_ERROR) {
+        error("failed to process round");
+    }
 
+    // save sealed state as a file
+    std::ofstream out(STATE_FILENAME);
+    if (!out){
+        error("cannot open file");
+    }
+    out.write(sealed_state, sealed_state_len);
+    out.close();
+
+    if (settle_tx_len != 0) {
     // 
     // TODO: BITCOIN
     // if successed to make settle tx, broadcast it
     // 
+        printf("broadcast settle tx\n");
+    }
+
+    delete[] sealed_state;
+    delete[] settle_transaction;
 
     return ecall_return;
 }
