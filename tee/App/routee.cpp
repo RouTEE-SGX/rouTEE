@@ -731,10 +731,10 @@ int process_round() {
     out.close();
 
     if (settle_tx_len != 0) {
-    // 
-    // TODO: BITCOIN
-    // if successed to make settle tx, broadcast it
-    // 
+        // 
+        // TODO: BITCOIN
+        // if successed to make settle tx, broadcast it
+        // 
         printf("broadcast settle tx\n");
     }
 
