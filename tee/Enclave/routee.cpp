@@ -391,7 +391,7 @@ int secure_add_user(const char* command, int cmd_len, const char* public_key, co
     if (!CBitcoinAddress(settle_address).IsValid()) {
         printf("Invalid settle address\n");
         return ERR_INVALID_PARAMS;
-    }    
+    }
 
     // check if the user already exists
     if (state.users.find(user_address) != state.users.end()) {
@@ -486,7 +486,7 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* r
     return NO_ERROR;
 }
 
-// UPDATE_BOUNDARY_BLOCK(user_address block_number (block_hash) signature) operation
+// UPDATE_BOUNDARY_BLOCK(user_address block_number block_hash signature) operation
 int secure_update_latest_SPV_block(const char* command, int cmd_len, const char* signature, const char* response_msg) {
 
     // temply save before getting params for verifying signature later
@@ -507,19 +507,17 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
         return ERR_INVALID_PARAMS;
     }
 
-    // TODO: fix
-    // char* _block_hash = strtok(NULL, " ");
-    // if (_block_hash == NULL) {
-    //     printf("No block hash for update last SPV block\n");
-    //     return ERR_INVALID_PARAMS;
-    // }  
+    char* _block_hash = strtok(NULL, " ");
+    if (_block_hash == NULL) {
+        printf("No block hash for update last SPV block\n");
+        return ERR_INVALID_PARAMS;
+    }  
 
     string user_address(_user_address, BITCOIN_ADDRESS_LEN);
     unsigned long long block_number = strtoull(_block_number, NULL, 10);
-
-    // TODO: fix
-    // uint256 block_hash;
-    // block_hash.SetHex(string(_block_hash, BITCOIN_HEADER_HASH_LEN));
+    string block_hash_str(_block_hash, BITCOIN_HEADER_HASH_LEN*2);
+    uint256 block_hash;
+    block_hash.SetHex(string(block_hash_str, BITCOIN_HEADER_HASH_LEN));
 
     // check if this is a valid bitcoin address
     if (!CBitcoinAddress(user_address).IsValid()) {
@@ -533,11 +531,10 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     }
 
     // check user has same block with rouTEE
-    // TODO: fix
-    // if (state.block_hash[block_number] != block_hash) {
-    //     printf("Given block hash is different from rouTEE has\n");
-    //     return ERR_INVALID_PARAMS;
-    // }
+    if (state.block_hashes[block_number - state.start_block_number] != block_hash) {
+        printf("Given block hash is different from rouTEE has\n");
+        return ERR_INVALID_PARAMS;
+    }
 
     // check if the user exists
     map<string, Account*>::iterator iter = state.users.find(user_address);
@@ -706,19 +703,19 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
         sender_acc->balance -= (payment_info.amount + fee);
     }
 
-        // add routing fee for this payment
+    // add routing fee for this payment
     state.pending_routing_fee_in_round += batch_size*fee;
     
-        // update total balances
+    // update total balances
     state.total_balances -= batch_size*fee;
 
-        // increase sender's nonce
-        sender_acc->nonce++;
+    // increase sender's nonce
+    sender_acc->nonce++;
 
-        // reset sender's max source block number if balances becomes 0
-        if (sender_acc->balance == 0) {
-            sender_acc->min_requested_block_number = 0;
-        }
+    // reset sender's max source block number if balances becomes 0
+    if (sender_acc->balance == 0) {
+        sender_acc->min_requested_block_number = 0;
+    }
 
     // increase state id
     state.stateID++;
@@ -1334,6 +1331,11 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
         return ERR_INVALID_PARAMS;
     }
 
+    if (block_number != (state.latest_block_number+1)) {
+        printf("Invalid block with inproper block number (this is not the next block)\n");
+        return ERR_INVALID_PARAMS;
+    }
+
     // printf("block info: %s, %d\n\n", block.ToString().c_str(), block.vtx.size());
     // printf("tx_vout: %s\n", block.vtx[0]->vout[0].ToString().c_str());
     CTransactionRef transaction;
@@ -1388,8 +1390,8 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
         nSubsidyHalvened--;
     }
 
-    state.latest_block_number = block_number;
-    state.block_hash[block_number] = block.GetBlockHeader().GetHash();
+    state.latest_block_number += 1;
+    state.block_hashes.push_back(block.GetBlockHeader().GetHash());
 
     if (block.vtx.size() - 1 != 0) {
         unsigned long long total_tx_fee = block.vtx[0]->vout[0].nValue - block_reward;
@@ -1428,8 +1430,13 @@ int ecall_insert_block_header(int block_number, const char* hex_block_header, in
         return ERR_INVALID_PARAMS;
     }
 
-    state.latest_block_number = block_number;
-    state.block_hash[block_number] = block_header.GetHash();
+    if (block_number != (state.latest_block_number+1)) {
+        printf("Invalid block with inproper block number (this is not the next block)\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    state.latest_block_number += 1;
+    state.block_hashes.push_back(block_header.GetHash());
 
     return NO_ERROR;
 }
@@ -1618,8 +1625,30 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
 }
 
 void ecall_initialize() {
+    printf("start initilizing RouTEE\n");
+
     // initialize ECC State for Bitcoin Library
     initializeECCState();
+
+    // set temporary state.block_hashes for experiment
+    int block_num_to_insert = 100+1;
+    state.latest_block_number = block_num_to_insert-1;
+    for (int i = 0; i < block_num_to_insert; i++) {
+        // hex string has 2x the space than bytes (i.e., BITCOIN_HEADER_HASH_LEN*2)
+        string block_hash_str = long_long_to_string(i);
+        while(block_hash_str.length() != BITCOIN_HEADER_HASH_LEN*2) {
+            block_hash_str = "0" + block_hash_str;
+        }
+
+        uint256 block_hash;
+        block_hash.SetHex(string(block_hash_str, BITCOIN_HEADER_HASH_LEN));
+
+        state.block_hashes.push_back(block_hash);
+        // printf("block_hash_str: %s\n", block_hash_str.c_str());
+        // printf("state.block_hashes[%d]: %s\n", i, state.block_hashes[i].ToString().c_str());
+    }
+    printf("latest block number in RouTEE: %d\n", state.latest_block_number);
+    printf("\n");
 }
 
 // seal RouTEE state as an encrypted file

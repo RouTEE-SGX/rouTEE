@@ -164,8 +164,11 @@ class State {
         // address to get routing fees
         string fee_address;
 
-        // block_hash[block_number] = block_hash
-        map<unsigned long long, uint256> block_hash;
+        // first block header's number in RouTEE (kind of offset, ex. 0: include blocks from the genesis block)
+        unsigned long long start_block_number = 0;
+
+        // block_hashes[block_number - start_block_number] = block_number'th block's hash
+        vector<uint256> block_hashes;
 
         // latest block number among blocks inside RouTEE
         unsigned long long latest_block_number;
