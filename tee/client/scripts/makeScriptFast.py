@@ -403,6 +403,23 @@ def settleBalanceRequest(settleTxNumber):
             if count == settleTxNumber:
                 break
 
+# generate Payment commands
+def updateBoundary_thread(params):
+    # parse params
+    user_address = params[0]
+    block_number = params[1]
+    block_hash = params[2]
+    num = params[3]
+    if num % PRINT_EPOCH == 0:
+        print("generate", num, "updates", end="\r")
+    userID = "user" + format(0, USER_ID_LEN) # for easy experiment
+
+    # generate & sign command
+    command = "t q {} {} {} {}".format(user_address, block_number, block_hash, userID)
+    signedCommand = executeCommand(command).hex()
+
+    return command, signedCommand
+
 # Script for updating boundary block number
 def updateBoundary(addressNumber, updateNumber, maxBlockNumber):
     if not os.path.exists("scriptAddress"):
@@ -423,24 +440,27 @@ def updateBoundary(addressNumber, updateNumber, maxBlockNumber):
 
     # generate temp block hashes
     block_hashes = []
+    BITCOIN_HEADER_HASH_LEN = 32
     for i in range(maxBlockNumber+1):
-        block_hash = str(i).zfill(64)
+        block_hash = str(i).zfill(BITCOIN_HEADER_HASH_LEN*2)
         block_hashes.append(block_hash)
 
+    # collect params for threads
+    params = []
+    for i in range(updateNumber):
+        user_address = address_list[random.randint(0, addressNumber - 1)]
+        block_number = random.randint(0, maxBlockNumber)
+        block_hash = block_hashes[block_number]
+        params.append((user_address, block_number, block_hash, i+1))
+
+    # parallelly generate plain & signed command
+    commands = pool.map(updateBoundary_thread, params, 1)
+
+    # write commands to files
     with open("scriptUpdate_{}_{}_{}".format(addressNumber, updateNumber, maxBlockNumber), "wt") as fscript, open("signedUpdate_{}_{}_{}".format(addressNumber, updateNumber, maxBlockNumber), "w") as fsigned:
-        for i in range(updateNumber):
-            user_address = address_list[random.randint(0, addressNumber - 1)]
-            block_number = random.randint(0, maxBlockNumber)
-            block_hash = block_hashes[block_number]
-            userID = "user" + format(0, USER_ID_LEN) # for easy experiment
-
-            command = "t q {} {} {} {}".format(user_address, block_number, block_hash, userID)
-            fscript.write(command + "\n")
-
-            signedCommand = executeCommand(command)
-            # fsigned.write(signedCommand)
-            fsigned.write(signedCommand.hex())
-            fsigned.write('\n')
+        for cmd in commands:
+            fscript.write(cmd[0]+"\n")
+            fsigned.write(cmd[1]+"\n")
 
 if __name__ == '__main__':
     # set multithreading pool
