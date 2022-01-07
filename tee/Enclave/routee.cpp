@@ -1631,8 +1631,9 @@ void ecall_initialize() {
     initializeECCState();
 
     // set temporary state.block_hashes for experiment
-    int block_num_to_insert = 100+1;
+    int block_num_to_insert = 52560+1; // 52560 blocks/year (96B per hash)
     state.latest_block_number = block_num_to_insert-1;
+    state.block_hashes.reserve(block_num_to_insert);
     for (int i = 0; i < block_num_to_insert; i++) {
         // hex string has 2x the space than bytes (i.e., BITCOIN_HEADER_HASH_LEN*2)
         string block_hash_str = long_long_to_string(i);
