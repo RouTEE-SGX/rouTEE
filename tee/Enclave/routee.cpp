@@ -565,13 +565,11 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     // sgx_thread_mutex_lock(&state_mutex);
 
     // update boundary block to newer one
-    if (user_acc->latest_SPV_block_number < block_number) {
-        user_acc->latest_SPV_block_number = block_number;
-    }
-    else {
+    if (user_acc->latest_SPV_block_number >= block_number) {
         // cannot change boundary block to lower block
         return ERR_CANNOT_CHANGE_TO_LOWER_BLOCK;
     }
+    user_acc->latest_SPV_block_number = block_number;
 
     // print result
     if (doPrint) {
