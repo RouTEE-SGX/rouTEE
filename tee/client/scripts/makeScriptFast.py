@@ -404,7 +404,7 @@ def settleBalanceRequest(settleTxNumber):
                 break
 
 # Script for updating boundary block number
-def updateLatestSPV(updateSPVNumber):
+def updateBoundary(addressNumber, updateNumber, maxBlockNumber):
     if not os.path.exists("scriptAddress"):
         print("ERROR: execute makeNewAddresses first\n")
         return
@@ -412,21 +412,29 @@ def updateLatestSPV(updateSPVNumber):
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
 
-    # address_list = []
-    # for address in rdr:
-    #     address_list.append(address[0])
+    # get addresses from file
+    address_list = []
+    cnt = 0
+    for address in rdr:
+        address_list.append(address[0])
+        cnt += 1
+        if cnt == addressNumber:
+            break
 
-    with open("scriptUpdateSPV", "wt") as fscript, open("signedUpdateSPV", "w") as fsigned:
-        # for i in tqdm(range(updateSPVNumber)):
-            # user_index = random.randint(0, len(address_list) - 1)
+    # generate temp block hashes
+    block_hashes = []
+    for i in range(maxBlockNumber+1):
+        block_hash = str(i).zfill(64)
+        block_hashes.append(block_hash)
 
-            # user_address = address_list[user_index]
-            # userID = "user" + format(user_index, USER_ID_LEN)
-        for address in tqdm(rdr):
-            user_address = address[0]
-            userID = "user" + format(rdr.line_num - 1, USER_ID_LEN) 
+    with open("scriptUpdate_{}_{}_{}".format(addressNumber, updateNumber, maxBlockNumber), "wt") as fscript, open("signedUpdate_{}_{}_{}".format(addressNumber, updateNumber, maxBlockNumber), "w") as fsigned:
+        for i in range(updateNumber):
+            user_address = address_list[random.randint(0, addressNumber - 1)]
+            block_number = random.randint(0, maxBlockNumber)
+            block_hash = block_hashes[block_number]
+            userID = "user" + format(0, USER_ID_LEN) # for easy experiment
 
-            command = "t q {} 100 {}".format(user_address, userID)
+            command = "t q {} {} {} {}".format(user_address, block_number, block_hash, userID)
             fscript.write(command + "\n")
 
             signedCommand = executeCommand(command)
@@ -444,7 +452,7 @@ if __name__ == '__main__':
     if len(sys.argv) >= 2:
         command = int(sys.argv[1])
     else:
-        command = eval(input("which script do you want to make (0: makeNewUsers / 1: makeNewAddresses / 2: makeNewAccounts / 3: getReadyForDeposit & dealWithDepositTxs / 4: doMultihopPayments / 5: settleBalanceRequest / 6: updateLatestSPV / 7: default)): "))
+        command = eval(input("which script do you want to make (0: makeNewUsers / 1: makeNewAddresses / 2: makeNewAccounts / 3: getReadyForDeposit & dealWithDepositTxs / 4: doMultihopPayments / 5: settleBalanceRequest / 6: updateBoundary / 7: default)): "))
     
     startTime = datetime.now()
     if command == 0:
@@ -506,12 +514,16 @@ if __name__ == '__main__':
 
     elif command == 6:
         if len(sys.argv) >= 2:
-            updateSPVNumber = int(sys.argv[2])
-            scriptName = sys.argv[3]
+            addressNumber = int(sys.argv[2])
+            updateNumber = int(sys.argv[3])
+            maxBlockNumber = int(sys.argv[4])
+            scriptName = sys.argv[5]
         else:
-            updateSPVNumber = eval(input("how many rouTEE SPV block updates to generate: "))
-            scriptName = "scriptUpdateSPV"
-        updateLatestSPV(updateSPVNumber)
+            addressNumber = eval(input("how many addresses to appear: "))
+            updateNumber = eval(input("how many rouTEE updates to generate: "))
+            maxBlockNumber = eval(input("max block number in RouTEE: "))
+            scriptName = "scriptUpdate"
+        updateBoundary(addressNumber, updateNumber, maxBlockNumber)
 
     elif command == 7:
         accountNumber = eval(input("how many routee accounts to generate: "))
@@ -526,7 +538,7 @@ if __name__ == '__main__':
         dealWithDepositTxs(depositNumber)
         doMultihopPayments(paymentNumber, batchSize)
         settleBalanceRequest(settleRequestNumber)
-        updateLatestSPV(updateSPVNumber)
+        updateBoundary(updateSPVNumber)
 
         scriptName = "scriptForAll"
 
