@@ -53,8 +53,8 @@ class DepositRequest {
         // user should send deposit to this private key's address
         string manager_private_key;
 
-        // when find deposit tx, balance goes to this address
-        string beneficiary_address;
+        // when find deposit tx, balance goes to this user index
+        int beneficiary_index;
 
         // kind of timestamp: when the user requested deposit
         unsigned long long block_number;
@@ -64,8 +64,8 @@ class DepositRequest {
 class SettleRequest {
 
     public:
-        // user address who requested settlement
-        string user_address;
+        // user index who requested settlement
+        int user_index;
 
         // address to receive on-chain asset
         string settle_address;
@@ -118,12 +118,12 @@ class TxFeeInfo {
 
 class PaymentInfo {
     public:
-        Account* receiver_account;
+        int receiver_index;
         unsigned long long amount;
         unsigned long long source_block_number; // sender's max source block number
 
-        PaymentInfo(Account* receiver_account, unsigned long long amount, unsigned long long source_block_number) {
-            this->receiver_account = receiver_account;
+        PaymentInfo(int receiver_index, unsigned long long amount, unsigned long long source_block_number) {
+            this->receiver_index = receiver_index;
             this->amount = amount;
             this->source_block_number = source_block_number;
         }
@@ -185,8 +185,8 @@ class State {
         // several infos for pending settle txs
         queue<PendingSettleTxInfo*> pending_settle_tx_infos;
 
-        // users[user_address] = the user's Account
-        map<string, Account*> users;
+        // users[user_index] = the user's Account
+        vector<Account> users;
 
         // session keys with users
         // session_keys[session_ID] = session_key

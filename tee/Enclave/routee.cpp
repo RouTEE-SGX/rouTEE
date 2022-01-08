@@ -243,17 +243,17 @@ void ecall_print_state() {
 
     printf("\n\n\n\n\n***** user account info *****\n\n");
     if (state.users.size() <=  10){
-        for (map<string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
-            printf("address: %s -> balance: %llu / nonce: %llu / min_requested_block_number: %llu / latest_SPV_block_number: %llu\n", 
-                (iter->first).c_str(), iter->second->balance, iter->second->nonce, iter->second->min_requested_block_number, iter->second->latest_SPV_block_number);
+        for (int i = 0; i < state.users.size(); i++) {
+            printf("user index: %d -> balance: %llu / nonce: %llu / min_requested_block_number: %llu / latest_SPV_block_number: %llu\n",
+                i, state.users[i].balance, state.users[i].nonce, state.users[i].min_requested_block_number, state.users[i].latest_SPV_block_number);
         }
     }
     printf("\n=> total %d accounts / total %llu satoshi\n", state.users.size(), state.total_balances);
 
     printf("\n\n\n\n\n***** deposit requests *****\n\n");
     for (map<string, DepositRequest*>::iterator iter = state.deposit_requests.begin(); iter != state.deposit_requests.end(); iter++){
-        printf("manager key id: %s -> sender address: %s / manager address: %s / block number:%llu\n", 
-            (iter->first).c_str(), iter->second->beneficiary_address.c_str(), iter->second->manager_private_key.c_str(), iter->second->block_number);
+        printf("manager key id: %s -> beneficiary index: %d / manager address: %s / block number:%llu\n", 
+            (iter->first).c_str(), iter->second->beneficiary_index, iter->second->manager_private_key.c_str(), iter->second->block_number);
     }
 
     printf("\n\n\n\n\n***** deposits *****\n\n");
@@ -270,7 +270,7 @@ void ecall_print_state() {
     queue<SettleRequest> temp_settle_requests;
     for (int i = 0; i < queue_size; i++) {
         SettleRequest sr = state.settle_requests.top();
-        printf("user address: %s / amount: %llu satoshi / fee: %llu \n", sr.user_address.c_str(), sr.amount, sr.fee);
+        printf("user index: %d / amount: %llu satoshi / fee: %llu \n", sr.user_index, sr.amount, sr.fee);
         state.settle_requests.pop();
         temp_settle_requests.push(sr);
     }
@@ -297,7 +297,7 @@ void ecall_print_state() {
         int settle_requests_size = psti->pending_settle_requests.size();
         for (int j = 0; j < settle_requests_size; j++) {
             SettleRequest* sr = psti->pending_settle_requests.front();
-            printf("    user address: %s / settle amount: %llu satoshi\n", sr->user_address.c_str(), sr->amount);
+            printf("    user index: %d / settle amount: %llu satoshi\n", sr->user_index, sr->amount);
 
             // to iterate queue elements
             psti->pending_settle_requests.pop();
@@ -393,29 +393,23 @@ int secure_add_user(const char* command, int cmd_len, const char* public_key, co
         return ERR_INVALID_PARAMS;
     }
 
-    // check if the user already exists
-    if (state.users.find(user_address) != state.users.end()) {
-        printf("rouTEE account already exists for this public key\n");
-        return ERR_NO_AUTHORITY;
-    }
-
     // sgx_thread_mutex_lock(&state_mutex);
 
     // create new account for the user
-    Account* acc = new Account;
-    acc->balance = 0;
-    // acc->balance = 1000000; // test code, delete this later
-    // state.total_balances += 1000000; // test code, delete this later
-    acc->nonce = 0;
-    acc->min_requested_block_number = 0;
-    acc->latest_SPV_block_number = 0;
-    memcpy(acc->settle_address, settle_address.c_str(), BITCOIN_ADDRESS_LEN);
-    memcpy(acc->public_key, public_key, RSA_PUBLIC_KEY_LEN);
-    state.users[user_address] = acc;
+    Account acc;
+    acc.balance = 0;
+    acc.balance = 10000000; // test code, delete this later
+    state.total_balances += 10000000; // test code, delete this later
+    acc.nonce = 0;
+    acc.min_requested_block_number = 0;
+    acc.latest_SPV_block_number = 0;
+    memcpy(acc.settle_address, settle_address.c_str(), BITCOIN_ADDRESS_LEN);
+    memcpy(acc.public_key, public_key, RSA_PUBLIC_KEY_LEN);
+    state.users.push_back(acc);
     
     // print result
     if (doPrint) {
-        printf("ADD_USER success: user address: %s\n", user_address.c_str());
+        printf("ADD_USER success: user index: %d, settle address: %s\n", state.users.size()-1, settle_address.c_str());
     }
 
     // sgx_thread_mutex_unlock(&state_mutex);
@@ -423,7 +417,7 @@ int secure_add_user(const char* command, int cmd_len, const char* public_key, co
     return NO_ERROR;
 }
 
-// ADD_DEPOSIT(beneficiary_address) operation
+// ADD_DEPOSIT(beneficiary_index) operation
 int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* response_msg) {
 
     char cmd_tmp[cmd_len];
@@ -431,15 +425,15 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* r
 
     // get params from command
     char* _cmd = strtok((char*) command, " ");
-    char* _beneficiary_address = strtok(NULL, " ");
-    if (_beneficiary_address == NULL) {
-        printf("No sender address\n");
+    char* _beneficiary_index = strtok(NULL, " ");
+    if (_beneficiary_index == NULL) {
+        printf("No sender index\n");
         return ERR_INVALID_PARAMS;
     }
 
     // check if the user exists
-    string beneficiary_address(_beneficiary_address, BITCOIN_ADDRESS_LEN);
-    if (state.users.find(beneficiary_address) == state.users.end()) {
+    int beneficiary_index = atoi(_beneficiary_index);
+    if (beneficiary_index > state.users.size()) {
         printf("No sender account exist in rouTEE\n");
         return ERR_NO_USER_ACCOUNT;
     }
@@ -462,20 +456,16 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* r
     std::string manager_public_key = HexStr(key.GetPubKey());
     std::string manager_private_key = CBitcoinSecret(key).ToString();
 
-    // get latest block in rouTEE
-    // temp code
-    unsigned long long latest_block_number = state.latest_block_number;
-
     // add to pending deposit list
     DepositRequest *deposit_request = new DepositRequest;
     deposit_request->manager_private_key = manager_private_key;
-    deposit_request->beneficiary_address = beneficiary_address;
-    deposit_request->block_number = latest_block_number;
+    deposit_request->beneficiary_index = beneficiary_index;
+    deposit_request->block_number = state.latest_block_number;
     state.deposit_requests[keyid.ToString()] = deposit_request;
     
     // print result
     if (doPrint) {
-        printf("ADD_DEPOSIT success: random manager address: %s / block number: %llu\n", manager_address.c_str(), latest_block_number);
+        printf("ADD_DEPOSIT success: random manager address: %s / block number: %llu\n", manager_address.c_str(), state.latest_block_number);
     }
 
     // return manager address to the sender
@@ -486,7 +476,7 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* r
     return NO_ERROR;
 }
 
-// UPDATE_BOUNDARY_BLOCK(user_address block_number block_hash signature) operation
+// UPDATE_BOUNDARY_BLOCK(user_index block_number block_hash signature) operation
 int secure_update_latest_SPV_block(const char* command, int cmd_len, const char* signature, const char* response_msg) {
 
     // temply save before getting params for verifying signature later
@@ -495,9 +485,9 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
 
     // get params from command
     char* _cmd = strtok((char*) command, " ");
-    char* _user_address = strtok(NULL, " ");
-    if (_user_address == NULL) {
-        printf("No user address for update last SPV block\n");
+    char* _user_index = strtok(NULL, " ");
+    if (_user_index == NULL) {
+        printf("No user index for update last SPV block\n");
         return ERR_INVALID_PARAMS;
     }
 
@@ -513,15 +503,15 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
         return ERR_INVALID_PARAMS;
     }  
 
-    string user_address(_user_address, BITCOIN_ADDRESS_LEN);
+    int user_index = atoi(_user_index);
     unsigned long long block_number = strtoull(_block_number, NULL, 10);
     string block_hash_str(_block_hash, BITCOIN_HEADER_HASH_LEN*2);
     uint256 block_hash;
     block_hash.SetHex(string(block_hash_str, BITCOIN_HEADER_HASH_LEN));
 
-    // check if this is a valid bitcoin address
-    if (!CBitcoinAddress(user_address).IsValid()) {
-        printf("Invalid user address for update last SPV block\n");
+    // check if this is a valid user index
+    if (user_index > state.users.size()) {
+        printf("Invalid user index for update last SPV block\n");
         return ERR_INVALID_PARAMS;
     }
 
@@ -536,13 +526,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
         return ERR_INVALID_PARAMS;
     }
 
-    // check if the user exists
-    map<string, Account*>::iterator iter = state.users.find(user_address);
-    if (iter == state.users.end()) {
-        printf("No user account exist in rouTEE\n");
-        return ERR_NO_USER_ACCOUNT;
-    }
-    Account* user_acc = iter->second;
+    Account* user_acc = &state.users[user_index];
 
     // verify signature
     sgx_rsa3072_public_key_t rsa_pubkey;
@@ -570,7 +554,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
 
     // print result
     if (doPrint) {
-        printf("UPDATE_BOUNDARY_BLOCK success: user %s update boundary block number to %llu\n", user_address.c_str(), block_number);
+        printf("UPDATE_BOUNDARY_BLOCK success: user %d update boundary block number to %llu\n", user_index, block_number);
     }
     
     // sgx_thread_mutex_unlock(&state_mutex);
@@ -578,7 +562,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     return NO_ERROR;
 }
 
-// MULTI-HOP_PAYMENT(sender_address batch_size [receiver_address amount]*batch_size fee signature) operation
+// MULTI-HOP_PAYMENT(sender_index batch_size [receiver_index amount]*batch_size fee signature) operation
 int secure_do_multihop_payment(const char* command, int cmd_len, const char* signature, const char* response_msg) {
 
     char cmd_tmp[cmd_len];
@@ -587,9 +571,9 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
     // get params from command
     char* _cmd = strtok((char*) command, " ");
 
-    char* _sender_address = strtok(NULL, " ");
-    if (_sender_address == NULL) {
-        printf("No sender address for multihop payment\n");
+    char* _sender_index = strtok(NULL, " ");
+    if (_sender_index == NULL) {
+        printf("No sender index for multihop payment\n");
         return ERR_INVALID_PARAMS;
     }
 
@@ -599,20 +583,19 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
         return ERR_INVALID_PARAMS;
     }
 
-    string sender_address(_sender_address, BITCOIN_ADDRESS_LEN);
+    int sender_index = atoi(_sender_index);
     int batch_size = atoi(_batch_size);
 
-    // check the sender exists & has more than amount + fee to send
-    map<string, Account*>::iterator iter = state.users.find(sender_address);
-    if (iter == state.users.end()) {
-        printf("No sender account exist in rouTEE\n");
-        return ERR_NO_USER_ACCOUNT;
+    // check if this is a valid user index
+    if (sender_index > state.users.size()) {
+        printf("Invalid user index for update boundary block\n");
+        return ERR_INVALID_PARAMS;
     }
-    Account* sender_acc = iter->second;
+    Account* sender_acc = &state.users[sender_index];
 
     queue<PaymentInfo> queue;
     Account* receiver_acc;
-    string receiver_address;
+    int receiver_index;
     unsigned long long amount;
     unsigned long long total_amount = 0;
     unsigned long long sender_max_source_block_number = sender_acc->min_requested_block_number;
@@ -620,8 +603,8 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
     for (int i = 0; i < batch_size; i++) {
 
         // get params from command
-        char* _receiver_address = strtok(NULL, " ");
-        if (_receiver_address == NULL) {
+        char* _receiver_index = strtok(NULL, " ");
+        if (_receiver_index == NULL) {
             printf("No receiver address for multihop payment\n");
             return ERR_INVALID_PARAMS;
         }
@@ -632,25 +615,22 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
             return ERR_INVALID_PARAMS;
         }
 
-        receiver_address = string(_receiver_address, BITCOIN_ADDRESS_LEN);
+        receiver_index = atoi(_receiver_index);
         amount = strtoull(_amount, NULL, 10);
 
         // check the receiver exists
-        iter = state.users.find(receiver_address);
-        if (iter == state.users.end()) {
-            // receiver is not in the state
-            printf("No receiver account for payment");
-            return ERR_NO_RECEIVER;
+        if (receiver_index > state.users.size()) {
+            printf("Invalid user index for update last SPV block\n");
+            return ERR_INVALID_PARAMS;
         }
-        receiver_acc = iter->second;
 
         // check if the receiver is ready to get paid (temporarily deprecated for easy tests) (for debugging)
-        if (sender_acc->min_requested_block_number > receiver_acc->latest_SPV_block_number) {
+        if (sender_acc->min_requested_block_number > state.users[receiver_index].latest_SPV_block_number) {
             return ERR_RECEIVER_NOT_READY;
         }
 
         total_amount += amount;
-        queue.push(PaymentInfo(receiver_acc, amount, sender_max_source_block_number));
+        queue.push(PaymentInfo(receiver_index, amount, sender_max_source_block_number));
     }
 
     if (batch_size != queue.size()) {
@@ -722,7 +702,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
 
     // print result
     if (doPrint) {
-        printf("PAYMENT success: user %s send %llu satoshi to user %s (routing fee: %llu)\n", sender_address.c_str(), amount, receiver_address.c_str(), fee);
+        printf("PAYMENT success: user %d send %llu satoshi to user %d (routing fee: %llu)\n", sender_index, amount, receiver_index, fee);
     }
 
     // sgx_thread_mutex_unlock(&state_mutex);
@@ -731,7 +711,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
 }
 
 // TODO: add "fee" param in command & refactoring ecall_make_settle_transaction() function
-// SETTLEMENT(user_address amount (fee) signature) operation: make settle request for user balance
+// SETTLEMENT(user_index amount (fee) signature) operation: make settle request for user balance
 int secure_settle_balance(const char* command, int cmd_len, const char* signature, const char* response_msg) {
 
     char cmd_tmp[cmd_len];
@@ -740,9 +720,9 @@ int secure_settle_balance(const char* command, int cmd_len, const char* signatur
     // get params from command
     char* _cmd = strtok((char*) command, " ");
 
-    char* _user_address = strtok(NULL, " ");
-    if (_user_address == NULL) {
-        printf("No user address for settle balance\n");
+    char* _user_index = strtok(NULL, " ");
+    if (_user_index == NULL) {
+        printf("No user index for settle balance\n");
         return ERR_INVALID_PARAMS;
     }
     
@@ -758,17 +738,16 @@ int secure_settle_balance(const char* command, int cmd_len, const char* signatur
         return ERR_INVALID_PARAMS;
     }
 
-    string user_address(_user_address, BITCOIN_ADDRESS_LEN);
+    int user_index = atoi(_user_index);
     unsigned long long amount = strtoull(_amount, NULL, 10);
     unsigned long long fee = strtoull(_fee, NULL, 10);
     
     // check if the user exists
-    map<string, Account*>::iterator iter = state.users.find(user_address);
-    if (iter == state.users.end()) {
-        printf("No user account exist in rouTEE\n");
+    if (user_index > state.users.size()) {
+        printf("No user index exist in rouTEE\n");
         return ERR_NO_USER_ACCOUNT;
     }
-    Account* user_acc = iter->second;
+    Account* user_acc = &state.users[user_index];
 
     // verify signature
     sgx_rsa3072_public_key_t rsa_pubkey;
@@ -801,7 +780,7 @@ int secure_settle_balance(const char* command, int cmd_len, const char* signatur
 
     // push new waiting settle request
     SettleRequest* sr = new SettleRequest;
-    sr->user_address = user_address;
+    sr->user_index = user_index;
     sr->settle_address = string(user_acc->settle_address, BITCOIN_ADDRESS_LEN);
     sr->amount = amount;
     sr->fee = fee;
@@ -828,7 +807,7 @@ int secure_settle_balance(const char* command, int cmd_len, const char* signatur
 
     // print result
     if (doPrint) {
-        printf("SETTLEMENT success: user addr: %s / amount: %llu / fee: %llu\n", user_address.c_str(), amount, fee);
+        printf("SETTLEMENT success: user index: %d / amount: %llu / fee: %llu\n", user_index, amount, fee);
     }
 
     // sgx_thread_mutex_unlock(&state_mutex);
@@ -1064,11 +1043,11 @@ int ecall_process_round(const char* settle_transaction_ret, int* settle_tx_len, 
 
     // deals with receivers
     for (auto pi = state.payments.begin(); pi != state.payments.end(); ++pi) {
-        pi->receiver_account->balance += pi->amount;
-        if (pi->receiver_account->min_requested_block_number < pi->source_block_number) {
-            pi->receiver_account->min_requested_block_number = pi->source_block_number;
+        state.users[pi->receiver_index].balance += pi->amount;
+        if (state.users[pi->receiver_index].min_requested_block_number < pi->source_block_number) {
+            state.users[pi->receiver_index].min_requested_block_number = pi->source_block_number;
         }
-        // printf("PAYMENT complete: get %llu satoshi\n", pi->amount);
+        // printf("PAYMENT complete: user %d get %llu satoshi\n", pi->receiver_index, pi->amount);
     }
 
     // initialize vector
@@ -1133,28 +1112,28 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
         return;
     }
 
-    string sender_addr;
+    int sender_index;
     DepositRequest* dr;
     if (tx_hash_len == SGX_RSA3072_KEY_SIZE) {
-        sender_addr = string(manager_address, manager_addr_len);
+        // sender_addr = string(manager_address, manager_addr_len);
+        sender_index = 0; // TODO: how should set this?
     }
     else {
         // get the deposit request for this deposit tx
         dr = state.deposit_requests[string(manager_address, manager_addr_len)];
 
         // check the user exists
-        sender_addr = dr->beneficiary_address;        
+        sender_index = dr->beneficiary_index;        
     }
 
-    map<string, Account*>::iterator iter = state.users.find(sender_addr);
-    if (iter == state.users.end()) {
+    if (sender_index > state.users.size()) {
         // sender is not in the state, create new account
         // Only available when debug
-        Account* acc = new Account;
-        acc->balance = 0;
-        acc->nonce = 0;
-        acc->latest_SPV_block_number = 0;
-        state.users[sender_addr] = acc;
+        Account acc;
+        acc.balance = 0;
+        acc.nonce = 0;
+        acc.latest_SPV_block_number = 0;
+        state.users.push_back(acc);
     }
 
     // now take some of the deposit
@@ -1163,14 +1142,14 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
 
     // update user's balance
     unsigned long long balance_for_user = amount - balance_for_tx_fee - state.min_routing_fee;
-    state.users[sender_addr]->balance += balance_for_user;
+    state.users[sender_index].balance += balance_for_user;
 
     // update total balances
     state.total_balances += balance_for_user;
 
     // update user's min_requested_block_number
     if (balance_for_user > 0) {
-        state.users[sender_addr]->min_requested_block_number = block_number;
+        state.users[sender_index].min_requested_block_number = block_number;
     }
 
     // add deposit
@@ -1192,7 +1171,6 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
         delete dr;
         state.deposit_requests.erase(string(manager_address, manager_addr_len));
     }
-
 
     // // add deposit
     // Deposit* deposit = new Deposit;
@@ -1217,7 +1195,7 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
     // print result
     if (doPrint) {
         if (tx_hash_len != SGX_RSA3072_KEY_SIZE) {
-            printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", dr->beneficiary_address.c_str(), balance_for_user, balance_for_tx_fee);
+            printf("deal with new deposit tx -> user: %d / balance += %llu / tx fee += %llu\n", dr->beneficiary_index, balance_for_user, balance_for_tx_fee);
         }
         else {
             printf("deal with new deposit tx -> user: %s / balance += %llu / tx fee += %llu\n", manager_address, balance_for_user, balance_for_tx_fee);
@@ -1630,6 +1608,9 @@ void ecall_initialize() {
     // initialize ECC State for Bitcoin Library
     initializeECCState();
 
+    // set users's capacity
+    state.users.reserve(300005); 
+
     // set temporary state.block_hashes for experiment
     int block_num_to_insert = 52560+1; // 52560 blocks/year (96B per hash)
     state.latest_block_number = block_num_to_insert-1;
@@ -1657,7 +1638,7 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
 
     // serialize state
     int userNum = state.users.size();
-    int sizePerAccount = BITCOIN_ADDRESS_LEN + 32 + BITCOIN_ADDRESS_LEN;
+    int sizePerAccount = 32 + BITCOIN_ADDRESS_LEN;
     if (doSealPubkey) {
         sizePerAccount += RSA_PUBLIC_KEY_LEN;
     }
@@ -1665,23 +1646,15 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
     char *state_bytes = new char[state_bytes_len];
     int offset = 0;
     const unsigned char* cptr;
-    for (map<string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
-        cptr = (const unsigned char*)iter->second;
-        memcpy(state_bytes+offset, iter->first.c_str(), BITCOIN_ADDRESS_LEN); // user address
-        memcpy(state_bytes+offset+BITCOIN_ADDRESS_LEN, cptr, sizePerAccount-BITCOIN_ADDRESS_LEN); // Account fields
+    for (int i = 0; i < state.users.size(); i++){
+        cptr = (const unsigned char*)&state.users[i];
+        memcpy(state_bytes+offset, cptr, sizePerAccount); // Account fields
         offset += sizePerAccount;
     }
     // printf("serialize success\n");
 
     // check serialize result
     // for (int i = 0; i < userNum*sizePerAccount;) {
-    //     printf("user addr: ");
-    //     for (int j = 0; j < BITCOIN_ADDRESS_LEN; j++) {
-    //         printf("%c", state_bytes[i+j]);
-    //     }
-    //     printf("\n");
-    //     i += BITCOIN_ADDRESS_LEN;
-
     //     printf("balance: ");
     //     for (int j = 0; j < 8; j++) {
     //         printf("%02X ", state_bytes[i+j]);
@@ -1717,12 +1690,14 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
     //     printf("\n");
     //     i += BITCOIN_ADDRESS_LEN;
 
-    //     // printf("pubkey: ");
-    //     // for (int j = 0; j < RSA_PUBLIC_KEY_LEN; j++) {
-    //     //     printf("%c", state_bytes[i+j]);
-    //     // }
-    //     // printf("\n");
-    //     // i += RSA_PUBLIC_KEY_LEN;
+    //     if (doSealPubkey) {
+    //         printf("pubkey: ");
+    //         for (int j = 0; j < RSA_PUBLIC_KEY_LEN; j++) {
+    //             printf("%c", state_bytes[i+j]);
+    //         }
+    //         printf("\n");
+    //         i += RSA_PUBLIC_KEY_LEN;
+    //     }
 
     //     printf("\n");
     // }
@@ -1766,39 +1741,33 @@ int ecall_load_state(const char* sealed_state, int sealed_state_len) {
     // clear state.users map before load
     if (state.users.size() != 0) {
         printf("clear state.users map before load\n");
-        for (map<string, Account*>::iterator iter = state.users.begin(); iter != state.users.end(); iter++){
-            delete iter->second;
-            state.users.erase(iter->first);
-        }
+        state.users.clear();
+        state.users.reserve(300001);
     }
 
     // load global state
-    const unsigned char* cptr;
-    int sizePerAccount = BITCOIN_ADDRESS_LEN + 32 + BITCOIN_ADDRESS_LEN;
+    int sizePerAccount = 32 + BITCOIN_ADDRESS_LEN;
     if (doSealPubkey) {
         sizePerAccount += RSA_PUBLIC_KEY_LEN;
     }
+    int user_index = 0;
     for (int i = 0; i < unsealed_state_length;) {
-        
-        // get user address
-        string user_addr((const char*)unsealed_state+i, BITCOIN_ADDRESS_LEN);
-        i += BITCOIN_ADDRESS_LEN;
-
         // get Account fields
-        Account* acc = new Account;
-        memcpy(acc, unsealed_state+i, sizePerAccount-BITCOIN_ADDRESS_LEN);
-        i += sizePerAccount-BITCOIN_ADDRESS_LEN;
+        Account acc;
+        memcpy(&acc, unsealed_state+i, sizePerAccount);
+        i += sizePerAccount;
 
-        state.users[user_addr] = acc;
-
+        state.users.push_back(acc);
+        
         // print load result
-        // printf("user addr: %s\n", user_addr.c_str());
-        // printf("balance: %llu\n", acc->balance);
-        // printf("nonce: %llu\n", acc->nonce);
-        // printf("source block: %llu\n", acc->min_requested_block_number);
-        // printf("boundary block: %llu\n", acc->latest_SPV_block_number);
-        // printf("settle address: %s\n", string(acc->settle_address, BITCOIN_ADDRESS_LEN).c_str());
+        // printf("user index: %d\n", user_index);
+        // printf("balance: %llu\n", acc.balance);
+        // printf("nonce: %llu\n", acc.nonce);
+        // printf("source block: %llu\n", acc.min_requested_block_number);
+        // printf("boundary block: %llu\n", acc.latest_SPV_block_number);
+        // printf("settle address: %s\n", string(acc.settle_address, BITCOIN_ADDRESS_LEN).c_str());
         // printf("\n");
+        user_index++;
     }
     delete[] unsealed_state;
     // printf("success loading state!\n");
