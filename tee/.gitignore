@@ -3,7 +3,7 @@
 client/client
 remake.sh
 owner.key.encrypted
-state.encrypted
+state.sealed
 core
 client/scripts/script*
 client/scripts/signed*
