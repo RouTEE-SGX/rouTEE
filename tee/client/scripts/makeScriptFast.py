@@ -212,13 +212,12 @@ def makeNewAddresses(addressNumber):
 
 # generate AddUser commands
 def makeNewAccounts_thread(params):
-    sender_address = params[0]
+    settle_address = params[0]
     num = params[1]
     if (num) % PRINT_EPOCH == 0:
         print("generate", num, "accounts", end="\r")
-    settle_address = sender_address
     userID = "user" + format(0, USER_ID_LEN) # for easy experiment
-    command = "t v {} {} {}".format(sender_address, settle_address, userID)
+    command = "t v {} {}".format(settle_address, userID)
     signedCommand = executeCommand(command).hex()
     return command, signedCommand
 
@@ -306,18 +305,18 @@ def dealWithDepositTxs(accountNumber):
                 break
 
 # generate Payment commands
-def doMultihopPayments_thread(addresses):
-    # print("params:", addresses)
-    sender_address = addresses[0]
-    receiver_addresses = addresses[1]
-    num = addresses[2]
+def doMultihopPayments_thread(params):
+    # print("params:", params)
+    sender_index = params[0]
+    receiver_indexes = params[1]
+    num = params[2]
     if num % PRINT_EPOCH == 0:
         print("generate", num, "payments", end="\r")
-    batchSize = len(receiver_addresses)
+    batchSize = len(receiver_indexes)
     senderID = "user" + format(0, USER_ID_LEN) # for easy experiment
-    command = "t m {} {} ".format(sender_address, batchSize)  
+    command = "t m {} {} ".format(sender_index, batchSize)  
     for i in range(batchSize):
-        command += "{} 100 ".format(receiver_addresses[i])
+        command += "{} 100 ".format(receiver_indexes[i])
     command += "10 {}".format(senderID)
 
     signedCommand = executeCommand(command).hex()
@@ -356,16 +355,13 @@ def doMultihopPayments(addressNumber, paymentNumber, batchSize):
     for i in range(paymentNumber):
         sender_index = random.randint(0, addressNumber - 1)
         receiver_indexes = []
-        receiver_addresses = []
         while True:
             receiver_index = random.randint(0, addressNumber - 1)
             if (sender_index != receiver_index) and (receiver_index not in receiver_indexes):
                 receiver_indexes.append(receiver_index)
-                receiver_addresses.append(address_list[receiver_index])
             if len(receiver_indexes) == batchSize:
                 break
-        sender_address = address_list[sender_index]
-        params.append((sender_address, receiver_addresses, i+1))
+        params.append((sender_index, receiver_indexes, i+1))
 
     # parallelly generate plain & signed command
     commands = pool.map(doMultihopPayments_thread, params, 1)
@@ -406,7 +402,7 @@ def settleBalanceRequest(settleTxNumber):
 # generate Payment commands
 def updateBoundary_thread(params):
     # parse params
-    user_address = params[0]
+    user_index = params[0]
     block_number = params[1]
     block_hash = params[2]
     num = params[3]
@@ -415,7 +411,7 @@ def updateBoundary_thread(params):
     userID = "user" + format(0, USER_ID_LEN) # for easy experiment
 
     # generate & sign command
-    command = "t q {} {} {} {}".format(user_address, block_number, block_hash, userID)
+    command = "t q {} {} {} {}".format(user_index, block_number, block_hash, userID)
     signedCommand = executeCommand(command).hex()
 
     return command, signedCommand
@@ -429,15 +425,6 @@ def updateBoundary(addressNumber, updateNumber, maxBlockNumber):
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
 
-    # get addresses from file
-    address_list = []
-    cnt = 0
-    for address in rdr:
-        address_list.append(address[0])
-        cnt += 1
-        if cnt == addressNumber:
-            break
-
     # generate temp block hashes
     block_hashes = []
     BITCOIN_HEADER_HASH_LEN = 32
@@ -448,10 +435,10 @@ def updateBoundary(addressNumber, updateNumber, maxBlockNumber):
     # collect params for threads
     params = []
     for i in range(updateNumber):
-        user_address = address_list[random.randint(0, addressNumber - 1)]
+        user_index = random.randint(0, addressNumber - 1)
         block_number = random.randint(0, maxBlockNumber)
         block_hash = block_hashes[block_number]
-        params.append((user_address, block_number, block_hash, i+1))
+        params.append((user_index, block_number, block_hash, i+1))
 
     # parallelly generate plain & signed command
     commands = pool.map(updateBoundary_thread, params, 1)
