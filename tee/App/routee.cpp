@@ -705,11 +705,11 @@ int process_round() {
 
     // create buffer for on-chain settle tx
     char* settle_transaction = new char[MAX_TX_SIZE];
-    int settle_tx_len;
+    int settle_tx_len = 0;
 
     // create buffer for sealed data
     char* sealed_state = new char[MAX_SEALED_DATA_LENGTH];
-    int sealed_state_len;
+    int sealed_state_len = 0;
 
     // do ecall
     int ecall_return;
@@ -722,13 +722,15 @@ int process_round() {
         error("failed to process round");
     }
 
-    // save sealed state as a file
-    std::ofstream out(STATE_FILENAME);
-    if (!out){
-        error("cannot open file");
+    if (sealed_state_len != 0) {
+        // save sealed state as a file
+        std::ofstream out(STATE_FILENAME);
+        if (!out){
+            error("cannot open file");
+        }
+        out.write(sealed_state, sealed_state_len);
+        out.close();
     }
-    out.write(sealed_state, sealed_state_len);
-    out.close();
 
     if (settle_tx_len != 0) {
         // 

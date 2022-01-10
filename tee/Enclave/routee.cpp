@@ -409,7 +409,7 @@ int secure_add_user(const char* command, int cmd_len, const char* public_key, co
     
     // print result
     if (doPrint) {
-        printf("ADD_USER success: user index: %d, settle address: %s\n", state.users.size()-1, settle_address.c_str());
+        printf("ADD_USER success: user index: %d / settle address: %s\n", state.users.size()-1, settle_address.c_str());
     }
 
     // sgx_thread_mutex_unlock(&state_mutex);
