@@ -440,28 +440,29 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* r
 
     // sgx_thread_mutex_lock(&state_mutex);
 
-    // initialize ECC State for Bitcoin Library
-    initializeECCState();
     // randomly generate a bitcoin address to be paid by the user (manager address)
     CKey key;
     key.MakeNewKey(true /* compressed */);
     CPubKey pubkey = key.GetPubKey();
-
     CKeyID keyid = pubkey.GetID();
-
     CBitcoinAddress address;
-    address.Set(pubkey.GetID());
+    address.Set(keyid);
 
     std::string manager_address = address.ToString();
-    std::string manager_public_key = HexStr(key.GetPubKey());
+    std::string manager_public_key = HexStr(pubkey);
     std::string manager_private_key = CBitcoinSecret(key).ToString();
+
+    // printf("prikey: %s\n", manager_private_key.c_str());
+    // printf("pubkey: %s\n", manager_public_key.c_str());
+    // printf("keyid: %s\n", HexStr(keyid).c_str());
+    // printf("address: %s\n",manager_address.c_str());
 
     // add to pending deposit list
     DepositRequest *deposit_request = new DepositRequest;
     deposit_request->manager_private_key = manager_private_key;
     deposit_request->beneficiary_index = beneficiary_index;
     deposit_request->block_number = state.latest_block_number;
-    state.deposit_requests[keyid.ToString()] = deposit_request;
+    state.deposit_requests[HexStr(keyid)] = deposit_request; // keyid string should be HexStr(keyid), not keyid.ToString()
     
     // print result
     if (doPrint) {
@@ -949,18 +950,15 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
 
         if (state.settle_requests.empty()) {
             // generate random manager address for leftover deposit
-            initializeECCState(); // initialize ECC State for Bitcoin Library
             CKey key;
             key.MakeNewKey(true /* compressed */);
             CPubKey pubkey = key.GetPubKey();
-
             CKeyID keyid = pubkey.GetID();
-
             CBitcoinAddress address;
-            address.Set(pubkey.GetID());
+            address.Set(keyid);
 
             std::string manager_address = address.ToString();
-            std::string manager_public_key = HexStr(key.GetPubKey());
+            std::string manager_public_key = HexStr(pubkey);
             std::string manager_private_key = CBitcoinSecret(key).ToString();
 
             // generate leftover deposit
@@ -1336,7 +1334,7 @@ int ecall_insert_block(int block_number, const char* hex_block, int hex_block_le
             // printf("rr: %d\n\n", tx_dest.class_type);
         }
 
-        keyID = tx_dest.keyID->ToString();
+        keyID = HexStr(*tx_dest.keyID);
         script = HexStr(transaction->vout[0].scriptPubKey);
         txid = transaction->GetHash().GetHex();
         amount = transaction->vout[0].nValue;
