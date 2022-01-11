@@ -255,29 +255,40 @@ def makeNewAccounts(accountNumber):
             fscript.write(cmd[0]+"\n")
             fsigned.write(cmd[1]+"\n")
 
+def getReadyForDeposit_thread(params):
+    # parse params
+    beneficiary_index = params[0]
+    num = params[1]
+    if num % PRINT_EPOCH == 0:
+        print("generate", num, "requests", end="\r")
+    userID = "user" + format(0, USER_ID_LEN) # for easy experiment
+
+    # generate & sign command
+    command = "t j {} {}".format(beneficiary_index, userID)
+    signedCommand = executeCommand(command).hex()
+
+    return command, signedCommand
+
 # Script for generating deposit requests
-def getReadyForDeposit(accountNumber):
+def getReadyForDeposit(userNumber, requestNumber):
     if not os.path.exists("scriptAddress"):
         print("ERROR: execute makeNewAddresses first\n")
         return
-    addressFile = open("scriptAddress", 'r')
-    rdr = csv.reader(addressFile)
-    count = 0
-    with open("scriptDepositReq", "wt") as fscript, open("signedDepositReq", "w") as fsigned:
-        for address in tqdm(rdr):
-            beneficiary_address = address[0]
-            userID = "user" + format(rdr.line_num - 1, USER_ID_LEN)        
-            command = "t j {} {}".format(beneficiary_address, userID)
-            fscript.write(command + "\n")
 
-            signedCommand = executeCommand(command)
-            # fsigned.write(signedCommand)
-            fsigned.write(signedCommand.hex())
-            fsigned.write('\n')
+    # collect params for threads
+    params = []
+    for i in range(requestNumber):
+        user_index = random.randint(0, userNumber - 1)
+        params.append((user_index, i+1))
 
-            count = count + 1
-            if count == accountNumber:
-                break
+    # parallelly generate plain & signed command
+    commands = pool.map(getReadyForDeposit_thread, params, 1)
+
+    # write commands to files
+    with open("scriptManager_{}_{}".format(userNumber, requestNumber), "wt") as fscript, open("signedManager_{}_{}".format(userNumber, requestNumber), "w") as fsigned:
+        for cmd in commands:
+            fscript.write(cmd[0]+"\n")
+            fsigned.write(cmd[1]+"\n")
 
 # Script for managing deposit transactions
 # Should be used only for testing
@@ -490,13 +501,15 @@ if __name__ == '__main__':
 
     elif command == 3:
         if len(sys.argv) >= 2:
-            depositNumber = int(sys.argv[2])
-            scriptName = sys.argv[3]
+            userNumber = int(sys.argv[2])
+            requestNumber = int(sys.argv[3])
+            scriptName = sys.argv[4]
         else:
-            depositNumber = eval(input("how many routee deposits to generate: "))
+            userNumber = eval(input("how many users to appear: "))
+            requestNumber = eval(input("how many manager addresses to generate: "))
             scriptName = "scriptDeposit"
-        getReadyForDeposit(depositNumber)
-        dealWithDepositTxs(depositNumber)
+        getReadyForDeposit(userNumber, requestNumber)
+        # dealWithDepositTxs(depositNumber)
 
     elif command == 4:
         if len(sys.argv) >= 2:
