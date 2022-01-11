@@ -420,7 +420,7 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* r
 
     // check if the user exists
     int beneficiary_index = atoi(_beneficiary_index);
-    if (beneficiary_index > state.users.size()) {
+    if (beneficiary_index >= state.users.size()) {
         printf("No sender account exist in rouTEE\n");
         return ERR_NO_USER_ACCOUNT;
     }
@@ -553,7 +553,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
     block_hash.SetHex(string(block_hash_str, BITCOIN_HEADER_HASH_LEN));
 
     // check if this is a valid user index
-    if (user_index > state.users.size()) {
+    if (user_index >= state.users.size()) {
         printf("Invalid user index for update last SPV block\n");
         return ERR_INVALID_PARAMS;
     }
@@ -630,7 +630,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
     int batch_size = atoi(_batch_size);
 
     // check if this is a valid user index
-    if (sender_index > state.users.size()) {
+    if (sender_index >= state.users.size()) {
         printf("Invalid user index for update boundary block\n");
         return ERR_INVALID_PARAMS;
     }
@@ -662,7 +662,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
         amount = strtoull(_amount, NULL, 10);
 
         // check the receiver exists
-        if (receiver_index > state.users.size()) {
+        if (receiver_index >= state.users.size()) {
             printf("Invalid user index for update last SPV block\n");
             return ERR_INVALID_PARAMS;
         }
@@ -786,7 +786,7 @@ int secure_settle_balance(const char* command, int cmd_len, const char* signatur
     unsigned long long fee = strtoull(_fee, NULL, 10);
     
     // check if the user exists
-    if (user_index > state.users.size()) {
+    if (user_index >= state.users.size()) {
         printf("No user index exist in rouTEE\n");
         return ERR_NO_USER_ACCOUNT;
     }
@@ -1091,8 +1091,7 @@ int ecall_process_round(const char* settle_transaction_ret, int* settle_tx_len, 
     }
 
     // initialize vector
-    state.payments.clear(); // this is more efficient
-    // vector<PaymentInfo>(state.payments).swap(state.payments); // -> this causes performance degrade
+    state.payments.clear();
 
     // deals with routing fees for host
     state.pending_routing_fee += state.pending_routing_fee_in_round;
@@ -1175,7 +1174,7 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
         sender_index = dr->beneficiary_index;        
     }
 
-    if (sender_index > state.users.size()) {
+    if (sender_index >= state.users.size()) {
         // sender is not in the state, create new account
         // Only available when debug
         Account acc;
