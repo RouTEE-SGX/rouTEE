@@ -40,6 +40,8 @@ string error_to_msg(int err) {
             return "ERROR: no user account exists for this address";
         case ERR_VERIFY_SIG_FAILED:
             return "ERROR: signature verification failed";
+        case ERR_NO_MANAGER_KEYID:
+            return "ERROR: no manager keyid in deposit requests";
         default:
             return "ERROR: this error index does not exist";
     }

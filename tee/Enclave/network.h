@@ -22,6 +22,7 @@
 #define OP_SECURE_COMMAND 112           // p (cmd: p sessionID encrypted_command_data)
 #define OP_ADD_USER 118                 // v (cmd: v user_address settle_address public_key)
 #define OP_GET_READY_FOR_DEPOSIT  106   // j (cmd: j beneficiary_address)
+#define OP_CHECK_MANAGER_KEYID 107      // k (cmd: k user_index manager_address)
 #define OP_UPDATE_LATEST_SPV_BLOCK 113  // q (cmd: q user_address block_number signature)
 #define OP_DO_MULTIHOP_PAYMENT  109     // m (cmd: m sender_addr receiver_addr amount fee signature)
 #define OP_SETTLE_BALANCE   108         // l (cmd: l receiver_addr amount fee signature)

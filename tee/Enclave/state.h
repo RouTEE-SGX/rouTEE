@@ -212,6 +212,7 @@ class State {
 
         // deposit_requests[keyID] = deposit_request (keyID: hash of pubkey in Bitcoin)
         map<string, DepositRequest*> deposit_requests;
+        map<string, DepositRequest*> temp_deposit_requests; // requests are temply stored here before backup
 
         // confirmed unused deposits, which rouTEE currently owns
         queue<Deposit*> deposits;        

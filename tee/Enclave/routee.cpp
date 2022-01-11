@@ -444,36 +444,91 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* r
     CKey key;
     key.MakeNewKey(true /* compressed */);
     CPubKey pubkey = key.GetPubKey();
-    CKeyID keyid = pubkey.GetID();
+    CKeyID keyid = pubkey.GetID(); // public key hash
     CBitcoinAddress address;
     address.Set(keyid);
 
     std::string manager_address = address.ToString();
     std::string manager_public_key = HexStr(pubkey);
     std::string manager_private_key = CBitcoinSecret(key).ToString();
+    std::string manager_keyid = HexStr(keyid);
 
     // printf("prikey: %s\n", manager_private_key.c_str());
     // printf("pubkey: %s\n", manager_public_key.c_str());
-    // printf("keyid: %s\n", HexStr(keyid).c_str());
+    // printf("keyid: %s\n",manager_keyid.c_str());
     // printf("address: %s\n",manager_address.c_str());
 
-    // add to pending deposit list
+    // add to temp pending deposit list
     DepositRequest *deposit_request = new DepositRequest;
     deposit_request->manager_private_key = manager_private_key;
     deposit_request->beneficiary_index = beneficiary_index;
     deposit_request->block_number = state.latest_block_number;
-    state.deposit_requests[HexStr(keyid)] = deposit_request; // keyid string should be HexStr(keyid), not keyid.ToString()
+    state.temp_deposit_requests[manager_keyid] = deposit_request; // keyid string should be HexStr(keyid), not keyid.ToString()
     
     // print result
     if (doPrint) {
-        printf("ADD_DEPOSIT success: random manager address: %s / block number: %llu\n", manager_address.c_str(), state.latest_block_number);
+        printf("ADD_DEPOSIT success: random manager keyid: %s / block number: %llu\n", manager_keyid.c_str(), state.latest_block_number);
     }
 
-    // return manager address to the sender
-    memcpy((char*)response_msg, manager_address.c_str(), manager_address.length()+1);
+    // return manager keyid to the sender
+    memcpy((char*)response_msg, manager_keyid.c_str(), manager_keyid.length()+1);
 
     // sgx_thread_mutex_unlock(&state_mutex);
 
+    return NO_ERROR;
+}
+
+// check whether the user's manager address is sealed
+int secure_check_manager_keyid(const char* command, int cmd_len, const char* signature, const char* response_msg) {
+    // temply save before getting params for verifying signature later
+    char cmd_tmp[cmd_len];
+    memcpy(cmd_tmp, command, cmd_len);
+
+    // get params from command
+    char* _cmd = strtok((char*) command, " ");
+    char* _user_index = strtok(NULL, " ");
+    if (_user_index == NULL) {
+        printf("No user index for check manager address\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    char* _manager_keyid = strtok(NULL, " ");
+    if (_manager_keyid == NULL) {
+        printf("No manager address for check manager address\n");
+        return ERR_INVALID_PARAMS;
+    }
+
+    // check if the user exists
+    unsigned long user_index = strtoul(_user_index, NULL, 10);
+    if (user_index >= state.users.size()) {
+        printf("No sender account exist in rouTEE\n");
+        return ERR_NO_USER_ACCOUNT;
+    }
+    Account* user_acc = &state.users[user_index];
+
+    // verify signature
+    sgx_rsa3072_public_key_t rsa_pubkey;
+    memset(rsa_pubkey.mod, 0, SGX_RSA3072_KEY_SIZE);
+    memcpy(rsa_pubkey.mod, user_acc->public_key, SGX_RSA3072_KEY_SIZE);
+    rsa_pubkey.exp[0] = 1;
+    rsa_pubkey.exp[1] = 0;
+    rsa_pubkey.exp[2] = 1;
+    rsa_pubkey.exp[3] = 0;
+    sgx_rsa_result_t result;
+    sgx_rsa3072_verify((uint8_t*) cmd_tmp, cmd_len, &rsa_pubkey, (sgx_rsa3072_signature_t*) signature, &result);
+    if (result != SGX_RSA_VALID) {
+        printf("Signature verification failed\n");
+        return ERR_VERIFY_SIG_FAILED;
+    }
+
+    // search for the manager address
+    string manager_keyid(_manager_keyid, BITCOIN_PUBLIC_KEY_HASH_LEN);
+    if (state.deposit_requests.find(manager_keyid) == state.deposit_requests.end()) {
+        printf("No manager keyid in deposit requests: %s\n", manager_keyid.c_str());
+        return ERR_NO_MANAGER_KEYID;
+    }
+
+    // the manager keyid is sealed correctly
     return NO_ERROR;
 }
 
@@ -1057,27 +1112,36 @@ int ecall_process_round(const char* settle_transaction_ret, int* settle_tx_len, 
     state.pending_routing_fee_in_round = 0;
 
     //
-    // 2. deals with settle requests
+    // 2. deals with deposit requests
     //
 
-    int settle_result = ecall_make_settle_transaction(settle_transaction_ret, settle_tx_len);
-    if (settle_result != NO_ERROR) {
-        // cannot make settlement tx yet (ERR_SETTLE_NOT_READY or ERR_TOO_LOW_SETTLE_FEE)
-        // printf("cannot make settlement tx yet\n");
-        settle_tx_len = 0;
-    }
+    // move all temp requests to pending deposit list
+    for(auto it = state.temp_deposit_requests.begin(); it != state.temp_deposit_requests.end(); it++){
+        // printf("temp deposit request -> keyid: %s / beneficiary: %d\n", it->first.c_str(), it->second->beneficiary_index);
+        state.deposit_requests.insert(std::make_pair(it->first, it->second));
+	}
+    state.temp_deposit_requests.clear();
 
+    // check result
+    // printf("\n");
+    // for(auto it = state.deposit_requests.begin(); it != state.deposit_requests.end(); it++){
+    //     printf("deposit request -> keyid: %s / beneficiary: %d\n", it->first.c_str(), it->second->beneficiary_index);
+	// }
+
+    //
+    // 3. deals with settle requests
+    //
     // 
-    // 3. backup data
+    // 4. backup data
     //
 
     int seal_return = ecall_seal_state(sealed_state, sealed_state_len);
     if (seal_return != NO_ERROR) {
         // sealing failed (rare & abnormal situation)
 
-    // 
+        //
         // TODO: rollback all changes in this process_round()
-    //
+        //
 
         // mutex unlock
         sgx_thread_mutex_unlock(&state_mutex);
@@ -1557,6 +1621,10 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
         // SETTLEMENT operation
         case OP_SETTLE_BALANCE:
             operation_result = secure_settle_balance(decCommand, decCommandLen, decSignature, response_msg);
+            break;
+        // CHECK_MANAGER_KEYID operation
+        case OP_CHECK_MANAGER_KEYID:
+            operation_result = secure_check_manager_keyid(decCommand, decCommandLen, decSignature, response_msg);
             break;
         // invalid opcode
         default:
