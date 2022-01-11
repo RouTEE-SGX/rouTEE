@@ -361,28 +361,15 @@ void ecall_print_state() {
     return;
 }
 
-// ADD_USER(user_address, settle_address, public_key) operation
+// ADD_USER(settle_address, public_key) operation
 int secure_add_user(const char* command, int cmd_len, const char* public_key, const char* response_msg) {
 
     // get params from command
     char* _cmd = strtok((char*) command, " ");
 
-    char* _user_address = strtok(NULL, " ");
-    if (_user_address == NULL) {
-        printf("No sender address\n");
-        return ERR_INVALID_PARAMS;
-    }
-
     char* _settle_address = strtok(NULL, " ");
     if (_settle_address == NULL) {
         printf("No settle address\n");
-        return ERR_INVALID_PARAMS;
-    }
-
-    // check if this is a valid bitcoin address
-    string user_address(_user_address, BITCOIN_ADDRESS_LEN);
-    if (!CBitcoinAddress(user_address).IsValid()) {
-        printf("Invalid sender address\n");
         return ERR_INVALID_PARAMS;
     }
 
