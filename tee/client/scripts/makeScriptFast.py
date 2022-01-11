@@ -345,6 +345,9 @@ def doMultihopPayments(addressNumber, paymentNumber, batchSize):
     if addressNumber < 2:
         print("ERROR: you need at least 2 addresses to appear")
         return
+    if addressNumber < batchSize+1:
+        print("ERROR: you need more addresses than batchSize")
+        return
 
     addressFile = open("scriptAddress", 'r')
     rdr = csv.reader(addressFile)
