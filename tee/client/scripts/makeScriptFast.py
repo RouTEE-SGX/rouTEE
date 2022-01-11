@@ -383,32 +383,40 @@ def doMultihopPayments(addressNumber, paymentNumber, batchSize):
             fscript.write(cmd[0]+"\n")
             fsigned.write(cmd[1]+"\n")
 
+def settleBalanceRequest_thread(params):
+    # parse params
+    user_index = params[0]
+    num = params[1]
+    if num % PRINT_EPOCH == 0:
+        print("generate", num, "settle requests", end="\r")
+    userID = "user" + format(0, USER_ID_LEN) # for easy experiment
+
+    # generate & sign command
+    command = "t l {} 100 10 {}".format(user_index, userID)
+    signedCommand = executeCommand(command).hex()
+
+    return command, signedCommand
+
 # Script for generating settle requests
-def settleBalanceRequest(settleTxNumber):
+def settleBalanceRequest(userNumber, settleRequestNumber):
     if not os.path.exists("scriptAddress"):
         print("ERROR: execute makeNewAddresses first\n")
         return
 
-    addressFile = open("scriptAddress", 'r')
-    rdr = csv.reader(addressFile)
-    count = 0
+    # collect params for threads
+    params = []
+    for i in range(settleRequestNumber):
+        user_index = random.randint(0, userNumber - 1)
+        params.append((user_index, i+1))
 
-    with open("scriptSettleReq", "wt") as fscript, open("signedSettleReq", "w") as fsigned:
-        for address in tqdm(rdr):
-            user_address = address[0]
-            userID = "user" + format(rdr.line_num - 1, USER_ID_LEN) 
+    # parallelly generate plain & signed command
+    commands = pool.map(settleBalanceRequest_thread, params, 1)
 
-            command = "t l {} 100 10 {}".format(user_address, userID)
-            fscript.write(command + "\n")
-
-            signedCommand = executeCommand(command)
-            # fsigned.write(signedCommand)
-            fsigned.write(signedCommand.hex())
-            fsigned.write('\n')
-
-            count = count + 1
-            if count == settleTxNumber:
-                break
+    # write commands to files
+    with open("scriptSettle_{}_{}".format(userNumber, settleRequestNumber), "wt") as fscript, open("signedSettle_{}_{}".format(userNumber, settleRequestNumber), "w") as fsigned:
+        for cmd in commands:
+            fscript.write(cmd[0]+"\n")
+            fsigned.write(cmd[1]+"\n")
 
 # generate Payment commands
 def updateBoundary_thread(params):
@@ -525,12 +533,14 @@ if __name__ == '__main__':
 
     elif command == 5:
         if len(sys.argv) >= 2:
-            settleRequestNumber = int(sys.argv[2])
-            scriptName = sys.argv[3]
+            userNumber = int(sys.argv[2])
+            settleRequestNumber = int(sys.argv[3])
+            scriptName = sys.argv[4]
         else:
-            settleRequestNumber = eval(input("how many rouTEE settle balance requests to generate: "))
+            userNumber = eval(input("how many users to appear: "))
+            settleRequestNumber = eval(input("how many rouTEE settle requests to generate: "))
             scriptName = "scriptSettle"
-        settleBalanceRequest(settleRequestNumber)
+        settleBalanceRequest(userNumber, settleRequestNumber)
 
     elif command == 6:
         if len(sys.argv) >= 2:
