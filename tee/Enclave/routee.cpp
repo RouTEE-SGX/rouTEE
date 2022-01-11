@@ -1663,6 +1663,9 @@ void ecall_initialize() {
     // set users's capacity
     state.users.reserve(300005); 
 
+    // set payments' capacity
+    state.payments.reserve(300005);
+
     // set temporary state.block_hashes for experiment
     int block_num_to_insert = 52560+1; // 52560 blocks/year (96B per hash)
     state.latest_block_number = block_num_to_insert-1;
@@ -1682,7 +1685,38 @@ void ecall_initialize() {
         // printf("state.block_hashes[%d]: %s\n", i, state.block_hashes[i].ToString().c_str());
     }
     printf("latest block number in RouTEE: %d\n", state.latest_block_number);
-    printf("\n");
+
+    // set temporary deposit requests for experiment
+    int deposit_num_to_insert = 10000;
+    for (int i = 0; i < deposit_num_to_insert; i++) {
+        // randomly generate a bitcoin address to be paid by the user (manager address)
+        CKey key;
+        key.MakeNewKey(true /* compressed */);
+        CPubKey pubkey = key.GetPubKey();
+        CKeyID keyid = pubkey.GetID(); // public key hash
+        CBitcoinAddress address;
+        address.Set(keyid);
+
+        std::string manager_address = address.ToString();
+        std::string manager_public_key = HexStr(pubkey);
+        std::string manager_private_key = CBitcoinSecret(key).ToString();
+        std::string manager_keyid = HexStr(keyid);
+
+        // printf("prikey: %s\n", manager_private_key.c_str());
+        // printf("pubkey: %s\n", manager_public_key.c_str());
+        // printf("keyid: %s\n",manager_keyid.c_str());
+        // printf("address: %s\n",manager_address.c_str());
+
+        // add to temp pending deposit list
+        DepositRequest *deposit_request = new DepositRequest;
+        deposit_request->manager_private_key = manager_private_key;
+        deposit_request->beneficiary_index = i;
+        deposit_request->block_number = state.latest_block_number;
+        state.deposit_requests[manager_keyid] = deposit_request; // keyid string should be HexStr(keyid), not keyid.ToString()
+    }
+    printf("pending deposit requests number in RouTEE: %d\n", state.deposit_requests.size());
+
+    printf("finish initializing RouTEE\n\n");
 }
 
 // seal RouTEE state as an encrypted file
