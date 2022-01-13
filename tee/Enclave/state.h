@@ -24,13 +24,13 @@ class Account {
         unsigned long long balance;
 
         // prevent replay attack
-        unsigned long long nonce;
+        unsigned int nonce;
 
         // max source block number
-        unsigned long long min_requested_block_number;
+        unsigned int min_requested_block_number;
         
         // boundary block number
-        unsigned long long latest_SPV_block_number;
+        unsigned int latest_SPV_block_number;
 
         // when user requests settlement, rouTEE sends balance to this address (34 bytes)
         char settle_address[BITCOIN_ADDRESS_LEN];
@@ -57,7 +57,7 @@ class DepositRequest {
         int beneficiary_index;
 
         // kind of timestamp: when the user requested deposit
-        unsigned long long block_number;
+        unsigned int block_number;
 };
 
 // settle request
@@ -120,7 +120,7 @@ class PaymentInfo {
     public:
         int receiver_index;
         unsigned long long amount;
-        unsigned long long source_block_number; // sender's max source block number
+        unsigned int source_block_number; // sender's max source block number
 
         PaymentInfo(int receiver_index, unsigned long long amount, unsigned long long source_block_number) {
             this->receiver_index = receiver_index;
@@ -165,13 +165,13 @@ class State {
         string fee_address;
 
         // first block header's number in RouTEE (kind of offset, ex. 0: include blocks from the genesis block)
-        unsigned long long start_block_number = 0;
+        unsigned int start_block_number = 0;
 
         // block_hashes[block_number - start_block_number] = block_number'th block's hash
         vector<uint256> block_hashes;
 
         // latest block number among blocks inside RouTEE
-        unsigned long long latest_block_number;
+        unsigned int latest_block_number;
 
         // accumulated payments in the current round
         vector<PaymentInfo> payments;

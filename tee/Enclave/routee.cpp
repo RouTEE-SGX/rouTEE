@@ -419,7 +419,7 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* r
     }
 
     // check if the user exists
-    int beneficiary_index = atoi(_beneficiary_index);
+    unsigned long beneficiary_index = strtoul(_beneficiary_index, NULL, 10);
     if (beneficiary_index >= state.users.size()) {
         printf("No sender account exist in rouTEE\n");
         return ERR_NO_USER_ACCOUNT;
@@ -546,8 +546,8 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
         return ERR_INVALID_PARAMS;
     }  
 
-    int user_index = atoi(_user_index);
-    unsigned long long block_number = strtoull(_block_number, NULL, 10);
+    unsigned long user_index = strtoul(_user_index, NULL, 10);
+    unsigned long block_number = strtoul(_block_number, NULL, 10);
     string block_hash_str(_block_hash, BITCOIN_HEADER_HASH_LEN*2);
     uint256 block_hash;
     block_hash.SetHex(string(block_hash_str, BITCOIN_HEADER_HASH_LEN));
@@ -597,7 +597,7 @@ int secure_update_latest_SPV_block(const char* command, int cmd_len, const char*
 
     // print result
     if (doPrint) {
-        printf("UPDATE_BOUNDARY_BLOCK success: user %d update boundary block number to %llu\n", user_index, block_number);
+        printf("UPDATE_BOUNDARY_BLOCK success: user %d update boundary block number to %lu\n", user_index, block_number);
     }
     
     // sgx_thread_mutex_unlock(&state_mutex);
@@ -626,7 +626,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
         return ERR_INVALID_PARAMS;
     }
 
-    int sender_index = atoi(_sender_index);
+    unsigned long sender_index = strtoul(_sender_index, NULL, 10);
     int batch_size = atoi(_batch_size);
 
     // check if this is a valid user index
@@ -638,10 +638,10 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
 
     queue<PaymentInfo> queue;
     Account* receiver_acc;
-    int receiver_index;
+    unsigned long receiver_index;
     unsigned long long amount;
     unsigned long long total_amount = 0;
-    unsigned long long sender_max_source_block_number = sender_acc->min_requested_block_number;
+    unsigned long sender_max_source_block_number = sender_acc->min_requested_block_number;
 
     for (int i = 0; i < batch_size; i++) {
 
@@ -658,7 +658,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
             return ERR_INVALID_PARAMS;
         }
 
-        receiver_index = atoi(_receiver_index);
+        receiver_index = strtoul(_receiver_index, NULL, 10);
         amount = strtoull(_amount, NULL, 10);
 
         // check the receiver exists
@@ -781,7 +781,7 @@ int secure_settle_balance(const char* command, int cmd_len, const char* signatur
         return ERR_INVALID_PARAMS;
     }
 
-    int user_index = atoi(_user_index);
+    unsigned long user_index = strtoul(_user_index, NULL, 10);
     unsigned long long amount = strtoull(_amount, NULL, 10);
     unsigned long long fee = strtoull(_fee, NULL, 10);
     
@@ -1724,7 +1724,7 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
 
     // serialize state
     int userNum = state.users.size();
-    int sizePerAccount = 32 + BITCOIN_ADDRESS_LEN;
+    int sizePerAccount = 20 + BITCOIN_ADDRESS_LEN;
     if (doSealPubkey) {
         sizePerAccount += RSA_PUBLIC_KEY_LEN;
     }
@@ -1749,25 +1749,25 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
     //     i += 8;
 
     //     printf("nonce: ");
-    //     for (int j = 0; j < 8; j++) {
+    //     for (int j = 0; j < 4; j++) {
     //         printf("%02X ", state_bytes[i+j]);
     //     }
     //     printf("\n");
-    //     i += 8;
+    //     i += 4;
 
     //     printf("source block: ");
-    //     for (int j = 0; j < 8; j++) {
+    //     for (int j = 0; j < 4; j++) {
     //         printf("%02X ", state_bytes[i+j]);
     //     }
     //     printf("\n");
-    //     i += 8;
+    //     i += 4;
 
     //     printf("boundary block: ");
-    //     for (int j = 0; j < 8; j++) {
+    //     for (int j = 0; j < 4; j++) {
     //         printf("%02X ", state_bytes[i+j]);
     //     }
     //     printf("\n");
-    //     i += 8;
+    //     i += 4;
 
     //     printf("settle addr: ");
     //     for (int j = 0; j < BITCOIN_ADDRESS_LEN; j++) {
@@ -1832,7 +1832,7 @@ int ecall_load_state(const char* sealed_state, int sealed_state_len) {
     }
 
     // load global state
-    int sizePerAccount = 32 + BITCOIN_ADDRESS_LEN;
+    int sizePerAccount = 20 + BITCOIN_ADDRESS_LEN;
     if (doSealPubkey) {
         sizePerAccount += RSA_PUBLIC_KEY_LEN;
     }
