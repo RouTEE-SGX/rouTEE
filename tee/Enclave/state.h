@@ -118,12 +118,12 @@ class TxFeeInfo {
 
 class PaymentInfo {
     public:
-        int receiver_index;
+        Account* receiver_account;
         unsigned long long amount;
         unsigned int source_block_number; // sender's max source block number
 
-        PaymentInfo(int receiver_index, unsigned long long amount, unsigned long long source_block_number) {
-            this->receiver_index = receiver_index;
+        PaymentInfo(Account* receiver_account, unsigned long long amount, unsigned int source_block_number) {
+            this->receiver_account = receiver_account;
             this->amount = amount;
             this->source_block_number = source_block_number;
         }

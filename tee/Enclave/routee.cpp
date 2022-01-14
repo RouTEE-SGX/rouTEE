@@ -673,7 +673,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
         }
 
         total_amount += amount;
-        queue.push(PaymentInfo(receiver_index, amount, sender_max_source_block_number));
+        queue.push(PaymentInfo(&state.users[receiver_index], amount, sender_max_source_block_number));
     }
 
     if (batch_size != queue.size()) {
@@ -1082,12 +1082,12 @@ int ecall_process_round(const char* settle_transaction_ret, int* settle_tx_len, 
     //
 
     // deals with receivers
-    for (auto pi = state.payments.begin(); pi != state.payments.end(); ++pi) {
-        state.users[pi->receiver_index].balance += pi->amount;
-        if (state.users[pi->receiver_index].min_requested_block_number < pi->source_block_number) {
-            state.users[pi->receiver_index].min_requested_block_number = pi->source_block_number;
+    for (auto pi = state.payments.rbegin(); pi != state.payments.rend(); ++pi) {
+        pi->receiver_account->balance += pi->amount;
+        if (pi->receiver_account->min_requested_block_number < pi->source_block_number) {
+            pi->receiver_account->min_requested_block_number = pi->source_block_number;
         }
-        // printf("PAYMENT complete: user %d get %llu satoshi\n", pi->receiver_index, pi->amount);
+        // printf("PAYMENT complete: get %llu satoshi\n", pi->amount);
     }
 
     // initialize vector
