@@ -42,16 +42,16 @@ class Account {
 // deposit sent by users to rouTEE
 class Deposit {
     public:
-        string tx_hash;
+        string tx_hash; // 64 bytes
         int tx_index;
-        string script;
-        string manager_private_key;
+        string script; // 50 bytes
+        string manager_private_key; // 52 bytes
 };
 
 class DepositRequest {
     public:
         // user should send deposit to this private key's address
-        string manager_private_key;
+        string manager_private_key; // 52 bytes
 
         // when find deposit tx, balance goes to this user index
         int beneficiary_index;
@@ -210,8 +210,8 @@ class State {
 
         queue<TxFeeInfo> tx_fee_infos;
 
-        // deposit_requests[keyID] = deposit_request (keyID: hash of pubkey in Bitcoin)
-        map<string, DepositRequest*> deposit_requests;
+        // deposit_requests[keyID] = deposit_request (keyID: hash of pubkey in Bitcoin, 40 bytes)
+        map<string, DepositRequest*> deposit_requests; // pending deposit list
         map<string, DepositRequest*> temp_deposit_requests; // requests are temply stored here before backup
 
         // confirmed unused deposits, which rouTEE currently owns
