@@ -226,9 +226,6 @@ int ecall_settle_routing_fee(const char* command, int cmd_len, const char* signa
     state.confirmed_routing_fee -= amount;
     state.d_settled_routing_fee += amount;
 
-    // increase state id
-    state.stateID++;
-
     // print result
     if (doPrint) {
         printf("host %s requests settlement: %llu satoshi\n", state.fee_address.c_str(), amount);
@@ -740,9 +737,6 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
         sender_acc->min_requested_block_number = 0;
     }
 
-    // increase state id
-    state.stateID++;
-
     // print result
     if (doPrint) {
         printf("PAYMENT success: user %d send %llu satoshi to user %d (routing fee: %llu)\n", sender_index, amount, receiver_index, fee);
@@ -840,9 +834,6 @@ int secure_settle_balance(const char* command, int cmd_len, const char* signatur
 
     // update total balances
     state.total_balances -= amount + fee;
-
-    // increase state id
-    state.stateID++;
 
     // for debugging
     state.d_total_settle_amount += amount + fee;
@@ -1068,7 +1059,7 @@ int ecall_make_settle_transaction(const char* settle_transaction_ret, int* settl
 
 // TODO: deals with accumulated requests & backup important data
 int ecall_process_round(const char* settle_transaction_ret, int* settle_tx_len, char* sealed_state, int* sealed_state_len) {
-    
+
     //
     // TODO: verify host's signature
     //
@@ -1134,6 +1125,9 @@ int ecall_process_round(const char* settle_transaction_ret, int* settle_tx_len, 
         // printf("process round failed, rollback all changes\n");
         return seal_return;
     }
+
+    // increase current round number
+    state.round_number++;
 
     // mutex unlock
     sgx_thread_mutex_unlock(&state_mutex);
@@ -1231,9 +1225,6 @@ void deal_with_deposit_tx(const char* manager_address, int manager_addr_len, con
     // // delete deposit request
     // delete dr;
     // state.deposit_requests.erase(string(manager_address, manager_addr_len));
-
-    // increase state id
-    state.stateID++;
 
     // for debugging
     state.d_total_deposit += amount;

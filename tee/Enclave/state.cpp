@@ -7,8 +7,8 @@ string State::to_string() {
     string state_str = "";
     string delimitor = ",";
 
-    // stateID
-    state_str += long_long_to_string(this->stateID) + delimitor;
+    // round number
+    // state_str += long_long_to_string(this->round_number) + delimitor;
 
     // // fee
     // state_str += long_long_to_string(this->routing_fee) + delimitor;
@@ -45,9 +45,9 @@ string get_token(string& state_str) {
 void State::from_string(string state_str) {
     // // restore state
 
-    // // stateID
+    // // round number
     // int cnt = 0;
-    // this->stateID = string_to_long_long(get_token(state_str));
+    // this->round_number = string_to_long_long(get_token(state_str));
 
     // // fee
     // this->routing_fee = string_to_long_long(get_token(state_str));

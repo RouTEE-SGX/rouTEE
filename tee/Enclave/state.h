@@ -149,8 +149,8 @@ class State {
         void from_string(string state_str);
         // vector<string> from_string(string state_str); // just for debugging, change return type as a void later
 
-        // state version number (monotonically increasing counter)
-        unsigned long long stateID;
+        // current round number (monotonically increasing counter)
+        unsigned int round_number = 0;
 
         // public key for checking rouTEE host's authority
         string host_public_key;
