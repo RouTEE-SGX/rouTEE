@@ -435,8 +435,8 @@ int secure_get_ready_for_deposit(const char* command, int cmd_len, const char* r
     CBitcoinAddress address;
     address.Set(keyid);
 
-    std::string manager_address = address.ToString();
-    std::string manager_public_key = HexStr(pubkey);
+    // std::string manager_address = address.ToString();
+    // std::string manager_public_key = HexStr(pubkey);
     std::string manager_private_key = CBitcoinSecret(key).ToString();
     std::string manager_keyid = HexStr(keyid);
 
@@ -753,8 +753,7 @@ int secure_do_multihop_payment(const char* command, int cmd_len, const char* sig
     return NO_ERROR;
 }
 
-// TODO: add "fee" param in command & refactoring ecall_make_settle_transaction() function
-// SETTLEMENT(user_index amount (fee) signature) operation: make settle request for user balance
+// SETTLEMENT(user_index amount fee signature) operation: make settle request for user balance
 int secure_settle_balance(const char* command, int cmd_len, const char* signature, const char* response_msg) {
 
     char cmd_tmp[cmd_len];
@@ -1571,7 +1570,11 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
     string cmd = string(decMessage, decMessageLen);
     split(cmd, params, ' ');
 
-    const int decCommandLen = decMessageLen - SGX_RSA3072_KEY_SIZE - 1;
+    int decCommandLen = decMessageLen - SGX_RSA3072_KEY_SIZE - 1;
+    char operation = params[0][0];
+    if (operation == OP_GET_READY_FOR_DEPOSIT) {
+        decCommandLen += SGX_RSA3072_KEY_SIZE + 1; // add deposit do not require pubkey or signature
+    }
 
     char *decCommand = (char *) malloc((decCommandLen+1)*sizeof(char));
     memcpy(decCommand, decMessage, decCommandLen);
@@ -1581,8 +1584,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
 
     // printf("decCommand: %s, %d\n\n", decCommand, decCommandLen);
 
-    // find appropriate operation
-    char operation = params[0][0];
+    // find and execute appropriate operation
     int operation_result;
     char response_msg[64];
     switch(operation) {
@@ -1661,13 +1663,13 @@ void ecall_initialize() {
     initializeECCState();
 
     // set users's capacity
-    state.users.reserve(300005); 
+    state.users.reserve(400000+5); 
 
     // set payments' capacity
-    state.payments.reserve(300005);
+    state.payments.reserve(400000+5);
 
     // set temporary state.block_hashes for experiment
-    int block_num_to_insert = 52560+1; // 52560 blocks/year (96B per hash)
+    int block_num_to_insert = 52560+1; // 52560 blocks/year (32B per hash)
     state.latest_block_number = block_num_to_insert-1;
     state.block_hashes.reserve(block_num_to_insert);
     for (int i = 0; i < block_num_to_insert; i++) {
