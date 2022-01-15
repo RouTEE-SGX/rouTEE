@@ -872,7 +872,7 @@ void secure_command(char* request, int request_len, int sd) {
 }
 
 // execute client's command
-const char* execute_command(char* request, int request_len) {
+void execute_command(char* request, int request_len, int sd) {
     char operation = request[0];
     int ecall_return;
 
@@ -953,7 +953,9 @@ const char* execute_command(char* request, int request_len) {
     }
     state_save_counter++;
 
-    return error_to_msg(ecall_return).c_str();
+    // send result to the client
+    const char* response = error_to_msg(ecall_return).c_str();
+    send(sd, response, strlen(response), 0);
 }
 
 // application entry point
@@ -1132,14 +1134,10 @@ int SGX_CDECL main(int argc, char* argv[]){
 
                         /* Sync */
                         // secure_command(request, read_len, sd);
-
                     }
                     else {
-                        // execute client's command
-                        response = execute_command(requests[i], read_len);
-                        
-                        // send result to the client
-                        send(sd, response, strlen(response), 0);
+                        /* ThreadPool */
+                        pool.EnqueueJob(execute_command, requests[i], read_len, sd);
                     }
                     // printf("execution result: %s\n\n", response);
                 }
