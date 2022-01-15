@@ -1724,6 +1724,10 @@ int ecall_seal_state(char* sealed_state, int* sealed_state_len) {
 
     // serialize state
     int userNum = state.users.size();
+    if (userNum == 0) {
+        // cannot seal 0 users
+        return NO_ERROR;
+    }
     int sizePerAccount = 20 + BITCOIN_ADDRESS_LEN;
     if (doSealPubkey) {
         sizePerAccount += RSA_PUBLIC_KEY_LEN;
