@@ -392,8 +392,7 @@ if __name__ == "__main__":
     backupInterval = 1 * 1000000000 # nanosec
     roundNum = 0
 
-    savedTime = time.time_ns()
-    while roundNum < 13:
+    savedTime = time.time_ns() - 0.9 * backupInterval
         currentTime = time.time_ns()
         if currentTime > savedTime + backupInterval:
             savedTime = currentTime
