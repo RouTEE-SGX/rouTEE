@@ -6,6 +6,7 @@ from datetime import datetime
 import csv
 import sys
 import base64
+import time
 # python crypto library example: https://blog.naver.com/chandong83/221886840586
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
@@ -17,9 +18,8 @@ import multiprocessing
 from multiprocessing import Pool
 
 # rouTEE IP address
-# SERVER_IP = "127.0.0.1"
-SERVER_IP = "satoshi.snu.ac.kr"
-SERVER_PORT = 8202
+SERVER_IP = "147.XX.XXX.XX"
+SERVER_PORT = 7557
 
 # open socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -362,13 +362,28 @@ def send_lines(command):
         #     # return
 
 def send_line(line):
+    # allocate socket
     process_num = int(multiprocessing.current_process().name.split('-')[-1])
     my_socket = client_sockets[process_num-1]
+
+    # send/receive data to/from RouTEE
     my_socket.sendall(bytes.fromhex(line))
     data_ = my_socket.recv(1024)
 
+def send_line_measure_latency(line):
+    # allocate socket
+    process_num = int(multiprocessing.current_process().name.split('-')[-1])
+    my_socket = client_sockets[process_num-1]
+
+    # send/receive data to/from RouTEE & measure latency
+    startTime = datetime.now()
+    my_socket.sendall(bytes.fromhex(line))
+    data_ = my_socket.recv(1024)
+    elapsed = datetime.now() - startTime
+    return elapsed
+
 # send command lines parallelly
-def send_line_parallel(script):
+def send_line_parallel(script, do_measure_latency=False):
     try:
         commands = open(SCRIPTSPATH+script, 'r')
         rdr = csv.reader(commands)
@@ -379,10 +394,61 @@ def send_line_parallel(script):
         return
 
     # send commands parallelly
+    latencies = []
     startTime = datetime.now()
+    if do_measure_latency:
+        latencies = pool.map(send_line_measure_latency, commands, 1)
+        # for latency in latencies:
+        #     print("latency:", latency.total_seconds())
+        #     print("latency:", int(latency.total_seconds()*1000000), "microsec")
+    else:
     pool.map(send_line, commands, 1)
     elapsed = datetime.now() - startTime
     print(elapsed)
+    return latencies
+
+def avg_(A: list, clipping=(0, 0)):
+    if len(A[clipping[0]:]) != 0:
+        A = A[clipping[0]:]
+    if len(A[:(len(A) - clipping[1])]) != 0:
+        A = A[:(len(A) - clipping[1])]
+    return sum(A) / len(A)
+
+def med_(A: list, clipping=(0, 0)):
+    if len(A[clipping[0]:]) != 0:
+        A = A[clipping[0]:]
+    if len(A[:(len(A) - clipping[1])]) != 0:
+        A = A[:(len(A) - clipping[1])]
+    len_ = len(A)
+    if len_ % 2 == 0:
+        tmp_A = sorted(A)
+        return (tmp_A[len_ // 2 - 1] + tmp_A[len_ // 2]) / 2
+    else:
+        return sorted(A)[len_ // 2]
+
+def min_(A: list, clipping=(0, 0)):
+    if len(A[clipping[0]:]) != 0:
+        A = A[clipping[0]:]
+    if len(A[:(len(A) - clipping[1])]) != 0:
+        A = A[:(len(A) - clipping[1])]
+    return sorted(A)[0]
+
+def max_(A: list, clipping=(0, 0)):
+    if len(A[clipping[0]:]) != 0:
+        A = A[clipping[0]:]
+    if len(A[:(len(A) - clipping[1])]) != 0:
+        A = A[:(len(A) - clipping[1])]
+    return sorted(A, reverse=True)[0]
+
+def nin_(A: list, clipping=(0, 0)):
+    if len(A[clipping[0]:]) != 0:
+        A = A[clipping[0]:]
+    if len(A[:(len(A) - clipping[1])]) != 0:
+        A = A[:(len(A) - clipping[1])]
+    idx = int(len(A) * 0.99)
+    if (idx == (len(A) - 1)) and (idx > 0):
+        idx -= 1
+    return sorted(A)[idx]
 
 if __name__ == "__main__":
     print("start")
@@ -416,7 +482,8 @@ if __name__ == "__main__":
             SEND_SIGNED = False
 
         if SEND_SIGNED:
-            send_lines(command)
+            # send_lines(command)
+            send_line_parallel(command)
             continue
 
         if len(command) == 0:
