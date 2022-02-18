@@ -382,11 +382,17 @@ int secure_add_user(const char* command, int cmd_len, const char* public_key, co
     // create new account for the user
     Account acc;
     acc.balance = 0;
-    acc.balance = 10000000; // test code, delete this later
-    state.total_balances += 10000000; // test code, delete this later
     acc.nonce = 0;
     acc.min_requested_block_number = 0;
     acc.latest_SPV_block_number = 0;
+    
+    // test codes, delete below later
+    acc.balance = 10000000000; 
+    state.total_balances += 10000000000;
+    acc.nonce = 2;
+    acc.min_requested_block_number = 3;
+    acc.latest_SPV_block_number = 4;
+
     memcpy(acc.settle_address, settle_address.c_str(), BITCOIN_ADDRESS_LEN);
     memcpy(acc.public_key, public_key, RSA_PUBLIC_KEY_LEN);
     state.users.push_back(acc);
@@ -815,13 +821,13 @@ int secure_settle_balance(const char* command, int cmd_len, const char* signatur
     // sgx_thread_mutex_lock(&state_mutex);
 
     // push new waiting settle request
-    SettleRequest* sr = new SettleRequest;
-    sr->user_index = user_index;
-    sr->settle_address = string(user_acc->settle_address, BITCOIN_ADDRESS_LEN);
-    sr->amount = amount;
-    sr->fee = fee;
+    SettleRequest sr;
+    sr.user_index = user_index;
+    sr.settle_address = string(user_acc->settle_address, BITCOIN_ADDRESS_LEN);
+    sr.amount = amount;
+    sr.fee = fee;
     state.collected_settle_fees += fee;
-    state.settle_requests.push(*sr);
+    state.settle_requests.push(sr);
 
     // set user's account
     user_acc->balance -= amount + fee;

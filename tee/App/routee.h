@@ -31,7 +31,7 @@ int state_save_counter = 0;
 #define MAX_MSG_SIZE    4096
 #define MAX_CLIENTS 100
 #define SERVER_IP   "172.17.0.3" // docker IP address ($ ip addr show eth0)
-#define SERVER_PORT 8202
+#define SERVER_PORT 7557         // if want to kill -> $ sudo kill -9 $(sudo lsof -t -i:7557)
 
 #define NEGLECT_COUNT   0
 #define PRINT_EPOCH     10000

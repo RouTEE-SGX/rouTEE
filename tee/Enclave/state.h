@@ -214,8 +214,8 @@ class State {
         map<string, DepositRequest*> deposit_requests; // pending deposit list
         map<string, DepositRequest*> temp_deposit_requests; // requests are temply stored here before backup
 
-        // confirmed unused deposits, which rouTEE currently owns
-        queue<Deposit*> deposits;        
+        // confirmed unused deposits, which rouTEE currently owns (can be changed to vector)
+        queue<Deposit*> deposits;
 
         // variables for debugging
         // d_total_deposit = total_balances + d_total_settle_amount + d_total_balances_for_settle_tx_fee

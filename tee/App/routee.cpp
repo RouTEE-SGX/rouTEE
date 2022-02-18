@@ -91,7 +91,8 @@ void ThreadPool::WorkerThread() {
         if (workCount % PRINT_EPOCH == 0) {
             end_time = std::chrono::system_clock::now();
             std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-            std::cout << "work count: " << workCount << "\t" << milli.count() << " ms" << std::endl;
+            std::cout << "operation count: " << workCount << "\t" << milli.count() << " ms" << std::endl;
+            // std::cout << milli.count() << std::endl; // for simple logging
         }
     }
 }
@@ -940,6 +941,7 @@ void execute_command(char* request, int request_len, int sd) {
         std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         std::chrono::microseconds micro = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         std::cout << "Elapsed time for processing round: " << micro.count() << " us (" << milli.count() << " ms)" << std::endl;
+        std::cout << std::endl;
     }
     else{
         // wrong op_code
