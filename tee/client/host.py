@@ -393,6 +393,7 @@ if __name__ == "__main__":
     roundNum = 0
 
     savedTime = time.time_ns() - 0.9 * backupInterval
+    while roundNum < 15:
         currentTime = time.time_ns()
         if currentTime > savedTime + backupInterval:
             savedTime = currentTime
