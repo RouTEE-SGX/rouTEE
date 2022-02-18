@@ -2,6 +2,7 @@ from tqdm import tqdm
 import random
 import sys
 from bitcoinaddress import Address, Key, Wallet
+import os
 import os.path
 import csv
 import codecs
@@ -470,6 +471,21 @@ def updateBoundary(addressNumber, updateNumber, maxBlockNumber):
         for cmd in commands:
             fscript.write(cmd[0]+"\n")
             fsigned.write(cmd[1]+"\n")
+
+# split a file into several files
+# ex. splitFile("signedPayment_50000_400000_1", 100000, "signedPayment_50000_100000_1-") -> creates 4 files
+def splitFile(script, lineNumPerFile, splitedFileNamePrefix):
+    cmd = [] 
+    cmd.append("split -l ")
+    cmd.append(str(lineNumPerFile))
+    cmd.append(" -d ")
+    cmd.append(script)
+    cmd.append(" ")
+    cmd.append(splitedFileNamePrefix)
+    cmd = ''.join(cmd)
+
+    # print("cmd:", cmd)
+    os.system(cmd)
 
 if __name__ == '__main__':
     # set multithreading pool
