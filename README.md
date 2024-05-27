@@ -1,3 +1,3 @@
 # rouTEE
 
-See the most preceding branch, `alpha` .
+See the most preceding branch, `beta` .
