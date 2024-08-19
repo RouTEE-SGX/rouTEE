@@ -24,7 +24,7 @@ $ docker exec -t -i [container_name] bash
 ### git clone rouTEE & env. setting
 
 ```
-$ git clone [this_repository] [--branch beta]
+$ git clone [this_repository] [--branch artifact]
 $ cd rouTEE
 $ sudo apt-get install libcurl4-openssl-dev libssl-dev
 $ cd tee/Enclave/libs/bitcoin/secp256k1
