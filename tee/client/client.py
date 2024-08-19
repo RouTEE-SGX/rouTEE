@@ -402,7 +402,7 @@ def send_line_parallel(script, do_measure_latency=False):
         #     print("latency:", latency.total_seconds())
         #     print("latency:", int(latency.total_seconds()*1000000), "microsec")
     else:
-    pool.map(send_line, commands, 1)
+        pool.map(send_line, commands, 1)
     elapsed = datetime.now() - startTime
     print(elapsed)
     return latencies
@@ -452,7 +452,7 @@ def nin_(A: list, clipping=(0, 0)):
 
 if __name__ == "__main__":
     print("start")
-    THREAD_COUNT = multiprocessing.cpu_count()
+    THREAD_COUNT = multiprocessing.cpu_count() - 1 # minus one is for host.py
     pool = Pool(THREAD_COUNT)
     print("thread count:", pool._processes)
     # send_line_parallel("signedAddUser_5")
