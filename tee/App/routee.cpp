@@ -343,13 +343,14 @@ void error(const char* errmsg) {
 
 // load encrypted state from a file
 void load_state() {
+    printf("try to load sealed state\n");
 
     // if there is no saved state, just terminate
     struct stat buffer;
     char* sealed_state;
     int sealed_state_len;
     if (stat (STATE_FILENAME, &buffer) != 0) {
-        // printf("there is no saved state. just start rouTEE\n");
+        printf("  there is no sealed state. just newly start rouTEE\n");
         return;
     } else {
         // load sealed state from the file
@@ -362,7 +363,7 @@ void load_state() {
     }
 
     // load state
-    // printf("load state\n");
+    printf("  there is sealed state, load this state\n");
     int ecall_return;
     int ecall_result = ecall_load_state(global_eid, &ecall_return, sealed_state, sealed_state_len);
     // printf("ecall_load_state() -> result:%d / return:%d\n", ecall_result, ecall_return);
@@ -982,13 +983,12 @@ int SGX_CDECL main(int argc, char* argv[]){
     }
 
     // if there is a saved state, load it
-    printf("unseal state executed\n");
     std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
     load_state();
     std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
     std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     std::chrono::microseconds micro = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout << "Elapsed time for state unsealing: " << micro.count() << " us (" << milli.count() << " ms)" << std::endl;
+    std::cout << "  Elapsed time for state unsealing: " << micro.count() << " us (" << milli.count() << " ms)" << std::endl;
 
     // run socket server to get commands
     int opt = TRUE;
