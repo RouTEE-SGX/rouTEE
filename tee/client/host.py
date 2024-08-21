@@ -1,41 +1,28 @@
 import socket
 from datetime import datetime
 import csv
-import sys
-import base64
+import sys, os
 import time
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Hash import SHA256
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Signature import pkcs1_15
-import hashlib
-import multiprocessing
-from multiprocessing import Pool
+from routee_configs import *
 
-# rouTEE IP address
-SERVER_IP = "XXX.XX.XXX.XX"
-SERVER_PORT = 0000
 
 # open socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # connect to the server
-client_socket.connect((SERVER_IP, SERVER_PORT))
+try:
+    client_socket.connect((SERVER_IP, SERVER_PORT))
+    print("successfully connect to RouTEE")
+except Exception as e:
+    print("connect failed: start RouTEE first or set SERVER_IP and SERVER_PORT correctly")
+    print("  current SERVER_IP:", SERVER_IP)
+    print("  current SERVER_PORT:", SERVER_PORT)
+    sys.exit()
 
-# sockets for multiprocessing
-client_sockets = []
-for i in range(1):
-    s = socket.socket()
-    s.connect((SERVER_IP, SERVER_PORT))
-    client_sockets.append(s)
-
-# command scripts for rouTEE
-SCRIPTSPATH = "scripts/"
-
-# encryption/decryption setting
-KEY_SIZE = 16 # bytes
-MAC_SIZE = 16 # bytes
-NONCE_SIZE = 12 # bytes
 
 # print byte array
 def print_hex_bytes(name, byte_array):
@@ -45,13 +32,16 @@ def print_hex_bytes(name, byte_array):
         pass
     # print("")
 
+
 # generate random key
 def gen_random_key():
     return get_random_bytes(KEY_SIZE)
 
+
 # generate random nonce (= Initialization Vector, IV)
 def gen_random_nonce():
     return get_random_bytes(NONCE_SIZE)
+
 
 # AES-GCM encryption
 def enc(key, aad, nonce, plain_data):
@@ -66,6 +56,7 @@ def enc(key, aad, nonce, plain_data):
     cipher_data = cipher.encrypt(plain_data)
     mac = cipher.digest()
     return cipher_data, mac
+
 
 # AES-GCM decryption
 def dec(key, aad, nonce, cipher_data, mac):
@@ -83,127 +74,6 @@ def dec(key, aad, nonce, cipher_data, mac):
     except ValueError:
         # ERROR: wrong MAC tag, data is contaminated
         return None
-
-# get file length
-def file_len(fileName):
-    with open(fileName) as f:
-        for i, l in enumerate(f):
-            pass
-    return i + 1
-
-# execute the script for rouTEE
-def runScript(fileName):
-    # print("run script", fileName, "\n")
-
-    try:
-        f = open(SCRIPTSPATH+fileName, 'r')
-        rdr = csv.reader(f)
-    except:
-        print("there are no proper script; try again")
-        cmd = input("input command: ")
-        runScript(cmd)
-        return
-
-    # command count
-    addUserCount = 0
-    depositReqCount = 0
-    depositTxCount = 0
-    paymentCount = 0
-    settleReqCount = 0
-    updateSPVCount = 0
-
-    # command execution time sum (microsec)
-    addUserTimeSum = 0
-    depositReqTimeSum = 0
-    depositTxTimeSum = 0
-    paymentTimeSum = 0
-    settleReqTimeSum = 0
-    updateSPVTimeSum = 0
-
-    totalStartTime = datetime.now()
-    elapsedTimeSum = 0
-    cnt = 0
-    cmdNumber = file_len(SCRIPTSPATH+fileName)
-    printEpoch = cmdNumber/100
-    for command in rdr:
-        # ignore '\n'
-        if len(command) == 0:
-            continue
-        cnt = cnt + 1
-
-        result, elapsed = executeCommand(command[0])
-
-        if result is None:
-            print("something went wrong!\n")
-        else:
-            # print(result)
-
-            # calculate elapsed time
-            elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
-            elapsedMillisec = elapsedMicrosec / 1000.0
-            elapsedSec = elapsedMillisec / 1000.0
-            elapsedTimeSum = elapsedTimeSum + elapsedMicrosec
-
-            # print results
-            if cnt%printEpoch == 0:
-                # print("script cmd (", cnt, "/", cmdNumber, ") :", command[0])
-                # print("elapsed time:", elapsed)
-                # print('Received:', data.decode())
-                # print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
-                pass
-
-            # logging execution time info
-            if command[0][0] == 't' and command[0][2] == 'v':
-                addUserCount = addUserCount + 1
-                addUserTimeSum = addUserTimeSum + elapsedMicrosec
-                with open("experiment/addUserResult", "at") as f1:
-                    f1.write(repr(elapsedMicrosec) + "\n")
-            elif command[0][0] == 't' and command[0][2] == 'j':
-                depositReqCount = depositReqCount + 1
-                depositReqTimeSum = depositReqTimeSum + elapsedMicrosec
-                with open("experiment/depositReqResult", "at") as f1:
-                    f1.write(repr(elapsedMicrosec) + "\n")
-            elif command[0][0] == 'r':
-                depositTxCount = depositTxCount + 1
-                depositTxTimeSum = depositTxTimeSum + elapsedMicrosec
-                with open("experiment/depositTxResult", "at") as f1:
-                    f1.write(repr(elapsedMicrosec) + "\n")
-            elif command[0][0] == 't' and command[0][2] == 'm':
-                paymentCount = paymentCount + 1
-                paymentTimeSum = paymentTimeSum + elapsedMicrosec
-                with open("experiment/paymentResult", "at") as f1:
-                    f1.write(repr(elapsedMicrosec) + "\n")
-            elif command[0][0] == 't' and command[0][2] == 'l':
-                settleReqCount = settleReqCount + 1
-                settleReqTimeSum = settleReqTimeSum + elapsedMicrosec
-                with open("experiment/settleReqResult", "at") as f1:
-                    f1.write(repr(elapsedMicrosec) + "\n")
-            elif command[0][0] == 't' and command[0][2] == 'q':
-                updateSPVCount = updateSPVCount + 1
-                updateSPVTimeSum = updateSPVTimeSum + elapsedMicrosec
-                with open("experiment/updateSPVResult", "at") as f1:
-                    f1.write(repr(elapsedMicrosec) + "\n")
-
-    totalElapsed = datetime.now() - totalStartTime
-    # print("run script elapsed time:", totalElapsed, "\n")
-    print("run script elapsed time:", totalElapsed)
-    # print("elapsed time sum:", elapsedTimeSum, "ms")
-
-    # try:
-    #     # print("payment count:", paymentCount, "/ payment execution time:", paymentTimeSum, "( avg time:", paymentTimeSum/paymentCount, "ms )")
-    # except:
-    #     # print("payment count:", 0, "/ payment execution time:", 0, "( avg time:", 0, "ms )")
-    # try:
-    #     # print("settle count:", settleCount, "/ settle execution time:", settleTimeSum, "( avg time:", settleCount/settleTimeSum, "ms )")
-    # except:
-    #     # print("settle count:", 0, "/ settle execution time:", 0, "( avg time:", 0, "ms )")
-    # try:
-    #     # print("create channel count:", createChannelCount, "/ create channel execution time:", createChannelTimeSum, "( avg time:", createChannelTimeSum/createChannelCount, "ms )")
-    # except:
-    #     # print("create channel count:", 0, "/ create channel execution time:", 0, "( avg time:", 0, "ms )")
-
-    # print("")
-    return
 
 
 def secure_command(message, sessionID):
@@ -248,7 +118,7 @@ def secure_command(message, sessionID):
     else:
         print("ERROR: decryption failed, (maybe) plain response msg:", data.decode())
         return None, elapsed 
-    
+
 
 def executeCommand(command):
     # print(command)
@@ -281,9 +151,9 @@ def executeCommand(command):
     command = command.encode('utf-8')
 
     try:
-        with open("./key/private_key_{}.pem".format(user), "rb") as f:
+        with open(KEY_PATH+"private_key_{}.pem".format(user), "rb") as f:
             sk = RSA.import_key(f.read())
-        with open("./key/public_key_{}.pem".format(user), "rb") as f:
+        with open(KEY_PATH+"public_key_{}.pem".format(user), "rb") as f:
             vk = RSA.import_key(f.read())
     except:
         print("no user key")
@@ -326,83 +196,43 @@ def executeCommand(command):
     # elapsedSec = elapsedMillisec / 1000.0
     # print("elapsed:", elapsedMicrosec, "microsec /", elapsedMillisec, "millisec /", elapsedSec, "sec\n")
 
-# send signed & encrypted operation messages to RouTEE
-def send_lines(command):
-    # if FILE_NAME[:6] != 'signed':
-    #     return
-
-    try:
-        f = open(SCRIPTSPATH+command, 'r')
-        rdr = csv.reader(f)
-    except:
-        print("there are no proper script; try again")
-        cmd = input("input command: ")
-        send_lines(cmd)
-        return
-
-    for command in rdr:
-        # ignore '\n'
-        if len(command) == 0:
-            continue
-        client_socket.sendall(bytes.fromhex(command[0]))
-        data_ = client_socket.recv(1024)
-        # see results
-        # mac = bytes(data_[:MAC_SIZE])
-        # nonce = bytes(data_[MAC_SIZE:MAC_SIZE+NONCE_SIZE])
-        # cipher_data = bytes(data_[MAC_SIZE+NONCE_SIZE:])
-        # key = bytes([0x0,0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xa,0xb,0xc,0xd,0xe,0xf])
-        # aad = bytes([0])
-        # result = dec(key, aad, nonce, cipher_data, mac)
-        # if result != b'SUCCESS':
-        #     print("data: ", result)
-        #     # return
-
-def send_line(line):
-    process_num = int(multiprocessing.current_process().name.split('-')[-1])
-    my_socket = client_sockets[process_num-1]
-    my_socket.sendall(bytes.fromhex(line))
-    data_ = my_socket.recv(1024)
-
-# send command lines parallelly
-def send_line_parallel(script):
-    try:
-        commands = open(SCRIPTSPATH+script, 'r')
-        rdr = csv.reader(commands)
-    except:
-        print("there are no proper script; try again")
-        cmd = input("input command: ")
-        send_line_parallel(cmd)
-        return
-
-    # send commands parallelly
-    startTime = datetime.now()
-    pool.map(send_line, commands, 1)
-    elapsed = datetime.now() - startTime
-    print(elapsed)
 
 if __name__ == "__main__":
 
+    if len(sys.argv) == 3:
+        round_interval_sec = int(sys.argv[1])
+        round_num = int(sys.argv[2])
+    else:
+        print("ERROR: input round_interval and round_num")
+        sys.exit()
+
+    # check if host's key exists
+    hostID = "user" + format(0, USER_ID_LEN)
+    if not os.path.exists(KEY_PATH+"private_key_{}.pem".format(hostID)):
+        print("ERROR: there is no host key, execute makeNewAddresses first or set USER_ID_LEN correctly")
+        print("  host ID:", hostID)
+        sys.exit()
+
     print("start")
-    THREAD_COUNT = 1
-    pool = Pool(THREAD_COUNT)
-    print("thread count:", pool._processes)
+    print("  round interval:", round_interval_sec, "sec")
+    print("  round num to run:", round_num)
 
-    # send_line_parallel("signedAddUser_5")
-
-    backupInterval = 1 * 1000000000 # nanosec
-    roundNum = 0
-
-    savedTime = time.time_ns() - 0.9 * backupInterval
-    while roundNum < 15:
-        currentTime = time.time_ns()
-        if currentTime > savedTime + backupInterval:
-            savedTime = currentTime
+    round_interval = round_interval_sec * 1000000000 # sec to nanosec
+    current_round = 0
+    executed_time = time.time_ns() - 0.9 * round_interval
+    while current_round < round_num:
+        current_time = time.time_ns()
+        if current_time > executed_time + round_interval:
+            # measure real interval
+            measured_interval = current_time - executed_time
+            # update executed time
+            executed_time = current_time
 
             # do the job
             # executeCommand("a user0000000") # ping
-            print("Round", roundNum)
-            roundNum += 1
-            executeCommand("x user0000000") # process round
-            print("savedTime:", savedTime/1000000000, "sec\n")
+            current_round += 1
+            print("\nRound", current_round)
+            executeCommand("x " + hostID) # process round
+            print("measured interval:", measured_interval/1000000000, "sec\n")
     
     print("finish")

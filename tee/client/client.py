@@ -5,26 +5,28 @@ import socket
 from datetime import datetime
 import csv
 import sys
-import base64
-import time
 # python crypto library example: https://blog.naver.com/chandong83/221886840586
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Hash import SHA256
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Signature import pkcs1_15
-import hashlib
 import multiprocessing
 from multiprocessing import Pool
+from routee_configs import *
 
-# rouTEE IP address
-SERVER_IP = "147.XX.XXX.XX"
-SERVER_PORT = 7557
 
 # open socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # connect to the server
-client_socket.connect((SERVER_IP, SERVER_PORT))
+try:
+    client_socket.connect((SERVER_IP, SERVER_PORT))
+    print("successfully connect to RouTEE")
+except Exception as e:
+    print("connect failed: start RouTEE first or set SERVER_IP and SERVER_PORT correctly")
+    print("  current SERVER_IP:", SERVER_IP)
+    print("  current SERVER_PORT:", SERVER_PORT)
+    sys.exit()
 
 # sockets for multiprocessing
 client_sockets = []
@@ -33,13 +35,6 @@ for i in range(multiprocessing.cpu_count()):
     s.connect((SERVER_IP, SERVER_PORT))
     client_sockets.append(s)
 
-# command scripts for rouTEE
-SCRIPTSPATH = "scripts/"
-
-# encryption/decryption setting
-KEY_SIZE = 16 # bytes
-MAC_SIZE = 16 # bytes
-NONCE_SIZE = 12 # bytes
 
 # print byte array
 def print_hex_bytes(name, byte_array):
@@ -100,7 +95,7 @@ def runScript(fileName):
     # print("run script", fileName, "\n")
 
     try:
-        f = open(SCRIPTSPATH+fileName, 'r')
+        f = open(SCRIPTS_PATH+fileName, 'r')
         rdr = csv.reader(f)
     except:
         print("there are no proper script; try again")
@@ -127,7 +122,7 @@ def runScript(fileName):
     totalStartTime = datetime.now()
     elapsedTimeSum = 0
     cnt = 0
-    cmdNumber = file_len(SCRIPTSPATH+fileName)
+    cmdNumber = file_len(SCRIPTS_PATH+fileName)
     printEpoch = cmdNumber/100
     for command in rdr:
         # ignore '\n'
@@ -140,7 +135,7 @@ def runScript(fileName):
         if result is None:
             print("something went wrong!\n")
         else:
-            # print(result)
+            print("  result:", result)
 
             # calculate elapsed time
             elapsedMicrosec = elapsed.seconds * 1000000 + elapsed.microseconds
@@ -285,9 +280,9 @@ def executeCommand(command):
     command = command.encode('utf-8')
 
     try:
-        with open("./key/private_key_{}.pem".format(user), "rb") as f:
+        with open(KEY_PATH+"private_key_{}.pem".format(user), "rb") as f:
             sk = RSA.import_key(f.read())
-        with open("./key/public_key_{}.pem".format(user), "rb") as f:
+        with open(KEY_PATH+"public_key_{}.pem".format(user), "rb") as f:
             vk = RSA.import_key(f.read())
     except:
         print("no user key")
@@ -336,7 +331,7 @@ def send_lines(command):
     #     return
 
     try:
-        f = open(SCRIPTSPATH+command, 'r')
+        f = open(SCRIPTS_PATH+command, 'r')
         rdr = csv.reader(f)
     except:
         print("there are no proper script; try again")
@@ -385,7 +380,7 @@ def send_line_measure_latency(line):
 # send command lines parallelly
 def send_line_parallel(script, do_measure_latency=False):
     try:
-        commands = open(SCRIPTSPATH+script, 'r')
+        commands = open(SCRIPTS_PATH+script, 'r')
         rdr = csv.reader(commands)
     except:
         print("there are no proper script; try again")
@@ -470,9 +465,8 @@ if __name__ == "__main__":
             SEND_SIGNED = True
 
     while (True):
-        # command = input("input command: ")
         try:
-            command = input()
+            command = input("\ninput command: ")
         except EOFError:
             break
 
