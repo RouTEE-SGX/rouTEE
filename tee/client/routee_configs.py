@@ -9,7 +9,7 @@ ADDR_LIST_FILE_NAME = "addressList"
 
 # paths for script, key
 SCRIPTS_PATH = "scripts/"
-KEY_PATH = "key/"
+KEY_PATH = "keys/"
 # generate dirs if not exist
 if not os.path.exists(SCRIPTS_PATH):
     os.makedirs(SCRIPTS_PATH)

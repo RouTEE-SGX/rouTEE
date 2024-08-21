@@ -5,14 +5,13 @@ remake.sh
 owner.key.encrypted
 state.sealed
 core
-client/scripts/script*
-client/scripts/signed*
-client/scripts/runMakeScript
+client/__pycache__/*
+client/scripts/*
+client/keys/*
 client/resultLogs/*
 client/test.py
 client/crypTest.py
 client/**/*.pem
-client/key/*
 client/experiment/*
 todoList.txt
 

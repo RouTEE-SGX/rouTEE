@@ -411,7 +411,7 @@ int set_routing_fee(char* request, int request_len) {
 
     // size_t n;
     // unsigned char* buf;
-    // int ret = mbedtls_pk_load_file( "../client/key/public_key_alice", &buf, &n );
+    // int ret = mbedtls_pk_load_file( "../client/keys/public_key_alice", &buf, &n );
     // printf("App/set_routing_fee ret: %d\n\n", ret);
     printf("App/strlen(command): %s, %d\n\n", command, command_len);
 
