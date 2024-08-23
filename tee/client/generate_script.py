@@ -19,9 +19,6 @@ from routee_configs import *
 # print epoch to show script generation progress
 PRINT_EPOCH = 1000
 
-# generating key is time consuming, just use one key to generate signature
-USE_SINGLE_KEY = False
-
 
 def base58(address_hex):
     alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -273,7 +270,7 @@ def makeAddUsers(accountNumber):
     print("  -> generated", script_name, "&", signed_script_name)
 
 
-def getReadyForDeposit_thread(params):
+def makeAddDeposits_thread(params):
     # parse params
     beneficiary_index = params[0]
     num = params[1]
@@ -293,8 +290,8 @@ def getReadyForDeposit_thread(params):
     return command, signedCommand
 
 
-# generate AddDeposit commands
-def getReadyForDeposit(userNumber, requestNumber):
+# generate AddDeposit commands which return random manager addresses
+def makeAddDeposits(userNumber, requestNumber):
     # collect params for threads
     params = []
     for i in range(requestNumber):
@@ -302,7 +299,7 @@ def getReadyForDeposit(userNumber, requestNumber):
         params.append((user_index, i+1))
 
     # parallelly generate plain & signed command
-    commands = pool.map(getReadyForDeposit_thread, params, 1)
+    commands = pool.map(makeAddDeposits_thread, params, 1)
 
     # write commands to files
     script_name = "scriptManager_{}_{}".format(userNumber, requestNumber)
@@ -343,8 +340,7 @@ def dealWithDepositTxs(accountNumber):
     print("  -> generated", script_name, "&", signed_script_name)
 
 
-# generate Payment commands
-def doMultihopPayments_thread(params):
+def makePayments_thread(params):
     # print("params:", params)
     sender_index = params[0]
     receiver_indexes = params[1]
@@ -370,8 +366,8 @@ def doMultihopPayments_thread(params):
     return command, signedCommand
 
 
-# Script for payments among users
-def doMultihopPayments(addressNumber, paymentNumber, batchSize):
+# generate Payment commands
+def makePayments(addressNumber, paymentNumber, batchSize):
     if not os.path.exists(SCRIPTS_PATH+ADDR_LIST_FILE_NAME):
         print("ERROR: execute makeNewAddresses first\n")
         return
@@ -414,7 +410,7 @@ def doMultihopPayments(addressNumber, paymentNumber, batchSize):
         params.append((sender_index, receiver_indexes, i+1))
 
     # parallelly generate plain & signed command
-    commands = pool.map(doMultihopPayments_thread, params, 1)
+    commands = pool.map(makePayments_thread, params, 1)
 
     # write commands to files
     script_name = "scriptPayment_{}_{}_{}".format(addressNumber, paymentNumber, batchSize)
@@ -426,7 +422,7 @@ def doMultihopPayments(addressNumber, paymentNumber, batchSize):
     print("  -> generated", script_name, "&", signed_script_name)
 
 
-def settleBalanceRequest_thread(params):
+def makeSettlements_thread(params):
     # parse params
     user_index = params[0]
     num = params[1]
@@ -445,8 +441,8 @@ def settleBalanceRequest_thread(params):
     return command, signedCommand
 
 
-# Script for generating settle requests
-def settleBalanceRequest(userNumber, settleRequestNumber):
+# generate Settlement commands
+def makeSettlements(userNumber, settleRequestNumber):
     # collect params for threads
     params = []
     for i in range(settleRequestNumber):
@@ -454,7 +450,7 @@ def settleBalanceRequest(userNumber, settleRequestNumber):
         params.append((user_index, i+1))
 
     # parallelly generate plain & signed command
-    commands = pool.map(settleBalanceRequest_thread, params, 1)
+    commands = pool.map(makeSettlements_thread, params, 1)
 
     # write commands to files
     script_name = "scriptSettle_{}_{}".format(userNumber, settleRequestNumber)
@@ -466,7 +462,7 @@ def settleBalanceRequest(userNumber, settleRequestNumber):
     print("  -> generated", script_name, "&", signed_script_name)
 
 
-def updateBoundary_thread(params):
+def makeUpdateBoundaryBlocks_thread(params):
     # parse params
     user_index = params[0]
     block_number = params[1]
@@ -488,7 +484,7 @@ def updateBoundary_thread(params):
 
 
 # generate UpdateBoundaryBlock commands
-def updateBoundary(addressNumber, updateNumber, maxBlockNumber):
+def makeUpdateBoundaryBlocks(addressNumber, updateNumber, maxBlockNumber):
     # generate temp block hashes
     block_hashes = []
     for i in range(maxBlockNumber+1):
@@ -504,7 +500,7 @@ def updateBoundary(addressNumber, updateNumber, maxBlockNumber):
         params.append((user_index, block_number, block_hash, i+1))
 
     # parallelly generate plain & signed command
-    commands = pool.map(updateBoundary_thread, params, 1)
+    commands = pool.map(makeUpdateBoundaryBlocks_thread, params, 1)
 
     # write commands to files
     script_name = "scriptUpdate_{}_{}_{}".format(addressNumber, updateNumber, maxBlockNumber)
@@ -542,7 +538,7 @@ if __name__ == '__main__':
     if len(sys.argv) >= 2:
         command = int(sys.argv[1])
     else:
-        command = eval(input("which script do you want to make (0: all / 1: makeNewKeys / 2: makeNewAddresses / 3: makeAddUsers / 4: getReadyForDeposit & dealWithDepositTxs / 5: doMultihopPayments / 6: settleBalanceRequest / 6: updateBoundary): "))
+        command = eval(input("which script do you want to make (0: all / 1: makeNewKeys / 2: makeNewAddresses / 3: makeAddUsers / 4: makeAddDeposits / 5: makePayments / 6: makeSettlements / 6: makeUpdateBoundaryBlocks): "))
 
     startTime = datetime.now()
 
@@ -574,8 +570,8 @@ if __name__ == '__main__':
         else:
             userNumber = eval(input("how many users in routee: "))
             depositNumber = eval(input("how many manager addresses to get: "))
-        getReadyForDeposit(userNumber, depositNumber)
-        dealWithDepositTxs(depositNumber) # this is for testing
+        makeAddDeposits(userNumber, depositNumber)
+        # dealWithDepositTxs(depositNumber) # this is for testing
 
     elif command == 5:
         if len(sys.argv) >= 2:
@@ -586,7 +582,7 @@ if __name__ == '__main__':
             userNumber = eval(input("how many users in routee: "))
             paymentNumber = eval(input("how many rouTEE payments to execute: "))
             batchSize = eval(input("how many receivers per payment (batch size): "))
-        doMultihopPayments(userNumber, paymentNumber, batchSize)
+        makePayments(userNumber, paymentNumber, batchSize)
 
     elif command == 6:
         if len(sys.argv) >= 2:
@@ -595,7 +591,7 @@ if __name__ == '__main__':
         else:
             userNumber = eval(input("how many users in routee: "))
             settleNumber = eval(input("how many rouTEE settlements to execute: "))
-        settleBalanceRequest(userNumber, settleNumber)
+        makeSettlements(userNumber, settleNumber)
 
     elif command == 7:
         if len(sys.argv) >= 2:
@@ -606,16 +602,25 @@ if __name__ == '__main__':
             userNumber = eval(input("how many users in routee: "))
             updateNumber = eval(input("how many routee boundary block updates to execute: "))
             maxBlockNumber = eval(input("max block number in routee: "))
-        updateBoundary(userNumber, updateNumber, maxBlockNumber)
+        makeUpdateBoundaryBlocks(userNumber, updateNumber, maxBlockNumber)
 
     elif command == 0:
-        userNumber = eval(input("how many users in routee: "))
-        depositNumber = eval(input("how many manager addresses to get: "))
-        paymentNumber = eval(input("how many rouTEE payments to execute: "))
-        batchSize = eval(input("  how many receivers per payment (batch size): "))
-        settleNumber = eval(input("how many rouTEE settlements to execute: "))
-        updateNumber = eval(input("how many routee boundary block updates to execute: "))
-        maxBlockNumber = eval(input("  max block number in routee: "))
+        if len(sys.argv) >= 2:
+            userNumber = int(sys.argv[2])
+            depositNumber = int(sys.argv[3])
+            paymentNumber = int(sys.argv[4])
+            batchSize = int(sys.argv[5])
+            settleNumber = int(sys.argv[6])
+            updateNumber = int(sys.argv[7])
+            maxBlockNumber = int(sys.argv[8])
+        else:
+            userNumber = eval(input("how many users in routee: "))
+            depositNumber = eval(input("how many manager addresses to get: "))
+            paymentNumber = eval(input("how many rouTEE payments to execute: "))
+            batchSize = eval(input("  how many receivers per payment (batch size): "))
+            settleNumber = eval(input("how many rouTEE settlements to execute: "))
+            updateNumber = eval(input("how many routee boundary block updates to execute: "))
+            maxBlockNumber = eval(input("  max block number in routee: "))
 
         if USE_SINGLE_KEY:
             makeNewKeys(1)
@@ -623,10 +628,10 @@ if __name__ == '__main__':
             makeNewKeys(userNumber)
         makeNewAddresses(userNumber)
         makeAddUsers(userNumber)
-        getReadyForDeposit(userNumber, depositNumber)
-        doMultihopPayments(userNumber, paymentNumber, batchSize)
-        settleBalanceRequest(userNumber, settleNumber)
-        updateBoundary(userNumber, updateNumber, maxBlockNumber)
+        makeAddDeposits(userNumber, depositNumber)
+        makePayments(userNumber, paymentNumber, batchSize)
+        makeSettlements(userNumber, settleNumber)
+        makeUpdateBoundaryBlocks(userNumber, updateNumber, maxBlockNumber)
 
     else:
         print("wrong number, type other number to generate script")

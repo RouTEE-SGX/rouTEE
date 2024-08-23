@@ -21,6 +21,9 @@ if not os.path.exists(KEY_PATH):
 # ex. USER_ID_LEN = '03' -> user000, user001, ...
 USER_ID_LEN = '07'
 
+# generating key is time consuming, just use one key to generate signature
+USE_SINGLE_KEY = False
+
 # encryption/decryption setting
 KEY_SIZE = 16 # bytes
 MAC_SIZE = 16 # bytes
