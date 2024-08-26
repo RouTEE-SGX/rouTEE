@@ -60,6 +60,8 @@ If your machine has SGX support and you want to run in `Hardware` mode, follow t
     $ docker exec -t -i [container_name] bash
     ```
 
+    **Note:** If your machine does not have `/dev/mei0`, you can omit the `--device /dev/mei0` option.
+
 ### Setting Up SGX Environment
 
 Once inside the Docker container, set up the SGX environment:
@@ -82,7 +84,7 @@ Then, proceed with the following commands to build RouTEE:
 
 ```bash
 $ cd
-$ git clone [this_repository] --branch artifact
+$ git clone https://github.com/RouTEE-SGX/rouTEE.git --branch artifact
 $ cd rouTEE
 $ sudo apt-get install libcurl4-openssl-dev libssl-dev
 $ cd tee/Enclave/libs/bitcoin/secp256k1
@@ -109,7 +111,23 @@ You should see the message when RouTEE is ready: `Waiting for connections ...`.
 
 ### Installation
 
-To work with user commands, ensure you have Python 3.7.4 and pip 21.3.1 installed. Set up the environment with:
+For working with user commands, we used **Python 3.7.4** and **pip 21.3.1**.
+
+```bash
+$ sudo apt update
+$ sudo apt install build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev wget libbz2-dev
+$ wget https://www.python.org/ftp/python/3.7.4/Python-3.7.4.tgz
+$ tar xvfz Python-3.7.4.tgz 
+$ cd Python-3.7.4
+$ ./configure 
+$ make
+$ sudo make install
+
+$ sudo apt-get install python3-pip
+$ python3 -m pip install pip==21.3.1
+```
+
+Once Python and pip are installed, set up the environment with:
 
 ```bash
 $ cd tee/client
