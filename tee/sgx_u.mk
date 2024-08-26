@@ -1,6 +1,6 @@
 ######## SGX SDK Settings ########
 SGX_SDK ?= /opt/intel/sgxsdk
-SGX_MODE ?= HW
+# SGX_MODE ?= HW
 SGX_ARCH ?= x64
 UNTRUSTED_DIR=App
 SGX_PRERELEASE ?= 1
