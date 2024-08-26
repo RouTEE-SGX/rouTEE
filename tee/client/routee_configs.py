@@ -9,14 +9,15 @@ ADDR_LIST_FILE_NAME = "addressList"
 
 # paths for script, key
 SCRIPTS_PATH = "scripts/"
-KEY_PATH = "keys/"
+KEYS_PATH = "keys/"
+RESULTS_PATH = "results/"
 # generate dirs if not exist
 if not os.path.exists(SCRIPTS_PATH):
     os.makedirs(SCRIPTS_PATH)
-    print("gen path:", SCRIPTS_PATH)
-if not os.path.exists(KEY_PATH):
-    os.makedirs(KEY_PATH)
-    print("gen path:", KEY_PATH)
+if not os.path.exists(KEYS_PATH):
+    os.makedirs(KEYS_PATH)
+if not os.path.exists(RESULTS_PATH):
+    os.makedirs(RESULTS_PATH)
 
 # ex. USER_ID_LEN = '03' -> user000, user001, ...
 USER_ID_LEN = '07'

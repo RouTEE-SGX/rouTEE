@@ -8,11 +8,11 @@ core
 client/__pycache__/*
 client/scripts/*
 client/keys/*
+client/results/*
 client/resultLogs/*
 client/test.py
 client/crypTest.py
 client/**/*.pem
-client/experiment/*
 todoList.txt
 
 Enclave/routee_t.c

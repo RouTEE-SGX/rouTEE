@@ -128,9 +128,9 @@ def executeCommand(command):
 
     # encryption using RSA
     try:
-        with open(KEY_PATH+"private_key_{}.pem".format(user), "rb") as f:
+        with open(KEYS_PATH+"private_key_{}.pem".format(user), "rb") as f:
             sk = RSA.import_key(f.read())
-        with open(KEY_PATH+"public_key_{}.pem".format(user), "rb") as f:
+        with open(KEYS_PATH+"public_key_{}.pem".format(user), "rb") as f:
             vk = RSA.import_key(f.read())
     except:
         print("no user key")
@@ -182,7 +182,7 @@ def secure_command(message, sessionID):
 def makeNewKeys(key_num):
     for i in tqdm(range(key_num)):
         userID = "user" + format(i, USER_ID_LEN)
-        if os.path.exists(KEY_PATH+"private_key_{}.pem".format(userID)):
+        if os.path.exists(KEYS_PATH+"private_key_{}.pem".format(userID)):
             # print("this user already exist, just skip")
             continue
 
@@ -190,10 +190,12 @@ def makeNewKeys(key_num):
         private_key = RSA.generate(3072)
         public_key = private_key.publickey()
 
-        with open(KEY_PATH+"private_key_{}.pem".format(userID), "wb") as f1:
+        with open(KEYS_PATH+"private_key_{}.pem".format(userID), "wb") as f1:
             f1.write(private_key.export_key('PEM'))
-        with open(KEY_PATH+"public_key_{}.pem".format(userID), "wb") as f2:
+        with open(KEYS_PATH+"public_key_{}.pem".format(userID), "wb") as f2:
             f2.write(public_key.export_key('PEM'))
+    
+    print("  -> generated private & public keys")
 
 
 def makeNewAddresses_thread(num):
@@ -213,6 +215,8 @@ def makeNewAddresses(addr_num):
     with open(SCRIPTS_PATH+ADDR_LIST_FILE_NAME, "wt") as fscript:
         for address in addresses:
             fscript.write(address+"\n")
+
+    print("  -> generated", ADDR_LIST_FILE_NAME)
 
 
 def makeAddUsers_thread(params):
@@ -238,7 +242,7 @@ def makeAddUsers(accountNumber):
         print("ERROR: execute makeNewAddresses first\n")
         return
     
-    if not os.path.exists(KEY_PATH+"private_key_{}.pem".format("user" + format(0, USER_ID_LEN))):
+    if not os.path.exists(KEYS_PATH+"private_key_{}.pem".format("user" + format(0, USER_ID_LEN))):
         print("ERROR: execute makeNewKeys first\n")
         return
 
@@ -302,8 +306,8 @@ def makeAddDeposits(userNumber, requestNumber):
     commands = pool.map(makeAddDeposits_thread, params, 1)
 
     # write commands to files
-    script_name = "scriptManager_{}_{}".format(userNumber, requestNumber)
-    signed_script_name = "signedManager_{}_{}".format(userNumber, requestNumber)
+    script_name = "scriptAddDeposit_{}_{}".format(userNumber, requestNumber)
+    signed_script_name = "signedAddDeposit_{}_{}".format(userNumber, requestNumber)
     with open(SCRIPTS_PATH+script_name, "wt") as fscript, open(SCRIPTS_PATH+signed_script_name, "w") as fsigned:
         for cmd in commands:
             fscript.write(cmd[0]+"\n")
@@ -371,7 +375,7 @@ def makePayments(addressNumber, paymentNumber, batchSize):
     if not os.path.exists(SCRIPTS_PATH+ADDR_LIST_FILE_NAME):
         print("ERROR: execute makeNewAddresses first\n")
         return
-    if not os.path.exists(KEY_PATH+"private_key_{}.pem".format("user" + format(0, USER_ID_LEN))):
+    if not os.path.exists(KEYS_PATH+"private_key_{}.pem".format("user" + format(0, USER_ID_LEN))):
         print("ERROR: execute makeNewKeys first\n")
         return
     if addressNumber < 2:
@@ -453,8 +457,8 @@ def makeSettlements(userNumber, settleRequestNumber):
     commands = pool.map(makeSettlements_thread, params, 1)
 
     # write commands to files
-    script_name = "scriptSettle_{}_{}".format(userNumber, settleRequestNumber)
-    signed_script_name = "signedSettle_{}_{}".format(userNumber, settleRequestNumber)
+    script_name = "scriptSettlement_{}_{}".format(userNumber, settleRequestNumber)
+    signed_script_name = "signedSettlement_{}_{}".format(userNumber, settleRequestNumber)
     with open(SCRIPTS_PATH+script_name, "wt") as fscript, open(SCRIPTS_PATH+signed_script_name, "w") as fsigned:
         for cmd in commands:
             fscript.write(cmd[0]+"\n")
@@ -532,7 +536,7 @@ if __name__ == '__main__':
     # set multithreading pool
     THREAD_COUNT = multiprocessing.cpu_count()
     pool = Pool(THREAD_COUNT)
-    print("multithread count:", THREAD_COUNT)
+    # print("multithread count:", THREAD_COUNT)
 
     # if there is sys.argv input from command line, run a single script
     if len(sys.argv) >= 2:

@@ -155,32 +155,32 @@ def runScript(fileName):
             if command[0][0] == 't' and command[0][2] == 'v':
                 addUserCount = addUserCount + 1
                 addUserTimeSum = addUserTimeSum + elapsedMicrosec
-                with open("experiment/addUserResult", "at") as f1:
+                with open(RESULTS_PATH+"addUserResult", "at") as f1:
                     f1.write(repr(elapsedMicrosec) + "\n")
             elif command[0][0] == 't' and command[0][2] == 'j':
                 depositReqCount = depositReqCount + 1
                 depositReqTimeSum = depositReqTimeSum + elapsedMicrosec
-                with open("experiment/depositReqResult", "at") as f1:
+                with open(RESULTS_PATH+"addDepositResult", "at") as f1:
                     f1.write(repr(elapsedMicrosec) + "\n")
             elif command[0][0] == 'r':
                 depositTxCount = depositTxCount + 1
                 depositTxTimeSum = depositTxTimeSum + elapsedMicrosec
-                with open("experiment/depositTxResult", "at") as f1:
+                with open(RESULTS_PATH+"depositTxResult", "at") as f1:
                     f1.write(repr(elapsedMicrosec) + "\n")
             elif command[0][0] == 't' and command[0][2] == 'm':
                 paymentCount = paymentCount + 1
                 paymentTimeSum = paymentTimeSum + elapsedMicrosec
-                with open("experiment/paymentResult", "at") as f1:
+                with open(RESULTS_PATH+"paymentResult", "at") as f1:
                     f1.write(repr(elapsedMicrosec) + "\n")
             elif command[0][0] == 't' and command[0][2] == 'l':
                 settleReqCount = settleReqCount + 1
                 settleReqTimeSum = settleReqTimeSum + elapsedMicrosec
-                with open("experiment/settleReqResult", "at") as f1:
+                with open(RESULTS_PATH+"settlementResult", "at") as f1:
                     f1.write(repr(elapsedMicrosec) + "\n")
             elif command[0][0] == 't' and command[0][2] == 'q':
                 updateSPVCount = updateSPVCount + 1
                 updateSPVTimeSum = updateSPVTimeSum + elapsedMicrosec
-                with open("experiment/updateSPVResult", "at") as f1:
+                with open(RESULTS_PATH+"updateBoundaryResult", "at") as f1:
                     f1.write(repr(elapsedMicrosec) + "\n")
 
     totalElapsed = datetime.now() - totalStartTime
@@ -280,9 +280,9 @@ def executeCommand(command):
     command = command.encode('utf-8')
 
     try:
-        with open(KEY_PATH+"private_key_{}.pem".format(user), "rb") as f:
+        with open(KEYS_PATH+"private_key_{}.pem".format(user), "rb") as f:
             sk = RSA.import_key(f.read())
-        with open(KEY_PATH+"public_key_{}.pem".format(user), "rb") as f:
+        with open(KEYS_PATH+"public_key_{}.pem".format(user), "rb") as f:
             vk = RSA.import_key(f.read())
     except:
         print("no user key")

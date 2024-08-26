@@ -151,9 +151,9 @@ def executeCommand(command):
     command = command.encode('utf-8')
 
     try:
-        with open(KEY_PATH+"private_key_{}.pem".format(user), "rb") as f:
+        with open(KEYS_PATH+"private_key_{}.pem".format(user), "rb") as f:
             sk = RSA.import_key(f.read())
-        with open(KEY_PATH+"public_key_{}.pem".format(user), "rb") as f:
+        with open(KEYS_PATH+"public_key_{}.pem".format(user), "rb") as f:
             vk = RSA.import_key(f.read())
     except:
         print("no user key")
@@ -208,12 +208,12 @@ if __name__ == "__main__":
 
     # check if host's key exists
     hostID = "user" + format(0, USER_ID_LEN)
-    if not os.path.exists(KEY_PATH+"private_key_{}.pem".format(hostID)):
+    if not os.path.exists(KEYS_PATH+"private_key_{}.pem".format(hostID)):
         print("ERROR: there is no host key, execute makeNewAddresses first or set USER_ID_LEN correctly")
         print("  host ID:", hostID)
         sys.exit()
 
-    print("start")
+    # print("start")
     print("  round interval:", round_interval_sec, "sec")
     print("  round num to run:", round_num)
 
@@ -233,6 +233,6 @@ if __name__ == "__main__":
             current_round += 1
             print("\nRound", current_round)
             executeCommand("x " + hostID) # process round
-            print("measured interval:", measured_interval/1000000000, "sec\n")
+            print("measured interval:", measured_interval/1000000000, "sec")
     
     print("finish")
