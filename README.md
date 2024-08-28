@@ -105,7 +105,7 @@ After the build is complete, run RouTEE with:
 $ ./routee
 ```
 
-You should see the message when RouTEE is ready: `Waiting for connections ...`.
+You should see the message when RouTEE is ready: `waiting for connections ...`.
 
 **Note:** If you encounter the error message `"error while loading shared libraries: libsgx_urts_sim.so: cannot open shared object file: No such file or directory"`, ensure that the SGX SDK is set up as described in the previous step.
 
