@@ -317,6 +317,7 @@ Finish initializing RouTEE
 Try to load sealed state
   There is no sealed state. Starting a new instance of RouTEE
   Elapsed time for state unsealing: 6 us (0 ms)
+  
 Waiting for connections ...
 ```
 
