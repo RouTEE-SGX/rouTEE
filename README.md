@@ -32,7 +32,7 @@ This repository contains the implementation of **RouTEE: Secure, Scalable, and E
 
 ### Dependencies
 
-RouTEE has been tested on **Ubuntu 18.04.2 LTS** with **SGX Docker** version `sgx v2.1.3`.
+RouTEE has been tested on **Ubuntu 18.04.2 LTS** using **Docker 19.03.14** with **SGX Docker Image** whose SGX version is `sgx v2.1.3`.
 
 ### Setting Up the SGX Docker Container
 
@@ -72,7 +72,11 @@ $ source /opt/intel/sgxsdk/environment
 
 ### Building RouTEE
 
-Before building RouTEE, ensure to configure the `SERVER_IP` and `SERVER_PORT` in `App/routee.h`.
+Before building RouTEE, ensure to configure the `SERVER_IP` and `SERVER_PORT` in `App/routee.h`. To check IP address in the docker container:
+
+```bash
+$ ip addr show eth0
+```
 
 If you wish to run RouTEE in `Hardware` mode, you need to modify both `sgx_u.mk` and `sgx_t.mk` files before building. In each file, uncomment this line:
 

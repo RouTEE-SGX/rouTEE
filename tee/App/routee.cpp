@@ -1038,7 +1038,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 
     // accept the incoming connection
     addrlen = sizeof(address);
-    puts("Waiting for connections ...");
+    puts("\nWaiting for connections ...");
 
     // @ Luke Park
     // num of threads
