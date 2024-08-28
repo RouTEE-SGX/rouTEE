@@ -350,7 +350,7 @@ void load_state() {
     char* sealed_state;
     int sealed_state_len;
     if (stat (STATE_FILENAME, &buffer) != 0) {
-        printf("  there is no sealed state. just newly start rouTEE\n");
+        printf("  there is no sealed state. just newly start RouTEE\n");
         return;
     } else {
         // load sealed state from the file

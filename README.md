@@ -317,7 +317,7 @@ pending deposit requests number in RouTEE: 10000
 finish initializing RouTEE
 
 try to load sealed state
-  there is no sealed state. just newly start rouTEE
+  there is no sealed state. just newly start RouTEE
   elapsed time for state unsealing: 6 us (0 ms)
 
 waiting for connections ...
