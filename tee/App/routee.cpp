@@ -988,7 +988,7 @@ int SGX_CDECL main(int argc, char* argv[]){
     std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
     std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     std::chrono::microseconds micro = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout << "  Elapsed time for state unsealing: " << micro.count() << " us (" << milli.count() << " ms)" << std::endl;
+    std::cout << "  elapsed time for state unsealing: " << micro.count() << " us (" << milli.count() << " ms)" << std::endl;
 
     // run socket server to get commands
     int opt = TRUE;
@@ -1038,7 +1038,7 @@ int SGX_CDECL main(int argc, char* argv[]){
 
     // accept the incoming connection
     addrlen = sizeof(address);
-    puts("\nWaiting for connections ...");
+    puts("\nwaiting for connections ...");
 
     // @ Luke Park
     // num of threads

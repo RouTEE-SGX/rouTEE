@@ -185,7 +185,7 @@ def runScript(fileName):
 
     totalElapsed = datetime.now() - totalStartTime
     # print("run script elapsed time:", totalElapsed, "\n")
-    print("run script elapsed time:", totalElapsed)
+    print("elapsed time:", totalElapsed)
     # print("elapsed time sum:", elapsedTimeSum, "ms")
 
     # try:
@@ -399,7 +399,7 @@ def send_line_parallel(script, do_measure_latency=False):
     else:
         pool.map(send_line, commands, 1)
     elapsed = datetime.now() - startTime
-    print(elapsed)
+    print("elapsed time:", elapsed)
     return latencies
 
 def avg_(A: list, clipping=(0, 0)):

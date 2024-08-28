@@ -1656,7 +1656,7 @@ int ecall_secure_command(const char* sessionID, int sessionID_len, const char* e
 }
 
 void ecall_initialize() {
-    printf("start initilizing RouTEE\n");
+    printf("start initializing RouTEE\n");
 
     // initialize ECC State for Bitcoin Library
     initializeECCState();

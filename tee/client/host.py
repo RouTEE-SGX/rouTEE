@@ -186,7 +186,7 @@ def executeCommand(command):
     elapsed = datetime.now() - startTime
     # print(elapsed)
 
-    print('Received:', data.decode())
+    print('received:', data.decode())
 
     return data.decode(), elapsed
 
@@ -231,8 +231,8 @@ if __name__ == "__main__":
             # do the job
             # executeCommand("a user0000000") # ping
             current_round += 1
-            print("\nRound", current_round)
+            print("\nround", current_round)
             executeCommand("x " + hostID) # process round
             print("measured interval:", measured_interval/1000000000, "sec")
     
-    print("finish")
+    print("\nfinish")

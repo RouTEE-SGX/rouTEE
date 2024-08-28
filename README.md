@@ -62,9 +62,9 @@ If your machine has SGX support and you want to run in `Hardware` mode, follow t
 
     **Note:** If your machine does not have `/dev/mei0`, you can omit the `--device /dev/mei0` option.
 
-### Setting Up SGX Environment
+### Setting Up SGX SDK
 
-Once inside the Docker container, set up the SGX environment:
+After entering the Docker container, set up the SDK environment:
 
 ```bash
 $ source /opt/intel/sgxsdk/environment
@@ -106,6 +106,8 @@ $ ./routee
 ```
 
 You should see the message when RouTEE is ready: `Waiting for connections ...`.
+
+**Note:** If you encounter the error message `"error while loading shared libraries: libsgx_urts_sim.so: cannot open shared object file: No such file or directory"`, ensure that the SGX SDK is set up as described in the previous step.
 
 
 
@@ -267,32 +269,32 @@ $ python3 generate_script.py
 You will be prompted to select the type of script to generate. To generate all scripts, select option `0`:
 
 ```plaintext
-Which script do you want to make (0: all / 1: makeNewKeys / 2: makeNewAddresses / 3: makeAddUsers / 4: makeAddDeposits / 5: makePayments / 6: makeSettlements / 7: makeUpdateBoundaryBlocks): [0]
+which script do you want to make (0: all / 1: makeNewKeys / 2: makeNewAddresses / 3: makeAddUsers / 4: makeAddDeposits / 5: makePayments / 6: makeSettlements / 6: makeUpdateBoundaryBlocks): [0]
 ```
 
 Next, provide the required parameters:
 
 ```plaintext
-How many users in RouTEE: [10]
-How many manager addresses to get: [5]
-How many RouTEE payments to execute: [5]
-  How many receivers per payment (batch size): [1]
-How many RouTEE settlements to execute: [5]
-How many RouTEE boundary block updates to execute: [5]
-  Max block number in RouTEE: [100]
+how many users in routee: [10]
+how many manager addresses to get: [5]
+how many routee payments to execute: [5]
+  how many receivers per payment (batch size): [1]
+how many routee settlements to execute: [5]
+how many routee boundary block updates to execute: [5]
+  max block number in routee: [100]
 ```
 
 The script will generate the following outputs:
 
 ```plaintext
 100%|██████████████████████████████████████████████████████████████████████████████████████████████| 10/10 [00:05<00:00,  1.89it/s]
-  -> Generated private & public keys
-  -> Generated addressList
-  -> Generated scriptAddUser_10 & signedAddUser_10
-  -> Generated scriptAddDeposit_10_5 & signedAddDeposit_10_5
-  -> Generated scriptPayment_10_5_1 & signedPayment_10_5_1
-  -> Generated scriptSettlement_10_5 & signedSettlement_10_5
-  -> Generated scriptUpdate_10_5_100 & signedUpdate_10_5_100
+  -> generated private & public keys
+  -> generated addressList
+  -> generated scriptAddUser_10 & signedAddUser_10
+  -> generated scriptAddDeposit_10_5 & signedAddDeposit_10_5
+  -> generated scriptPayment_10_5_1 & signedPayment_10_5_1
+  -> generated scriptSettlement_10_5 & signedSettlement_10_5
+  -> generated scriptUpdate_10_5_100 & signedUpdate_10_5_100
 Elapsed time: 0:00:23.780391
 ```
 
@@ -309,16 +311,16 @@ $ ./routee
 You should see output similar to the following:
 
 ```plaintext
-Start initializing RouTEE
-Latest block number in RouTEE: 52560
-Pending deposit requests number in RouTEE: 10000
-Finish initializing RouTEE
+start initializing RouTEE
+latest block number in RouTEE: 52560
+pending deposit requests number in RouTEE: 10000
+finish initializing RouTEE
 
-Try to load sealed state
-  There is no sealed state. Starting a new instance of RouTEE
-  Elapsed time for state unsealing: 6 us (0 ms)
-  
-Waiting for connections ...
+try to load sealed state
+  there is no sealed state. just newly start rouTEE
+  elapsed time for state unsealing: 6 us (0 ms)
+
+waiting for connections ...
 ```
 
 #### Window 2: Client
@@ -389,7 +391,7 @@ input command: [scriptAddUser_10]
   result: SUCCESS
   result: SUCCESS
   result: SUCCESS
-run script elapsed time: 0:00:00.655380
+elapsed time: 0:00:00.655380
 
 input command: [scriptAddDeposit_10_5]
   result: f59bb90dca83439500a908d332ff839a66bef63e
@@ -397,7 +399,7 @@ input command: [scriptAddDeposit_10_5]
   result: ff8c1262247384c9234ec4347d8e46143e3a3b3f
   result: ae25378a289728cfd40ee9371479ad42280a61dc
   result: ee81be7270f14982c040987a42c49e431c15fa4c
-run script elapsed time: 0:00:00.350458
+elapsed time: 0:00:00.350458
 
 input command: [scriptPayment_10_5_1]
   result: SUCCESS
@@ -405,7 +407,7 @@ input command: [scriptPayment_10_5_1]
   result: SUCCESS
   result: SUCCESS
   result: SUCCESS
-run script elapsed time: 0:00:00.348292
+elapsed time: 0:00:00.348292
 
 input command: [scriptSettlement_10_5]
   result: SUCCESS
@@ -413,7 +415,7 @@ input command: [scriptSettlement_10_5]
   result: SUCCESS
   result: SUCCESS
   result: SUCCESS
-run script elapsed time: 0:00:00.351632
+elapsed time: 0:00:00.351632
 
 input command: [scriptUpdate_10_5_100]
   result: SUCCESS
@@ -421,7 +423,7 @@ input command: [scriptUpdate_10_5_100]
   result: SUCCESS
   result: SUCCESS
   result: SUCCESS
-run script elapsed time: 0:00:00.356322
+elapsed time: 0:00:00.356322
 ```
 
 ### Step 3: Execute RouTEE and `host.py`
@@ -452,21 +454,21 @@ Elapsed time for processing round: 192 us (0 ms)
 ```plaintext
 <Window 3: host.py>
 
-Successfully connected to RouTEE
-  Round interval: 2 sec
-  Number of rounds to run: 3
+successfully connect to RouTEE
+  round interval: 2 sec
+  round num to run: 3
 
-Round 1
-Received: SUCCESS
-Measured interval: 2.000000256 sec
+round 1
+received: SUCCESS
+measured interval: 2.000000256 sec
 
-Round 2
-Received: SUCCESS
-Measured interval: 2.000000089 sec
+round 2
+received: SUCCESS
+measured interval: 2.000000089 sec
 
-Round 3
-Received: SUCCESS
-Measured interval: 2.000000174 sec
+round 3
+received: SUCCESS
+measured interval: 2.000000174 sec
 
-Finish
+finish
 ```

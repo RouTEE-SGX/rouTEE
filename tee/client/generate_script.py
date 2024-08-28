@@ -584,7 +584,7 @@ if __name__ == '__main__':
             batchSize = int(sys.argv[4])
         else:
             userNumber = eval(input("how many users in routee: "))
-            paymentNumber = eval(input("how many rouTEE payments to execute: "))
+            paymentNumber = eval(input("how many routee payments to execute: "))
             batchSize = eval(input("how many receivers per payment (batch size): "))
         makePayments(userNumber, paymentNumber, batchSize)
 
@@ -594,7 +594,7 @@ if __name__ == '__main__':
             settleNumber = int(sys.argv[3])
         else:
             userNumber = eval(input("how many users in routee: "))
-            settleNumber = eval(input("how many rouTEE settlements to execute: "))
+            settleNumber = eval(input("how many routee settlements to execute: "))
         makeSettlements(userNumber, settleNumber)
 
     elif command == 7:
@@ -620,9 +620,9 @@ if __name__ == '__main__':
         else:
             userNumber = eval(input("how many users in routee: "))
             depositNumber = eval(input("how many manager addresses to get: "))
-            paymentNumber = eval(input("how many rouTEE payments to execute: "))
+            paymentNumber = eval(input("how many routee payments to execute: "))
             batchSize = eval(input("  how many receivers per payment (batch size): "))
-            settleNumber = eval(input("how many rouTEE settlements to execute: "))
+            settleNumber = eval(input("how many routee settlements to execute: "))
             updateNumber = eval(input("how many routee boundary block updates to execute: "))
             maxBlockNumber = eval(input("  max block number in routee: "))
 
