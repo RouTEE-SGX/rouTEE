@@ -941,7 +941,7 @@ void execute_command(char* request, int request_len, int sd) {
         std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
         std::chrono::milliseconds milli = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         std::chrono::microseconds micro = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-        std::cout << "Elapsed time for processing round: " << micro.count() << " us (" << milli.count() << " ms)" << std::endl;
+        std::cout << "elapsed time for processing round: " << micro.count() << " us (" << milli.count() << " ms)" << std::endl;
         std::cout << std::endl;
     }
     else{

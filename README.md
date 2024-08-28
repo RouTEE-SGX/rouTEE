@@ -295,7 +295,7 @@ The script will generate the following outputs:
   -> generated scriptPayment_10_5_1 & signedPayment_10_5_1
   -> generated scriptSettlement_10_5 & signedSettlement_10_5
   -> generated scriptUpdate_10_5_100 & signedUpdate_10_5_100
-Elapsed time: 0:00:23.780391
+elapsed time: 0:00:23.780391
 ```
 
 ### Step 2: Execute RouTEE and `client.py`
@@ -442,13 +442,13 @@ The output will show `3` rounds being processed, each at `2`-second intervals. T
 <Window 1: RouTEE>
 
 process round executed
-Elapsed time for processing round: 258 us (0 ms)
+elapsed time for processing round: 258 us (0 ms)
 
 process round executed
-Elapsed time for processing round: 334 us (0 ms)
+elapsed time for processing round: 334 us (0 ms)
 
 process round executed
-Elapsed time for processing round: 192 us (0 ms)
+elapsed time for processing round: 192 us (0 ms)
 ```
 
 ```plaintext
