@@ -1,14 +1,14 @@
 # RouTEE
 
-This repository contains the implementation of **RouTEE: Secure, Scalable, and Efficient Off-Chain Payments using Trusted Execution Environments**, as described in our paper.
+This repository contains the implementation of RouTEE, as described in the paper: **RouTEE: Secure, Scalable, and Efficient Off-Chain Payments using Trusted Execution Environments**.
 
 ## Table of Contents
 - [Getting Started](#getting-started)
   - [Dependencies](#dependencies)
   - [Setting Up the SGX Docker Container](#setting-up-the-sgx-docker-container)
-    - [Basic Setup (for machines not supporting SGX)](#basic-setup-for-machines-not-supporting-sgx)
-    - [Standard Hardware Mode Setup (for machines supporting SGX)](#standard-hardware-mode-setup-for-machines-supporting-sgx)
-  - [Setting Up the SGX Environment](#setting-up-the-sgx-environment)
+    - [Basic Setup (Simulation Mode)](#basic-setup-simulation-mode)
+    - [Standard Setup (Hardware Mode)](#standard-setup-hardware-mode)
+  - [Setting Up SGX SDK](#setting-up-sgx-sdk)
   - [Building RouTEE](#building-routee)
   - [Running RouTEE](#running-routee)
 - [User Commands](#user-commands)
@@ -32,11 +32,11 @@ This repository contains the implementation of **RouTEE: Secure, Scalable, and E
 
 ### Dependencies
 
-RouTEE has been tested on **Ubuntu 18.04.2 LTS** using **Docker 19.03.14** with **SGX Docker Image** whose SGX version is `sgx v2.1.3`.
+RouTEE has been tested on **Ubuntu 18.04.2 LTS** using **Docker 19.03.14** with **Intel SGX Docker Image** whose SGX version is `sgx v2.1.3`.
 
 ### Setting Up the SGX Docker Container
 
-#### Basic Setup (for machines not supporting SGX)
+#### Basic Setup (Simulation Mode)
 
 To set up the SGX Docker container on a machine without SGX support, run the following commands:
 
@@ -47,7 +47,7 @@ $ docker exec -t -i [container_name] bash
 
 This configuration runs SGX in `Simulation` mode, allowing RouTEE to operate on machines that do not support SGX.
 
-#### Standard Hardware Mode Setup (for machines supporting SGX)
+#### Standard Setup (Hardware Mode)
 
 If your machine has SGX support and you want to run in `Hardware` mode, follow these steps:
 
@@ -117,7 +117,7 @@ You should see the message when RouTEE is ready: `waiting for connections ...`.
 
 ### Installation
 
-For working with user commands, we used **Python 3.7.4** and **pip 21.3.1**.
+We used **Python 3.7.4** and **pip 21.3.1**.
 
 ```bash
 $ sudo apt update
@@ -142,13 +142,13 @@ $ pip3 install -r requirements.txt
 
 ### Generating Commands
 
-We provide a script to generate commands for different purposes. Use the following command:
+We provide a script to generate commands for different purposes. Run the following command in the `client/` directory:
 
 ```bash
 $ python3 generate_script.py
 ```
 
-You will be prompted to choose the type of script to generate. The output will be saved in the `scripts/` directory:
+You will be prompted to choose the type of script to generate. The output will be saved in the `client/scripts/` directory:
 
 - `addressList`: a list of Bitcoin addresses
 - `script*`: plain commands
@@ -162,7 +162,9 @@ You will be prompted to choose the type of script to generate. The output will b
   $ python3 generate_script.py 1 <keyNum>
   ```
 
-  Generates public/private keys in the `keys/` directory. These keys are used to create cryptographic signatures and to validate users.
+  Generates public/private keys in the `client/keys/` directory. These keys are used to create cryptographic signatures and to validate users. 
+
+  **Note:** Generating a large number of random keys can be time-consuming. If you are performing light testing and do not require multiple unique keys, you can simplify the process by setting `USE_SINGLE_KEY` to `True` in `client/routee_configs.py`. This allows all users to generate signatures using a single key, speeding up the generation process.
 
 - **Generate Bitcoin Addresses:**
 
@@ -228,7 +230,7 @@ You will be prompted to choose the type of script to generate. The output will b
 
 ### Running `client.py`
 
-Configure `SERVER_IP` and `SERVER_PORT` in `client/routee_configs.py`. Then, start the client console:
+Configure `SERVER_IP` and `SERVER_PORT` in `client/routee_configs.py`. Then, start the client console in the `client/` directory:
 
 ```bash
 $ python3 client.py
@@ -248,7 +250,7 @@ Therefore, when testing, it is necessary to execute `scriptAddUser*` first to en
 
 ### Running `host.py`
 
-Configure `SERVER_IP` and `SERVER_PORT` in `client/routee_configs.py` before starting the host. Run the host with:
+Configure `SERVER_IP` and `SERVER_PORT` in `client/routee_configs.py` before starting the host. Run the host in the `client/` directory:
 
 ```bash
 $ python3 host.py <roundInterval> <roundNum>
