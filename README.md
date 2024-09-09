@@ -107,7 +107,7 @@ $ ./routee
 
 You should see the message when RouTEE is ready: `waiting for connections ...`.
 
-**Note:** If you encounter the error message `"error while loading shared libraries: libsgx_urts_sim.so: cannot open shared object file: No such file or directory"`, ensure that the SGX SDK is set up as described in the previous step.
+**Note:** If you encounter the error message `"error while loading shared libraries: libsgx_urts_sim.so: cannot open shared object file: No such file or directory"`, ensure that the SGX SDK is set up as described in the [previous step](#setting-up-sgx-sdk).
 
 
 
@@ -328,6 +328,8 @@ try to load sealed state
 
 waiting for connections ...
 ```
+
+If you encounter the shared library error, refer to the [above section](#running-routee).
 
 #### Window 2: Client
 
